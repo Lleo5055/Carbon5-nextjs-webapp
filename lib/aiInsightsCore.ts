@@ -5,7 +5,7 @@ import OpenAI from 'openai';
 // IMPORTANT: Use your real key in .env or hardcoded fallback
 const openaiApiKey =
   process.env.OPENAI_API_KEY ||
-  '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';
+  '#';
 
 const openai = new OpenAI({
   apiKey: openaiApiKey,
