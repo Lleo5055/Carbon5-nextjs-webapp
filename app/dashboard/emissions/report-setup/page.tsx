@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { supabaseServer } from '../../../lib/supabaseServer';
+import { createClient } from '@supabase/supabase-js';
 import {
   EF_GRID_ELECTRICITY_KG_PER_KWH,
   EF_DIESEL_KG_PER_LITRE,
@@ -11,6 +11,17 @@ import {
 
 export const runtime = 'nodejs';
 
+// --------------------------------------------------
+// SERVER-SIDE SUPABASE CLIENT (SAFE FOR API ROUTES)
+// --------------------------------------------------
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+// --------------------------------------------------
+// TYPES
+// --------------------------------------------------
 type EmissionRow = {
   id: string | number;
   month: string;
@@ -33,8 +44,6 @@ function parseISO(m: string | null): Date | null {
 // LOAD SCOPE 1 & 2
 // --------------------------------------------------
 async function loadScope12(periodType, period, start, end) {
-  const supabase = supabaseServer(); // ✅ FIX
-
   const { data, error } = await supabase
     .from('emissions')
     .select('*')
@@ -74,8 +83,6 @@ async function loadScope12(periodType, period, start, end) {
 // LOAD SCOPE 3
 // --------------------------------------------------
 async function loadScope3(allMonths: string[]) {
-  const supabase = supabaseServer(); // ✅ FIX
-
   const { data } = await supabase
     .from('scope3_activities')
     .select('*')
@@ -87,7 +94,7 @@ async function loadScope3(allMonths: string[]) {
 }
 
 // --------------------------------------------------
-// SPARKLINE
+// SPARKLINE DRAW
 // --------------------------------------------------
 function drawSparkline(page, { values, x, y, width, height }) {
   if (!values || values.length < 2) return;
@@ -153,7 +160,7 @@ async function handleReport(req: NextRequest) {
       total: monthMap.get(r.month) ?? 0,
     }));
 
-    // ---- PDF ----
+    // ----- PDF -----
     const pdf = await PDFDocument.create();
     const page = pdf.addPage([595, 842]);
     const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -182,12 +189,7 @@ async function handleReport(req: NextRequest) {
     const totalSum = merged.reduce((s, r) => s + r.total, 0);
     page.drawText(
       `Total emissions this period: ${(totalSum / 1000).toFixed(2)} tCO₂e`,
-      {
-        x: 40,
-        y,
-        size: 12,
-        font: bold,
-      }
+      { x: 40, y, size: 12, font: bold }
     );
 
     y -= 40;

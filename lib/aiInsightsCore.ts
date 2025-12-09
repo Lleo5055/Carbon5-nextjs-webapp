@@ -1,11 +1,18 @@
 // lib/aiInsightsCore.ts
-import { supabase } from './supabaseClients';
+import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 
+// -------------------------------
+// SERVER-SIDE SUPABASE CLIENT
+// -------------------------------
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-const openai = new OpenAI({
-  apiKey: openaiApiKey,
-});
+// IMPORTANT: Use your real key in .env
+const openaiApiKey = process.env.OPENAI_API_KEY!;
+
 
 // This matches YOUR REAL DATABASE COLUMNS
 type CompactMonth = {
@@ -30,10 +37,9 @@ type AIInsight = {
   actions: AIAction[];
 };
 
-/**
- * Generate and store AI insight for a single user.
- * Reads emissions → calls OpenAI → saves into ai_insights table
- */
+// ---------------------------------------------------------
+// MAIN: Generate AI Insight for ONE USER
+// ---------------------------------------------------------
 export async function generateAIInsightForUser(
   userId: string,
   period: string = 'last_12_months',
@@ -49,14 +55,14 @@ export async function generateAIInsightForUser(
 
   if (error) throw new Error(`Failed to load emissions: ${error.message}`);
 
-  // 🔥🔥 THE FIX — map your REAL DB fields correctly
+  // 🔥 Correct mapping to compact structure
   const compact: CompactMonth[] =
     data?.map((row: any) => {
       const diesel = Number(row.diesel_litres ?? 0);
       const petrol = Number(row.petrol_litres ?? 0);
-      const legacyFuel = Number(row.fuel_liters ?? 0); // fallback
+      const legacyFuel = Number(row.fuel_liters ?? 0); // old schema fallback
 
-      const fuel_litres = diesel + petrol > 0 ? diesel + petrol : legacyFuel; // support old + new schema
+      const fuel_litres = diesel + petrol > 0 ? diesel + petrol : legacyFuel;
 
       return {
         month: row.month,
@@ -67,7 +73,7 @@ export async function generateAIInsightForUser(
       };
     }) ?? [];
 
-  // 2. Build prompt
+  // 2. Build prompt for OpenAI
   const systemPrompt = `
 You are Carbon Central AI, an expert sustainability analyst for small businesses.
 
@@ -78,8 +84,7 @@ You receive monthly emissions data and must produce:
 4) A confidence rating (low, medium, high)
 5) A list of 3–5 very specific, actionable steps the business can take
 
-Respond ONLY as strict JSON matching this TypeScript contract:
-
+Respond ONLY as strict JSON matching this schema:
 {
   "headline": string,
   "narrative": string,
@@ -118,7 +123,7 @@ Think step-by-step and output ONLY valid JSON.
     throw new Error('Failed to parse AI JSON: ' + err.message);
   }
 
-  // 4. Save to Supabase
+  // 4. Save to database
   const { error: upsertError } = await supabase.from('ai_insights').upsert(
     {
       user_id: userId,
@@ -140,9 +145,9 @@ Think step-by-step and output ONLY valid JSON.
   return aiInsight;
 }
 
-/**
- * Batch mode — recompute insights for ALL users
- */
+// ---------------------------------------------------------
+// Batch Generate Insights for ALL Users
+// ---------------------------------------------------------
 export async function generateAIInsightsForAllUsers(
   period: string = 'last_12_months',
   monthsLimit: number = 12

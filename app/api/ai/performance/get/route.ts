@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabaseServer';
+import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
+
+// Server-side Supabase client for API routes only
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(req: Request) {
   try {
@@ -11,7 +17,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ performance: null }, { status: 400 });
     }
 
-    const { data, error } = await supabaseServer
+    const { data, error } = await supabase
       .from('ai_performance')
       .select('performance')
       .eq('user_id', user_id)
