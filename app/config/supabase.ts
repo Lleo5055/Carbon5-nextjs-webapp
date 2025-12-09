@@ -1,0 +1,2 @@
+export const SUPABASE_URL = "https://bgdvkcellmsyrfykcbsc.supabase.co";
+export const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZHZrY2VsbG1zeXJmeWtjYnNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxMzI1NDAsImV4cCI6MjA3OTcwODU0MH0.YYAYKP3L9PYCfBOAm1Rqsk5Sb9Cr2KDZpiPosme3S_Y";

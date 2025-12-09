@@ -1,0 +1,1592 @@
+// app/dashboard/page.tsx
+import BenchmarkingSection from './BenchmarkingSection';
+import HotspotPieChart from './HotspotPieChart';
+import React from 'react';
+import Link from 'next/link';
+import { supabase } from '../../lib/supabaseClient';
+import OnboardingCard from './OnboardingCard';
+import { useRouter } from 'next/navigation';
+
+import {
+  EF_GRID_ELECTRICITY_KG_PER_KWH,
+  calcFuelCo2eKg,
+  calcRefrigerantCo2e,
+} from '../../lib/emissionFactors';
+
+export const dynamic = 'force-dynamic';
+
+type DashboardMonth = {
+  monthLabel: string;
+  electricityKwh: number;
+  fuelLitres: number;
+  refrigerantKg: number;
+  totalCo2eKg: number;
+  // New UK fields (internal only)
+  dieselLitres?: number;
+  petrolLitres?: number;
+  gasKwh?: number;
+  refrigerantCode?: string | null;
+  // Scope-aware fields
+  scope1and2Co2eKg?: number;
+  scope3Co2eKg?: number;
+};
+
+type DashboardData = {
+  months: DashboardMonth[]; // latest first, already period-filtered
+  totalCo2eKg: number; // now Scope 1+2+3
+  lastMonth: DashboardMonth | null;
+  prevMonth: DashboardMonth | null;
+  breakdownBySource: {
+    electricitySharePercent: number;
+    fuelSharePercent: number;
+    refrigerantSharePercent: number;
+  };
+  hotspot: 'Electricity' | 'Fuel' | 'Refrigerant' | null;
+  scopeBreakdown: {
+    scope1and2Co2eKg: number;
+    scope3Co2eKg: number;
+  };
+};
+
+type PeriodKey = '3m' | '6m' | '12m' | 'all';
+
+const PERIOD_LABELS: Record<PeriodKey, string> = {
+  '3m': 'Last 3 months',
+  '6m': 'Last 6 months',
+  '12m': 'Last 12 months',
+  all: 'All data',
+};
+
+function formatKg(v: number) {
+  return `${v.toLocaleString()} kg CO₂e`;
+}
+
+function formatTonnes(v: number) {
+  return `${(v / 1000).toFixed(2)} t CO₂e`;
+}
+
+// Shared label style for small section headings
+const SECTION_LABEL = 'text-[10px] uppercase tracking-[0.16em] text-slate-500';
+
+async function getDashboardData(period: PeriodKey): Promise<DashboardData> {
+  // 1. Load emissions
+  const { data: emissionsData, error: emissionsError } = await supabase
+    .from('emissions')
+    .select('*')
+    .order('month', { ascending: true });
+
+  // 1B. Load latest AI insight
+  const { data: latestInsight } = await supabase
+    .from('ai_insights')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  // 2. Load Scope 3
+  const { data: scope3Data, error: scope3Error } = await supabase
+    .from('scope3_activities')
+    .select('*');
+
+  if (emissionsError) {
+    console.error('Error loading emissions for dashboard', emissionsError);
+  }
+
+  if (scope3Error) {
+    console.error('Error loading scope 3 for dashboard', scope3Error);
+  }
+
+  const hasEmissions = emissionsData && emissionsData.length > 0;
+  const hasScope3 = scope3Data && scope3Data.length > 0;
+
+  if (!hasEmissions && !hasScope3) {
+    return {
+      months: [],
+      totalCo2eKg: 0,
+      lastMonth: null,
+      prevMonth: null,
+      breakdownBySource: {
+        electricitySharePercent: 0,
+        fuelSharePercent: 0,
+        refrigerantSharePercent: 0,
+      },
+      hotspot: null,
+      scopeBreakdown: {
+        scope1and2Co2eKg: 0,
+        scope3Co2eKg: 0,
+      },
+    };
+  }
+
+  const monthMap = new Map<string, DashboardMonth>();
+
+  // ---- Scope 1+2 from emissions table ----
+  if (emissionsData) {
+    emissionsData.forEach((row: any) => {
+      const electricityKwh = Number(row.electricity_kw ?? 0);
+
+      // UK fuel split
+      const dieselFromNew = Number(row.diesel_litres ?? 0);
+      const petrolFromNew = Number(row.petrol_litres ?? 0);
+      const gasKwh = Number(row.gas_kwh ?? 0);
+      const legacyFuelLitres = Number(row.fuel_liters ?? 0);
+
+      const hasNewFuel =
+        dieselFromNew !== 0 || petrolFromNew !== 0 || gasKwh !== 0;
+
+      const dieselLitres = hasNewFuel ? dieselFromNew : legacyFuelLitres;
+      const petrolLitres = hasNewFuel ? petrolFromNew : 0;
+      const fuelLitres = dieselLitres + petrolLitres;
+
+      const refrigerantKg = Number(row.refrigerant_kg ?? 0);
+      const refrigerantCode =
+        (row.refrigerant_code as string | null) ?? 'GENERIC_HFC';
+
+      const monthLabel = row.month ?? 'Unknown month';
+      const baseTotalCo2e = Number(row.total_co2e ?? 0); // Scope 1+2 only
+
+      monthMap.set(monthLabel, {
+        monthLabel,
+        electricityKwh,
+        fuelLitres,
+        refrigerantKg,
+        totalCo2eKg: baseTotalCo2e, // will add Scope 3 on top later
+        dieselLitres,
+        petrolLitres,
+        gasKwh,
+        refrigerantCode,
+        scope1and2Co2eKg: baseTotalCo2e,
+        scope3Co2eKg: 0,
+      });
+    });
+  }
+
+  // ---- Scope 3 from scope3_activities table ----
+  if (scope3Data) {
+    scope3Data.forEach((row: any) => {
+      const monthLabel = row.month ?? 'Unknown month';
+      const amount = Number(row.co2e_kg ?? 0);
+      if (!amount) return;
+
+      let entry = monthMap.get(monthLabel);
+      if (!entry) {
+        entry = {
+          monthLabel,
+          electricityKwh: 0,
+          fuelLitres: 0,
+          refrigerantKg: 0,
+          totalCo2eKg: 0,
+          dieselLitres: 0,
+          petrolLitres: 0,
+          gasKwh: 0,
+          refrigerantCode: 'GENERIC_HFC',
+          scope1and2Co2eKg: 0,
+          scope3Co2eKg: 0,
+        };
+        monthMap.set(monthLabel, entry);
+      }
+
+      entry.scope3Co2eKg = (entry.scope3Co2eKg ?? 0) + amount;
+      entry.totalCo2eKg += amount;
+    });
+  }
+
+  // Convert map → array
+  let months: DashboardMonth[] = Array.from(monthMap.values());
+
+  // Sort by actual date ascending (oldest first)
+  months = months.sort((a, b) => {
+    const da = new Date(a.monthLabel);
+    const db = new Date(b.monthLabel);
+    return da.getTime() - db.getTime();
+  });
+
+  // Latest first
+  const latestFirst = months.slice().reverse();
+
+  // Apply period limit (3 / 6 / 12 / all months from the most recent)
+  const limit =
+    period === '3m'
+      ? 3
+      : period === '6m'
+      ? 6
+      : period === '12m'
+      ? 12
+      : latestFirst.length;
+
+  const periodMonths = latestFirst.slice(0, limit);
+
+  const scope1and2TotalCo2eKg = periodMonths.reduce(
+    (sum, m) => sum + (m.scope1and2Co2eKg ?? 0),
+    0
+  );
+  const scope3TotalCo2eKg = periodMonths.reduce(
+    (sum, m) => sum + (m.scope3Co2eKg ?? 0),
+    0
+  );
+  const totalCo2eKg = scope1and2TotalCo2eKg + scope3TotalCo2eKg;
+
+  const lastMonth = periodMonths.length > 0 ? periodMonths[0] : null;
+  const prevMonth = periodMonths.length > 1 ? periodMonths[1] : null;
+
+  // UK-aligned breakdown using helpers (Scopes 1+2 only)
+  const totalElec = periodMonths.reduce(
+    (s, m) => s + m.electricityKwh * EF_GRID_ELECTRICITY_KG_PER_KWH,
+    0
+  );
+
+  const totalFuel = periodMonths.reduce(
+    (s, m) =>
+      s +
+      calcFuelCo2eKg({
+        dieselLitres: m.dieselLitres ?? 0,
+        petrolLitres: m.petrolLitres ?? 0,
+        gasKwh: m.gasKwh ?? 0,
+      }),
+    0
+  );
+
+  const totalRef = periodMonths.reduce(
+    (s, m) =>
+      s +
+      calcRefrigerantCo2e(
+        m.refrigerantKg ?? 0,
+        m.refrigerantCode ?? 'GENERIC_HFC'
+      ),
+    0
+  );
+
+  const denom = totalElec + totalFuel + totalRef || 1;
+
+  const breakdownBySource = {
+    electricitySharePercent: Math.round((totalElec / denom) * 1000) / 10,
+    fuelSharePercent: Math.round((totalFuel / denom) * 1000) / 10,
+    refrigerantSharePercent: Math.round((totalRef / denom) * 1000) / 10,
+  };
+
+  let hotspot: DashboardData['hotspot'] = null;
+  const { electricitySharePercent, fuelSharePercent, refrigerantSharePercent } =
+    breakdownBySource;
+
+  if (
+    refrigerantSharePercent >= fuelSharePercent &&
+    refrigerantSharePercent >= electricitySharePercent &&
+    (refrigerantSharePercent > 0 ||
+      fuelSharePercent > 0 ||
+      electricitySharePercent > 0)
+  ) {
+    hotspot = 'Refrigerant';
+  } else if (
+    fuelSharePercent >= electricitySharePercent &&
+    fuelSharePercent > 0
+  ) {
+    hotspot = 'Fuel';
+  } else if (electricitySharePercent > 0) {
+    hotspot = 'Electricity';
+  }
+
+  return {
+    months: periodMonths,
+    totalCo2eKg,
+    lastMonth: lastMonth || null,
+    prevMonth: prevMonth || null,
+    breakdownBySource: {
+      electricitySharePercent,
+      fuelSharePercent,
+      refrigerantSharePercent,
+    },
+    hotspot,
+    scopeBreakdown: {
+      scope1and2Co2eKg: totalCo2eKg - scope3TotalCo2eKg,
+      scope3Co2eKg: scope3TotalCo2eKg,
+    },
+  };
+}
+
+/** Simple actions panel: Add emission + View emissions. */
+function AddEmissionsPanel() {
+  const primaryButton =
+    'inline-flex items-center justify-center rounded-full border px-4 py-2 text-xs font-medium transition bg-slate-900 text-white border-slate-900 hover:bg-slate-800';
+  const secondaryButton =
+    'inline-flex items-center justify-center rounded-full border px-4 py-2 text-xs font-medium transition bg-white text-slate-700 border-slate-300 hover:bg-slate-900 hover:text-white';
+
+  return (
+    <section className="rounded-xl bg-white border p-6 shadow">
+      <div>
+        <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">
+          Emissions
+        </p>
+        <h2 className="text-sm font-semibold text-slate-900 mt-1">
+          Quick actions
+        </h2>
+        <p className="text-xs text-slate-500 mt-1">
+          Add a new emission entry or review your existing records.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2 mt-4">
+        <Link href="/dashboard/emissions" className={primaryButton}>
+          + Add emission
+        </Link>
+
+        <Link
+          href="/dashboard/emissions/view-emissions"
+          className={secondaryButton}
+        >
+          View emissions
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+/** Tiny sparkline using inline SVG, driven by real values. */
+function Sparkline({ values }: { values: number[] }) {
+  if (!values || values.length < 2) {
+    return (
+      <div className="h-10 flex items-center text-[11px] text-slate-400">
+        Not enough data
+      </div>
+    );
+  }
+
+  const width = 120;
+  const height = 40;
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
+  const range = maxVal - minVal || 1;
+  const stepX = width / (values.length - 1);
+
+  const points = values
+    .map((v, i) => {
+      const x = i * stepX;
+      const norm = (v - minVal) / range;
+      const y = height - norm * height;
+      return `${x},${y}`;
+    })
+    .join(' ');
+
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      className="text-slate-900"
+    >
+      <polyline
+        points={points}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+type NumericFieldKey =
+  | 'electricityKwh'
+  | 'fuelLitres'
+  | 'refrigerantKg'
+  | 'totalCo2eKg';
+
+function getFieldChangeForIndex(
+  months: DashboardMonth[],
+  index: number,
+  field: NumericFieldKey
+): number | null {
+  if (index === months.length - 1) return null; // no older month
+  const current = months[index][field];
+  const prev = months[index + 1][field];
+  if (!prev || prev === 0) return null;
+  return ((current - prev) / prev) * 100;
+}
+
+// Value + trend arrow, with locale formatting
+function renderValueWithTrend(
+  value: number,
+  change: number | null,
+  decimals: number = 0
+): JSX.Element {
+  const display =
+    decimals > 0
+      ? value.toLocaleString(undefined, {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals,
+        })
+      : value.toLocaleString();
+
+  if (change === null) {
+    return <span>{display}</span>;
+  }
+
+  const isUp = change > 0.5;
+  const isDown = change < -0.5;
+  let arrow = '→';
+  let color = 'text-slate-400';
+
+  if (isUp) {
+    arrow = '▲';
+    color = 'text-rose-500';
+  } else if (isDown) {
+    arrow = '▼';
+    color = 'text-emerald-600';
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span>{display}</span>
+      <span className={`text-[10px] ${color}`}>{arrow}</span>
+    </span>
+  );
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams?: { period?: string };
+}) {
+  // Resolve selected period from query
+  const rawPeriod = (searchParams?.period ?? 'all') as string;
+  const period: PeriodKey =
+    rawPeriod === '3m' || rawPeriod === '6m' || rawPeriod === '12m'
+      ? (rawPeriod as PeriodKey)
+      : 'all';
+
+  const dashData = await getDashboardData(period);
+  // --- FETCH AUTH USER ---
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const userId = session?.user?.id;
+  console.log('AUTH USER ID:', userId);
+
+  if (!userId) {
+    console.warn('No user session found → AI actions fallback will be used');
+  }
+
+  // --- Load AI Performance (score, status, risk, stability, compliance) ---
+  let perf = null;
+  try {
+    const res = await fetch('http://localhost:3000/api/ai/performance', {
+      cache: 'no-store',
+    });
+    if (res.ok) perf = await res.json();
+    // --- HARD BLOCK ALL AI METRICS (score, risk, stability, compliance) ---
+    // We keep AI status + AI insight only.
+    if (perf) {
+      perf.score = undefined;
+      perf.risk = undefined;
+      perf.stability = undefined;
+      perf.compliance = undefined;
+    }
+  } catch (e) {
+    console.error('AI performance failed', e);
+  }
+
+  // Load AI benchmarking (safe fallback)
+  let ai = null;
+  try {
+    // Always use localhost during dev. No env logic, no ternary — no mistakes.
+    const base = 'http://localhost:3000';
+
+    const res = await fetch(base.replace(/\/$/, '') + '/api/ai', {
+      cache: 'no-store',
+    });
+
+    if (res.ok) ai = await res.json();
+  } catch (e) {
+    console.error('AI load failed', e);
+  }
+
+  // Load onboarding status
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('onboarding_complete, industry, company_name')
+    .single();
+
+  // Dummy refresh (Dashboard is a server component so no useRouter here)
+  const refresh = () => {};
+
+  // --------------------------------------
+  // NORMALISED VARIABLES FROM dashData
+  // --------------------------------------
+  const hasData = dashData.months.length > 0;
+
+  const months = dashData.months;
+  const lastMonth = dashData.lastMonth;
+  const prevMonth = dashData.prevMonth;
+  const breakdownBySource = dashData.breakdownBySource;
+  // Make these available to the entire page
+  const {
+    electricitySharePercent = 0,
+    fuelSharePercent = 0,
+    refrigerantSharePercent = 0,
+  } = breakdownBySource || {};
+  // --- LOAD AI Recommended Next Actions (Simple AI Call) ---
+  let finalActions: any[] = [];
+
+  try {
+    const res = await fetch(
+      'http://localhost:3000/api/ai/recommended-actions',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          electricity: breakdownBySource.electricitySharePercent,
+          fuel: breakdownBySource.fuelSharePercent,
+          refrigerant: breakdownBySource.refrigerantSharePercent,
+          months: months.length,
+        }),
+
+        cache: 'no-store',
+      }
+    );
+
+    const json = await res.json();
+    finalActions = json.actions || [];
+  } catch (e) {
+    console.error('AI Recommended Actions fetch failed:', e);
+  } // --- FALLBACK WHEN AI RETURNS NOTHING ---
+  if (!finalActions || finalActions.length === 0) {
+    finalActions = [
+      {
+        title: 'Strengthen your baseline',
+        description:
+          'Add at least 6 months of data so trends and risks become accurate.',
+      },
+      {
+        title: 'Launch a hotspot pilot',
+        description:
+          'Pick one hotspot and test 2–3 operational changes next month.',
+      },
+      {
+        title: 'Create a monthly update ritual',
+        description:
+          'Update emissions on the same day each month to keep insights relevant.',
+      },
+    ];
+  }
+  const hotspot = dashData.hotspot;
+  const scopeBreakdown = dashData.scopeBreakdown;
+
+  // --------------------------------------
+  // PERIOD LABEL
+  // --------------------------------------
+  const periodLabel = PERIOD_LABELS[period];
+
+  // --------------------------------------
+  // LAST MONTH + PREVIOUS MONTH NUMBERS
+  // --------------------------------------
+  const lastMonthLabel = lastMonth?.monthLabel ?? '--';
+  const lastMonthCo2eKg = lastMonth?.totalCo2eKg ?? 0;
+  const prevMonthCo2eKg = prevMonth?.totalCo2eKg ?? 0;
+
+  // --------------------------------------
+  // Month-over-month change
+  // --------------------------------------
+  const hasPrevMonth = prevMonthCo2eKg > 0;
+
+  const monthChangePercent = hasPrevMonth
+    ? ((lastMonthCo2eKg - prevMonthCo2eKg) / prevMonthCo2eKg) * 100
+    : 0;
+
+  // --------------------------------------
+  // Status description
+  // --------------------------------------
+  const statusDescription = !hasPrevMonth
+    ? null
+    : monthChangePercent <= -5
+    ? 'On track - emissions falling vs previous month.'
+    : monthChangePercent <= 5
+    ? 'Flat - little month-on-month movement.'
+    : 'Scope for improvement - emissions rising vs previous month.';
+
+  // --------------------------------------
+  // Status pill label
+  // --------------------------------------
+  const statusPillLabel = !hasPrevMonth
+    ? null
+    : monthChangePercent <= -5
+    ? 'Falling'
+    : monthChangePercent <= 5
+    ? 'Flat'
+    : 'Rising';
+
+  // --------------------------------------
+  // Reporting completeness (always 100% for now)
+  // --------------------------------------
+  // --------------------------------------
+  // PERFORMANCE SCORE (NEW FULL LOGIC)
+  // --------------------------------------
+
+  // REQUIREMENTS:
+  // - dashData.totalCo2eKg (you kg)
+  // - ai?.industry_average_tonnes (industry t)
+  // - months (for trend)
+  // - refrigerantSharePercent (for risk)
+  const trendLabel =
+    monthChangePercent <= -5
+      ? 'Falling'
+      : monthChangePercent <= 5
+      ? 'Flat'
+      : 'Rising';
+
+  // --------------------------------------
+  // PERFORMANCE SCORE (FINAL LOGIC)
+  // --------------------------------------
+
+  let performanceScore100 = 0;
+  let performanceStars = 1;
+
+  try {
+    // 1️⃣ INDUSTRY SCORE (0–40)
+    const youTonnes = dashData.totalCo2eKg / 1000;
+    const industryTonnes =
+      typeof ai?.industry_average_tonnes === 'number'
+        ? ai.industry_average_tonnes
+        : 2.0;
+
+    let industryScore = 0;
+    const ratio = youTonnes / industryTonnes;
+
+    if (ratio <= 0.8) industryScore = 40;
+    else if (ratio <= 1.0) industryScore = 35;
+    else if (ratio <= 1.5) industryScore = 25;
+    else if (ratio <= 2.0) industryScore = 15;
+    else industryScore = 5;
+
+    // 2️⃣ TREND SCORE (0–30)
+    let trendScore = 15; // neutral baseline
+    if (trendLabel === 'Falling') trendScore = 30;
+    else if (trendLabel === 'Flat') trendScore = 20;
+    else if (trendLabel === 'Rising') trendScore = 10;
+
+    // 3️⃣ RISK SCORE (0–30)
+    const riskPenalty = Math.min(30, refrigerantSharePercent);
+    const riskScore = 30 - riskPenalty;
+
+    // 4️⃣ TOTAL SCORE (CLAMPED 15–100)
+    performanceScore100 = industryScore + trendScore + riskScore;
+
+    if (performanceScore100 < 15) performanceScore100 = 15;
+    if (performanceScore100 > 100) performanceScore100 = 100;
+
+    // 5️⃣ STAR RATING (1–5) — fixed buckets
+    if (performanceScore100 >= 80) performanceStars = 5;
+    else if (performanceScore100 >= 60) performanceStars = 4;
+    else if (performanceScore100 >= 40) performanceStars = 3;
+    else if (performanceScore100 >= 20) performanceStars = 2;
+    else performanceStars = 1;
+  } catch (err) {
+    console.error('Performance score calculation failed:', err);
+    performanceScore100 = 20;
+    performanceStars = 1;
+  }
+
+  // 6️⃣ Attach for UI — OUR SCORE ONLY (AI blocked)
+  ai.performance_score_100 = performanceScore100;
+  ai.performance_score = performanceStars;
+
+  const recommendations: { title: string; description: string }[] = [];
+
+  if (hasData) {
+    if (months.length < 6 && period === 'all') {
+      recommendations.push({
+        title: 'Strengthen your baseline',
+        description:
+          'You have fewer than 6 months of data. Add older bills so your baseline is more robust before you set formal targets.',
+      });
+    }
+
+    if (hotspot === 'Electricity') {
+      recommendations.push({
+        title: 'Launch a quick electricity pilot',
+        description:
+          'Pick one site and trial 2–3 changes (AC setpoints, lighting timers, switching off idle loads). Track the impact over the next few months.',
+      });
+    } else if (hotspot === 'Fuel') {
+      recommendations.push({
+        title: 'Run a driver & routing optimisation test',
+        description:
+          'Choose a small group of vehicles, optimise routes and reduce idling, then compare fuel-related CO₂e month-on-month.',
+      });
+    } else if (hotspot === 'Refrigerant') {
+      recommendations.push({
+        title: 'Prioritise leak checks on critical units',
+        description:
+          'Identify AC or cold-room units with top-ups and schedule a focused leak inspection. Log any refrigerant use so leaks stay visible.',
+      });
+    }
+
+    recommendations.push({
+      title: 'Create a monthly update ritual',
+      description:
+        'Pick one fixed day each month to update this dashboard so leadership always sees an up-to-date footprint.',
+    });
+
+    recommendations.push({
+      title: 'Share a simple baseline report',
+      description:
+        'Use the emissions report view to walk finance and leadership through your current hotspots and agree on one or two priorities.',
+    });
+  }
+
+  const hotspotLabel =
+    hotspot === 'Electricity'
+      ? '⚡ Electricity'
+      : hotspot === 'Fuel'
+      ? '🚚 Fuel'
+      : hotspot === 'Refrigerant'
+      ? '❄ Refrigerant'
+      : 'Not enough data yet';
+
+  const hotspotTextClass =
+    hotspot === 'Electricity'
+      ? 'text-amber-600'
+      : hotspot === 'Fuel'
+      ? 'text-emerald-700'
+      : hotspot === 'Refrigerant'
+      ? 'text-sky-700'
+      : 'text-slate-900';
+
+  // Reporting completeness (for header + performance breakdown)
+  const reportingCompleteness = hasData ? 100 : 0;
+
+  // Analytics for Trend & risk – use last up to 6 months in this period
+  const lastSixMonths = hasData ? months.slice(0, 6) : [];
+  const sparkValues = lastSixMonths
+    .slice()
+    .reverse()
+    .map((m) => m.totalCo2eKg);
+
+  let yoyChange: number | null = null;
+  if (months.length >= 13) {
+    const current = months[0].totalCo2eKg;
+    const lastYear = months[12].totalCo2eKg;
+    if (lastYear > 0) {
+      yoyChange = ((current - lastYear) / lastYear) * 100;
+    }
+  }
+
+  const refrigerantShare = refrigerantSharePercent || 0;
+  let riskLevel: 'Low' | 'Medium' | 'High' = 'Low';
+  let riskClasses = 'bg-emerald-50 border border-emerald-100 text-emerald-700';
+
+  if (refrigerantShare >= 60) {
+    riskLevel = 'High';
+    riskClasses = 'bg-rose-50 border border-rose-100 text-rose-700';
+  } else if (refrigerantShare >= 20) {
+    riskLevel = 'Medium';
+    riskClasses = 'bg-amber-50 border border-amber-100 text-amber-700';
+  }
+
+  // Prepare rows for the activity table, keeping original index
+  const tableRows = months.map((m, index) => ({ ...m, index })).slice(0, 3);
+
+  const periodPills: { key: PeriodKey; label: string }[] = [
+    { key: '3m', label: 'Last 3 months' },
+    { key: '6m', label: 'Last 6 months' },
+    { key: '12m', label: 'Last 12 months' },
+    { key: 'all', label: 'All data' },
+  ];
+
+  // Helper text for recent activity scope
+  const recentScopeText =
+    period === 'all'
+      ? 'Showing your full history in this view.'
+      : period === '3m'
+      ? 'Showing up to the last 3 months in this view.'
+      : period === '6m'
+      ? 'Showing up to the last 6 months in this view.'
+      : 'Showing up to the last 12 months in this view.';
+
+  // ---- AUTOMATIONS CONFIG (UI only for now) ----
+  type AutomationCard = {
+    title: string;
+    description: string;
+    cadence: string;
+    tag: string;
+  };
+
+  const automationCards: AutomationCard[] = [];
+
+  if (hasData) {
+    // Core monthly logging reminder
+    automationCards.push({
+      title: 'Monthly logging reminder',
+      description:
+        'Nudge the data owner on a fixed day each month to upload bills, mileage and refrigerant top-ups so this dashboard stays current.',
+      cadence: 'Once per month',
+      tag: 'Suggested',
+    });
+
+    // Leadership snapshot
+    automationCards.push({
+      title: 'Leadership snapshot email',
+      description:
+        'Automatically send a one-page summary of total CO₂e, trend and hotspot to your leadership team at the end of each month.',
+      cadence: 'End of month',
+      tag: 'Suggested',
+    });
+
+    // Refrigerant-specific automation if risk is not low
+    if (riskLevel !== 'Low') {
+      automationCards.push({
+        title: 'Refrigerant leak watch',
+        description:
+          'Create an alert whenever refrigerant makes up an unusually high share of your footprint so ops can investigate leaks quickly.',
+        cadence: 'On change in refrigerant data',
+        tag: 'High impact',
+      });
+    } else {
+      automationCards.push({
+        title: 'Quarterly target review',
+        description:
+          'Every quarter, prompt you to compare actual emissions vs your internal targets and adjust actions for the next period.',
+        cadence: 'Every 3 months',
+        tag: 'Planning',
+      });
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-50">
+      <div className="mx-auto max-w-6xl px-4 py-10 space-y-6">
+        {/* ONBOARDING CARD */}
+        {profile && !profile.onboarding_complete && (
+          <section className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-4 shadow">
+            <p className="text-xs font-semibold text-amber-800">
+              Complete your setup
+            </p>
+            <p className="text-[11px] text-amber-700 mt-1">
+              Finish setting up your company profile to unlock personalisation.
+            </p>
+
+            <a
+              href="/onboarding"
+              className="mt-3 inline-flex items-center px-4 py-2 rounded-full text-xs font-medium bg-slate-900 text-white hover:bg-slate-800"
+            >
+              Continue onboarding →
+            </a>
+          </section>
+        )}
+
+        {/* HEADER - aligned with emissions headers */}
+        <section className="relative rounded-xl border border-slate-200 shadow bg-gradient-to-r from-slate-50 via-slate-50 to-indigo-50 px-4 py-5 md:px-6 md:py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          {/* PROFILE ICON (top-right) */}
+          <Link
+            href="/profile"
+            className="absolute top-4 right-4 z-50
+             flex items-center justify-center
+             w-9 h-9 rounded-full 
+             bg-white shadow-sm border border-slate-200
+             text-slate-600 hover:text-slate-800
+             hover:bg-slate-50 transition"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.8}
+              stroke="currentColor"
+              className="w-5 h-5"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9.75 3.75h4.5m-4.5 16.5h4.5m-7.5-8.25h10.5m-10.5 0a5.25 5.25 0 0110.5 0"
+              />
+            </svg>
+          </Link>
+
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">
+              Dashboard
+            </p>
+            <h1 className="text-2xl md:text-3xl font-semibold text-slate-900 mt-1">
+              Welcome back.
+            </h1>
+            <p className="text-sm text-slate-600 mt-1">
+              Overview of your carbon footprint and hotspots.
+            </p>
+
+            {/* Period filter pills */}
+            <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-white/70 border border-slate-200 p-1 text-[11px]">
+              {periodPills.map((p) => {
+                const active = p.key === period;
+                const href =
+                  p.key === 'all' ? '/dashboard' : `/dashboard?period=${p.key}`;
+                return (
+                  <Link
+                    key={p.key}
+                    href={href}
+                    className={
+                      'px-3 py-1 rounded-full transition transform hover:shadow-sm hover:-translate-y-px ' +
+                      (active
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'bg-transparent text-slate-600 hover:bg-white hover:text-slate-900')
+                    }
+                  >
+                    {p.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right side: tiny KPI + progress bar */}
+          <div className="w-full md:w-64 lg:w-72 rounded-xl bg-white/80 border border-slate-200 px-4 py-3 shadow-sm backdrop-blur">
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
+                  Last update
+                </p>
+                <p className="mt-1 font-semibold text-slate-900">
+                  {hasData ? lastMonthLabel : 'No data yet'}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
+                  Reporting completeness
+                </p>
+                <p className="mt-1 font-semibold text-slate-900">
+                  {reportingCompleteness}%
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3">
+              <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-slate-900 transition-[width]"
+                  style={{ width: `${reportingCompleteness}%` }}
+                />
+              </div>
+              <p className="mt-2 text-[11px] text-slate-500">
+                {hasData
+                  ? 'You have a usable baseline. Keep logging monthly to stay at 100%.'
+                  : 'Log your first few months of data to start building a baseline.'}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* MAIN LAYOUT: LEFT SIDEBAR + RIGHT CONTENT */}
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+          {/* LEFT: SIDEBAR – Emissions, Main hotspot, Summary */}
+          <aside className="w-full lg:w-72 flex-shrink-0 space-y-4">
+            {/* Emissions / quick actions at the top */}
+            <AddEmissionsPanel />
+
+            {hasData && (
+              <>
+                {/* Main hotspot card – moved into sidebar */}
+                <section className="rounded-xl bg-white border p-6 shadow flex flex-col gap-3">
+                  <header className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">
+                        Main hotspot
+                      </p>
+                      <p
+                        className={`mt-1 text-sm font-semibold ${hotspotTextClass}`}
+                      >
+                        {hotspotLabel}
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-slate-400">
+                      Click a slice for detail
+                    </span>
+                  </header>
+
+                  <div className="mt-1">
+                    <HotspotPieChart breakdown={breakdownBySource} />
+                  </div>
+                </section>
+
+                {/* Summary – now purely numbers / narrative */}
+                <section className="rounded-xl bg-white border p-6 shadow flex flex-col gap-4">
+                  <header className="flex items-start justify-between gap-2">
+                    <div>
+                      <h2 className="text-sm font-semibold text-slate-900">
+                        Summary
+                      </h2>
+
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        You&apos;re viewing{' '}
+                        <span className="font-medium text-slate-900">
+                          {months.length}
+                        </span>{' '}
+                        month{months.length === 1 ? '' : 's'} of data.
+                      </p>
+                    </div>
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-[11px] font-semibold text-emerald-700">
+                      • Live
+                    </span>
+                  </header>
+
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                        Movement this period
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-600">
+                        Latest month is{' '}
+                        {prevMonth
+                          ? `${
+                              monthChangePercent >= 0 ? '+' : ''
+                            }${monthChangePercent.toFixed(1)}% vs previous`
+                          : 'the first month in this view'}
+                        .
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                        Total in view
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-600">
+                        <span className="text-[11px] font-medium tabular-nums text-slate-900">
+                          {formatTonnes(dashData.totalCo2eKg)}
+                        </span>{' '}
+                        across this period.
+                      </p>
+                      {scopeBreakdown.scope3Co2eKg > 0 && (
+                        <p className="mt-0.5 text-[11px] text-slate-400">
+                          Including {formatTonnes(scopeBreakdown.scope3Co2eKg)}{' '}
+                          from Scope 3 activities.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <p className="mt-1 text-[11px] text-slate-400 leading-snug">
+                    Keep logging monthly to unlock deeper trend and risk views.
+                  </p>
+                </section>
+              </>
+            )}
+          </aside>
+
+          {/* RIGHT: MAIN CONTENT */}
+          <div className="flex-1 space-y-6 w-full">
+            {hasData ? (
+              <>
+                {/* RECENT ACTIVITY TABLE (ONLY 3 ROWS, WITH TRENDS) */}
+                <section className="rounded-xl bg-white border p-6 shadow">
+                  <div className="flex justify-between items-center mb-1">
+                    <h2 className="text-sm font-semibold text-slate-900">
+                      Recent activity (by month)
+                    </h2>
+                    <Link
+                      href="/dashboard/emissions/view-emissions"
+                      className="text-xs text-indigo-600 hover:text-indigo-700 underline"
+                    >
+                      View full history →
+                    </Link>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mb-3">
+                    {recentScopeText}
+                  </p>
+
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-xs">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="p-2 text-left font-medium text-slate-500">
+                            Month
+                          </th>
+                          <th className="p-2 text-right font-medium text-slate-500">
+                            Electricity (kWh)
+                          </th>
+                          <th className="p-2 text-right font-medium text-slate-500">
+                            Fuel (litres)
+                          </th>
+                          <th className="p-2 text-right font-medium text-slate-500">
+                            Refrigerant (kg)
+                          </th>
+                          <th className="p-2 text-right font-medium text-slate-500">
+                            Total CO₂e (kg)
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tableRows.map((row) => {
+                          const elecChange = getFieldChangeForIndex(
+                            months,
+                            row.index,
+                            'electricityKwh'
+                          );
+                          const fuelChange = getFieldChangeForIndex(
+                            months,
+                            row.index,
+                            'fuelLitres'
+                          );
+                          const refChange = getFieldChangeForIndex(
+                            months,
+                            row.index,
+                            'refrigerantKg'
+                          );
+                          const totalChange = getFieldChangeForIndex(
+                            months,
+                            row.index,
+                            'totalCo2eKg'
+                          );
+
+                          return (
+                            <tr
+                              key={row.index}
+                              className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60 transition"
+                            >
+                              <td className="p-2">
+                                <span className="text-[12px] font-medium text-slate-900">
+                                  {row.monthLabel}
+                                </span>
+                              </td>
+                              <td className="p-2 text-right">
+                                {renderValueWithTrend(
+                                  row.electricityKwh,
+                                  elecChange,
+                                  0
+                                )}
+                              </td>
+                              <td className="p-2 text-right">
+                                {renderValueWithTrend(
+                                  row.fuelLitres,
+                                  fuelChange,
+                                  0
+                                )}
+                              </td>
+                              <td className="p-2 text-right">
+                                {renderValueWithTrend(
+                                  row.refrigerantKg,
+                                  refChange,
+                                  0
+                                )}
+                              </td>
+                              <td className="p-2 text-right">
+                                {renderValueWithTrend(
+                                  row.totalCo2eKg,
+                                  totalChange,
+                                  2 // 2 decimal places for total CO2e
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                {/* TOTALS + TREND & RISK  +  PERFORMANCE & BENCHMARKING */}
+                <section className="grid md:grid-cols-2 gap-4">
+                  {/* LEFT CARD: TOTALS + LAST MONTH + TREND & RISK (moved here) */}
+                  <article className="rounded-xl bg-white border p-6 shadow flex flex-col gap-4">
+                    {/* Total CO2e */}
+                    <div>
+                      <p className={SECTION_LABEL}>
+                        Total CO₂e · {periodLabel}
+                      </p>
+                      <p className="text-3xl font-semibold mt-3">
+                        {formatTonnes(dashData.totalCo2eKg)}
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Total for this period across{' '}
+                        {months.length === 1
+                          ? 'this month'
+                          : `${months.length} months`}
+                        .
+                      </p>
+                    </div>
+
+                    {/* Last reported month */}
+                    <div className="pt-4 border-t border-slate-100">
+                      <p className={SECTION_LABEL}>Last reported month</p>
+                      <p className="text-sm font-medium mt-2">
+                        {lastMonthLabel}
+                      </p>
+                      <p className="text-xl font-semibold mt-1">
+                        {formatTonnes(lastMonthCo2eKg)}
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        vs previous month:{' '}
+                        {prevMonth
+                          ? `${
+                              monthChangePercent >= 0 ? '+' : ''
+                            }${monthChangePercent.toFixed(1)}%`
+                          : 'n/a'}
+                      </p>
+                    </div>
+
+                    {/* Trend & risk (moved from sidebar) */}
+                    <div className="pt-4 border-t border-slate-100 space-y-4">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">
+                          Trend (last 6 months in view)
+                        </p>
+                        <div className="mt-2 flex items-center gap-3">
+                          <Sparkline values={sparkValues} />
+                          <p className="text-[11px] text-slate-600">
+                            {sparkValues.length >= 2
+                              ? 'Quick view of how your total footprint has been moving in this period.'
+                              : 'Add more months of data to unlock a trend view.'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-100">
+                        <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">
+                          Year-on-year change
+                        </p>
+                        <p className="mt-1 text-xs text-slate-700">
+                          {yoyChange === null
+                            ? 'Once you’ve logged 12+ months, we’ll show year-on-year movement here.'
+                            : `${yoyChange >= 0 ? '+' : ''}${yoyChange.toFixed(
+                                1
+                              )}% vs the same month last year.`}
+                        </p>
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-100">
+                        <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">
+                          Refrigerant risk
+                        </p>
+                        <div className="mt-2 flex items-start gap-2 text-xs">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] font-medium ${riskClasses}`}
+                          >
+                            {riskLevel} risk
+                          </span>
+                          <p className="text-slate-600">
+                            Refrigerant currently accounts for{' '}
+                            <span className="font-semibold">
+                              {refrigerantShare.toFixed(1)}%
+                            </span>{' '}
+                            of your footprint. High values can indicate leaks or
+                            inefficient cooling assets.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+
+                  {/* RIGHT CARD: PERFORMANCE + AI INSIGHTS + BENCHMARKING */}
+                  <article className="rounded-xl bg-white border p-6 shadow flex flex-col">
+                    {/* PERFORMANCE */}
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 flex items-center gap-2">
+                        <span>Performance</span>
+                        <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-slate-600">
+                          Beta
+                        </span>
+                      </p>
+                      {performanceScore100 !== null && (
+                        <p className="text-[10px] text-slate-500">
+                          Score (0–100):{' '}
+                          <span className="font-semibold text-slate-900">
+                            {performanceScore100}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+
+                    {statusPillLabel && (
+                      <p className="mt-4 inline-flex items-center rounded-full px-2 py-1 text-[10px] font-medium bg-slate-200 text-slate-800">
+                        {perf?.status || statusPillLabel}
+                      </p>
+                    )}
+
+                    {statusDescription && (
+                      <p className="mt-3 text-[11px] text-slate-600">
+                        {perf?.insight || statusDescription}
+                      </p>
+                    )}
+
+                    {performanceStars !== null &&
+                      performanceScore100 !== null && (
+                        <div className="mt-4 flex items-center gap-2 text-[11px] text-slate-600">
+                          <span>Performance score:</span>
+                          <div className="flex items-center gap-0.5">
+                            {[1, 2, 3, 4, 5].map((i) => (
+                              <span
+                                key={i}
+                                className={
+                                  i <= performanceStars
+                                    ? 'text-yellow-400'
+                                    : 'text-slate-300'
+                                }
+                              >
+                                ★
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                    {/* SCORE BREAKDOWN – stat cards */}
+                    <div className="mt-6 grid grid-cols-2 gap-3 text-[11px] text-slate-600">
+                      <div className="border border-slate-100 rounded-lg px-3 py-2 bg-slate-50">
+                        <p className="font-medium text-slate-900">
+                          Risk signals
+                        </p>
+                        <p className="text-slate-500">
+                          {perf?.risk || riskLevel}
+                        </p>
+                      </div>
+
+                      <div className="border border-slate-100 rounded-lg px-3 py-2 bg-slate-50">
+                        <p className="font-medium text-slate-900">
+                          Trend stability
+                        </p>
+                        <p className="text-slate-500">
+                          {perf?.stability ||
+                            (statusDescription
+                              ? statusDescription.split(' ')[0]
+                              : 'n/a')}
+                        </p>
+                      </div>
+
+                      <div className="border border-slate-100 rounded-lg px-3 py-2 bg-slate-50 col-span-2 md:col-span-1">
+                        <p className="font-medium text-slate-900">
+                          Monthly compliance
+                        </p>
+                        <p className="text-slate-500">
+                          {perf?.compliance ||
+                            (hasData ? 'On track' : 'Not started')}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* AI INSIGHTS CARD */}
+                    <div className="mt-6 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500 mb-2">
+                        AI insights
+                      </p>
+                      <ul className="list-disc pl-4 text-[11px] text-slate-500 space-y-1.5">
+                        {refrigerantSharePercent > 60 && (
+                          <li>
+                            Refrigerant drives most of your footprint (
+                            {refrigerantSharePercent}%). Likely leaks or
+                            inefficient cooling assets.
+                          </li>
+                        )}
+
+                        {Math.abs(monthChangePercent) < 3 && (
+                          <li>
+                            Month-to-month footprint is almost flat. To see a
+                            shift, run one focused change and track results.
+                          </li>
+                        )}
+
+                        {electricitySharePercent < 5 &&
+                          refrigerantSharePercent > 70 && (
+                            <li>
+                              Electricity impact is small; biggest gains will
+                              come from cooling, not power use.
+                            </li>
+                          )}
+
+                        {refrigerantSharePercent <= 60 &&
+                          Math.abs(monthChangePercent) >= 3 && (
+                            <li>
+                              Emissions are moving. Check which source changed
+                              most to spot the driver.
+                            </li>
+                          )}
+
+                        {refrigerantSharePercent <= 60 &&
+                          Math.abs(monthChangePercent) < 3 &&
+                          electricitySharePercent >= 5 && (
+                            <li>
+                              Footprint is balanced. Pick one hotspot and run a
+                              2–3 month pilot for clear learnings.
+                            </li>
+                          )}
+                      </ul>
+                    </div>
+
+                    {/* BENCHMARKING */}
+                    <div className="mt-6 pt-5 border-t border-slate-100">
+                      <h2 className="text-sm font-semibold text-slate-900 mb-2">
+                        Benchmarking
+                      </h2>
+                      <p className="text-xs text-slate-600 mb-3">
+                        A comparison against a typical SME in your sector.
+                        Values are generated based on your total emissions.
+                      </p>
+
+                      <p className="text-sm text-slate-700 mb-3">
+                        {ai ? (
+                          <>
+                            {typeof ai.summary === 'string'
+                              ? ai.summary
+                              : ai.summary?.text || 'Benchmarking unavailable'}
+                          </>
+                        ) : (
+                          <>
+                            You are emitting{' '}
+                            <span className="font-semibold text-emerald-700">
+                              23% less
+                            </span>{' '}
+                            than a typical SME in your sector.
+                          </>
+                        )}
+                      </p>
+
+                      {/* Micro bar visual */}
+                      <div className="space-y-2 mb-3">
+                        <div>
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                            Industry average
+                          </p>
+                          <div className="mt-1 flex items-center gap-2">
+                            <div className="h-2 w-full rounded-full bg-slate-100">
+                              <div className="h-2 rounded-full bg-slate-300 w-4/5" />
+                            </div>
+                            <span className="text-[11px] font-medium tabular-nums text-slate-600">
+                              {ai?.key_metrics?.industry_average_tonnes ??
+                                '1.82 t CO₂e'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                            You
+                          </p>
+                          <div className="mt-1 flex items-center gap-2">
+                            <div className="h-2 w-full rounded-full bg-slate-100">
+                              <div className="h-2 rounded-full bg-slate-900 w-2/3" />
+                            </div>
+                            <span className="text-[11px] font-medium tabular-nums text-slate-900">
+                              {formatTonnes(dashData.totalCo2eKg)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="inline-flex items-center mt-1 text-[10px] font-medium px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                        Top 25% performance
+                      </div>
+                    </div>
+                  </article>
+                </section>
+                {ai?.recommendations && ai.recommendations.length > 0 && (
+                  <section className="rounded-xl bg-white border p-6 shadow">
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500 mb-3">
+                      AI recommendations
+                    </p>
+
+                    <ul className="grid gap-2 text-[11px] md:grid-cols-2">
+                      {ai.recommendations.map((rec: string, idx: number) => (
+                        <li
+                          key={idx}
+                          className="border rounded-lg px-3 py-2 bg-slate-50"
+                        >
+                          <p className="text-slate-600">{rec}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {/* RECOMMENDED NEXT ACTIONS (AI + fallback) */}
+                {finalActions.length > 0 && (
+                  <section className="rounded-xl bg-white border p-6 shadow">
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500 mb-3">
+                      Recommended next actions
+                    </p>
+
+                    <ul className="grid gap-2 text-[11px] md:grid-cols-2">
+                      {finalActions.map((item, idx) => {
+                        const words = item.title.split(' ');
+                        const first = words.shift();
+                        const rest = words.join(' ');
+
+                        return (
+                          <li
+                            key={idx}
+                            className="border rounded-lg px-3 py-2 bg-slate-50"
+                          >
+                            <p className="font-semibold text-slate-900 mb-0.5">
+                              <span className="text-indigo-700">{first}</span>{' '}
+                              {rest}
+                            </p>
+                            <p className="text-slate-600">{item.description}</p>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </section>
+                )}
+
+                {/* AUTOMATIONS – KEEP THINGS MOVING AUTOMATICALLY */}
+                {automationCards.length > 0 && (
+                  <section className="rounded-xl bg-white border p-6 shadow">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">
+                          Automations
+                        </p>
+                        <h2 className="text-sm font-semibold text-slate-900 mt-1">
+                          Keep things moving automatically
+                        </h2>
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          Turn these into real reminders or workflows later. For
+                          now, use them as a playbook for what to automate
+                          first.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 grid gap-3 md:grid-cols-3">
+                      {automationCards.map((auto, idx) => (
+                        <article
+                          key={idx}
+                          className="border border-slate-100 rounded-lg bg-slate-50 px-3 py-3 flex flex-col justify-between"
+                        >
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <h3 className="text-xs font-semibold text-slate-900">
+                                {auto.title}
+                              </h3>
+                              <span className="inline-flex items-center rounded-full bg-slate-900 text-white text-[9px] px-2 py-0.5">
+                                {auto.tag}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-600">
+                              {auto.description}
+                            </p>
+                          </div>
+                          <p className="mt-3 text-[10px] text-slate-500">
+                            Cadence:{' '}
+                            <span className="font-medium text-slate-900">
+                              {auto.cadence}
+                            </span>
+                          </p>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </>
+            ) : (
+              <section className="rounded-xl bg-white border p-8 text-center shadow">
+                <p className="text-sm font-medium text-slate-800">
+                  No emissions data yet.
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Use the "+ Add emission" action on the left to log your first
+                  activities.
+                </p>
+              </section>
+            )}
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
