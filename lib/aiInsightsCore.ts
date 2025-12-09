@@ -2,10 +2,6 @@
 import { supabase } from './supabaseClients';
 import OpenAI from 'openai';
 
-// IMPORTANT: Use your real key in .env or hardcoded fallback
-const openaiApiKey =
-  process.env.OPENAI_API_KEY ||
-  '#';
 
 const openai = new OpenAI({
   apiKey: openaiApiKey,
