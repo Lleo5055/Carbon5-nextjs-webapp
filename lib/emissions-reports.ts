@@ -1,6 +1,7 @@
 // lib/emissions-report.ts
 
-import { supabase } from '@/lib/supabaseClients';
+// ✅ FIXED IMPORT — correct server-side supabase client
+import { supabaseServer as supabase } from '@/lib/supabaseServer';
 
 export type ReportMonth = {
   monthLabel: string; // e.g. "November 2025"
@@ -88,15 +89,14 @@ export async function getEmissionsReportForUser(): Promise<EmissionsReport> {
     totalCo2eKg: Number(r.total_co2e || 0),
   }));
 
-  // 🔹 Sort newest → oldest (already text, so reorder based on row order)
-  // (Already ordered in SQL, but we ensure)
+  // 🔹 Already ordered newest → oldest by SQL
   const sortedMonths = months;
 
   // 🔹 Breakdown by source %
   const totalAll = sortedMonths.reduce((sum, m) => sum + m.totalCo2eKg, 0);
 
   const totalElec = sortedMonths.reduce(
-    (sum, m) => sum + m.electricityKwh * 0.42, // if needed later, but not for %
+    (sum, m) => sum + m.electricityKwh * 0.42,
     0
   );
 
@@ -110,7 +110,6 @@ export async function getEmissionsReportForUser(): Promise<EmissionsReport> {
     0
   );
 
-  // Avoid divide by zero
   const denom = totalElec + totalFuel + totalRef || 1;
 
   const breakdownBySource = {
