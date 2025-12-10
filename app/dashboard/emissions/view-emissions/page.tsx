@@ -1129,7 +1129,7 @@ export default async function ViewEmissionsPage({ searchParams }: Props) {
                     </thead>
 
                     <tbody>
-                      {scope3Rows.map((row) => (
+                      {(scope3Rows ?? []).map((row) => (
                         <tr key={row.id} className="border-b last:border-0">
                           <td className="p-2">{row.month}</td>
                           <td className="p-2 capitalize">
