@@ -10,13 +10,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// IMPORTANT: Use your real key in .env
-const openaiApiKey =
-  process.env.OPENAI_API_KEY ||
-  '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';
-
+// -------------------------------
+// OPENAI CLIENT (NO HARDCODED KEYS)
+// -------------------------------
 const openai = new OpenAI({
-  apiKey: openaiApiKey,
+  apiKey: process.env.OPENAI_API_KEY!, // must come from env
 });
 
 // This matches YOUR REAL DATABASE COLUMNS
@@ -109,7 +107,7 @@ Think step-by-step and output ONLY valid JSON.
 `;
 
   // 3. Call OpenAI
-  const completion = await client.responses.create({
+  const completion = await openai.responses.create({
     model: 'gpt-4.1-mini',
     input: [
       { role: 'system', content: systemPrompt },
@@ -164,12 +162,10 @@ export async function generateAIInsightsForAllUsers(
 
   if (error) throw new Error('Failed loading users: ' + error.message);
 
-  // Extract unique users
   const userIds = Array.from(new Set(data.map((x: any) => x.user_id)));
 
   const results: any[] = [];
 
-  // No OpenAI calls here!
   for (const uid of userIds) {
     try {
       const insight = await generateAIInsightForUser(uid, period, monthsLimit);
