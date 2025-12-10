@@ -15,9 +15,20 @@ function safe(v: any) {
   return isNaN(n) ? 0 : n;
 }
 
-function drawText(page, str, x, y, size, font, color = rgb(0, 0, 0)) {
+import type { PDFPage, PDFFont, RGB } from 'pdf-lib';
+
+function drawText(
+  page: PDFPage,
+  str: string,
+  x: number,
+  y: number,
+  size: number,
+  font: PDFFont,
+  color: RGB = rgb(0, 0, 0)
+) {
   page.drawText(str, { x, y, size, font, color });
 }
+
 
 export async function GET(req: NextRequest) {
   try {
