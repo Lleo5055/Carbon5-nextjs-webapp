@@ -3,7 +3,17 @@
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
-export default function OnboardingCard({ profile, refreshDashboard }) {
+type OnboardingCardProps = {
+  profile: any;
+  refreshDashboard: () => void;
+};
+
+type Props = {
+  profile: any;
+  refreshDashboard: () => void;
+};
+
+export default function OnboardingCard({ profile, refreshDashboard }: Props) {
   // Pre-fill if exists
   const [companyName, setCompanyName] = useState(profile?.company_name || '');
   const [industry, setIndustry] = useState(profile?.industry || '');
