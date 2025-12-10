@@ -164,10 +164,12 @@ export async function generateAIInsightsForAllUsers(
 
   if (error) throw new Error('Failed loading users: ' + error.message);
 
+  // Extract unique users
   const userIds = Array.from(new Set(data.map((x: any) => x.user_id)));
 
   const results: any[] = [];
 
+  // No OpenAI calls here!
   for (const uid of userIds) {
     try {
       const insight = await generateAIInsightForUser(uid, period, monthsLimit);
