@@ -1212,7 +1212,7 @@ page.drawText('Carbon Central · SECR-ready emissions report · Page 4', {
   font,
   color: TEXT,
 });
-
+} // <-- CLOSE PAGE 4 BLOCK
 
     // ========================= PAGE 5 =========================
     page = pdf.addPage([595, 842]);
