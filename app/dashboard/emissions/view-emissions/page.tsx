@@ -1098,7 +1098,7 @@ export default async function ViewEmissionsPage({ searchParams }: Props) {
                 Scope 3 activity log (optional)
               </h2>
 
-              {scope3Rows.length === 0 ? (
+              {(scope3Rows?.length ?? 0) === 0 ? (
                 <p className="text-xs text-slate-500">
                   No Scope 3 activities recorded yet.
                 </p>
