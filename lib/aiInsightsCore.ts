@@ -11,8 +11,13 @@ const supabase = createClient(
 );
 
 // IMPORTANT: Use your real key in .env
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+const openaiApiKey =
+  process.env.OPENAI_API_KEY ||
+  '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';
 
+const openai = new OpenAI({
+  apiKey: openaiApiKey,
+});
 
 // This matches YOUR REAL DATABASE COLUMNS
 type CompactMonth = {
@@ -104,7 +109,7 @@ Think step-by-step and output ONLY valid JSON.
 `;
 
   // 3. Call OpenAI
-  const completion = await openai.responses.create({
+  const completion = await client.responses.create({
     model: 'gpt-4.1-mini',
     input: [
       { role: 'system', content: systemPrompt },
