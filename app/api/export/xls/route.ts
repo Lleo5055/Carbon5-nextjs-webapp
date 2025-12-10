@@ -1,92 +1,75 @@
 // app/api/export/xls/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '../../../../lib/supabaseClient';
+import ExcelJS from 'exceljs';
+import { supabase } from '@/lib/supabaseClient';
 
+// Required to avoid static rendering errors in Vercel
+export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
   try {
-    // ✅ Use ORIGINAL working architecture (anon client)
-    const url = new URL(req.url);
+    // Get logged-in user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    // 🔒 Check plan
-    const { data: planRow, error: planError } = await supabase
-      .from('user_plans')
-      .select('plan')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (planError) {
-      console.error('XLS export: error loading user plan', planError);
+    if (userError) {
+      console.error('Auth error:', userError);
+      return new NextResponse('Auth error', { status: 401 });
     }
 
-    if (!planRow || planRow.plan === 'free') {
-      return new NextResponse(
-        'Excel export is only available on Growth, Pro or Enterprise plans.',
-        {
-          status: 403,
-          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-        }
-      );
+    if (!user) {
+      return new NextResponse('Not authenticated', { status: 401 });
     }
 
-    // (optional)
-    const period = url.searchParams.get('period') ?? 'all';
-    void period;
-
-    // Load emissions
+    // Fetch emissions for this user
     const { data, error } = await supabase
       .from('emissions')
-      .select(
-        'month,electricity_kw,diesel_litres,petrol_litres,gas_kwh,refrigerant_kg,total_co2e'
-      )
+      .select('*')
+      .eq('user_id', user.id)
       .order('month', { ascending: true });
 
     if (error) {
-      console.error('XLS export: error loading emissions', error);
-      return new NextResponse('Failed to load emissions', { status: 500 });
+      console.error('Supabase error:', error);
+      return new NextResponse('Failed loading emissions', { status: 500 });
     }
 
-    const rows = Array.isArray(data) ? data : [];
+    // Build Excel file
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Emissions');
 
-    // Header
-    const header = [
+    sheet.addRow([
       'Month',
-      'Electricity_kWh',
-      'Diesel_L',
-      'Petrol_L',
-      'Gas_KWh',
-      'Refrigerant_kg',
-      'Total_CO2e_kg',
-    ];
+      'Electricity (kWh)',
+      'Fuel (L)',
+      'Refrigerant (kg)',
+      'Total CO₂e (kg)',
+    ]);
 
-    // Lines
-    const lines = rows.map((row) => {
-      return [
-        String(row.month ?? ''),
-        String(row.electricity_kw ?? 0),
-        String(row.diesel_litres ?? 0),
-        String(row.petrol_litres ?? 0),
-        String(row.gas_kwh ?? 0),
-        String(row.refrigerant_kg ?? 0),
-        Number(row.total_co2e ?? 0).toFixed(2),
-      ].join(',');
+    data.forEach((r: any) => {
+      sheet.addRow([
+        r.month,
+        r.electricity_kw ?? 0,
+        r.fuel_liters ?? 0,
+        r.refrigerant_kg ?? 0,
+        r.total_co2e ?? 0,
+      ]);
     });
 
-    const csv = [header.join(','), ...lines].join('\n');
+    const buffer = await workbook.xlsx.writeBuffer();
 
-    return new NextResponse(csv, {
+    return new NextResponse(buffer, {
       status: 200,
       headers: {
-        // Excel can open CSV when sent as XLS mime type
-        'Content-Type': 'application/vnd.ms-excel; charset=utf-8',
-        'Content-Disposition': 'attachment; filename="emissions-export.xls"',
-        'Cache-Control': 'no-store',
+        'Content-Type':
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': 'attachment; filename=emissions.xlsx',
       },
     });
-  } catch (err) {
-    console.error('XLS export: unexpected error', err);
-    return new NextResponse('Failed to generate XLS export', { status: 500 });
+  } catch (err: any) {
+    console.error('XLS export failed:', err);
+    return new NextResponse('Unexpected error', { status: 500 });
   }
 }

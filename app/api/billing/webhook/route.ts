@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
-
+export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 // -------------------------------
@@ -35,7 +35,6 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
 // -------------------------------
 export async function POST(req: NextRequest) {
   const signature = req.headers.get('stripe-signature') || '';
-
 
   if (!signature) {
     return new NextResponse('Missing signature', { status: 400 });
