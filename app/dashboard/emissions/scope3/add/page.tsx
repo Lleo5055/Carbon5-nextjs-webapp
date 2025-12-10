@@ -65,12 +65,13 @@ export default function AddScope3ActivityPage() {
     switch (category) {
       case 'employee_commuting':
         return {
-          category,
-          ...base,
-          mode: mode as 'car' | 'train' | 'bus' | 'bike_walk',
-          oneWayKm: Number(number1) || 0,
-          daysPerMonth: Number(number2) || 0,
-        };
+  category,
+  ...base,
+  mode: mode as 'car' | 'train' | 'bus' | 'bike_walk',
+  month: month.value,   // ✅ FIX
+  label,
+};
+
 
       case 'business_travel':
         return {
