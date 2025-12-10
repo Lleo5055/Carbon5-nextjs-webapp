@@ -459,13 +459,13 @@ export async function GET(req: NextRequest) {
 
     const chartBaseY = y;
 
-    function sx(i) {
-      return 50 + (i / Math.max(values.length - 1, 1)) * 495;
-    }
-    function sy(v) {
-      const max = Math.max(...values, 1);
-      const min = Math.min(...values, 0);
-      return chartBaseY - 70 + 60 - ((v - min) / (max - min || 1)) * 60;
+const sx = (i: number) =>
+  50 + (i / Math.max(values.length - 1, 1)) * 495;
+
+const sy = (v: number) => {
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  return chartBaseY - 70 + 60 - ((v - min) / (max - min || 1)) * 60;
     }
 
     for (let i = 0; i < values.length - 1; i++) {
