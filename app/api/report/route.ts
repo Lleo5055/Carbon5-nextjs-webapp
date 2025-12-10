@@ -28,17 +28,6 @@ function drawText(
 ) {
   page.drawText(str, { x, y, size, font, color });
 }
-function drawText(
-  page: PDFPage,
-  str: string,
-  x: number,
-  y: number,
-  size: number,
-  font: PDFFont,
-  color: RGB = rgb(0, 0, 0)
-) {
-  page.drawText(str, { x, y, size, font, color });
-}
 
 function paragraphText(
   page: PDFPage,
@@ -521,11 +510,12 @@ export async function GET(req: NextRequest) {
       return 50 + (i / Math.max(values.length - 1, 1)) * 495;
     }
     const sy = (v: number) => {
-      {
       const max = Math.max(...values, 1);
       const min = Math.min(...values, 0);
       return chartBaseY - 70 + 60 - ((v - min) / (max - min || 1)) * 60;
-    }
+    };
+    
+    
 
     for (let i = 0; i < values.length - 1; i++) {
       page.drawLine({
@@ -1212,139 +1202,195 @@ page.drawText('Carbon Central · SECR-ready emissions report · Page 4', {
   font,
   color: TEXT,
 });
-} // <-- CLOSE PAGE 4 BLOCK
+} // closes page 4 content block
 
-    // ========================= PAGE 5 =========================
-    page = pdf.addPage([595, 842]);
-    y = 780;
+// ========================= PAGE 5 =========================
+page = pdf.addPage([595, 842]);
 
-    page.drawText('5. Methodology and governance', {
-      x: 50,
-      y,
-      size: 18,
-      font: bold,
-      color: BLUE,
-    });
+y = 780;
 
-    page.drawLine({
-      start: { x: 50, y: y - 6 },
-      end: { x: 545, y: y - 6 },
-      thickness: 1,
-      color: BLUE,
-    });
+page.drawText('5. Methodology and governance', {
+  x: 50,
+  y,
+  size: 18,
+  font: bold,
+  color: BLUE,
+});
 
-    y -= 40;
+page.drawLine({
+  start: { x: 50, y: y - 6 },
+  end: { x: 545, y: y - 6 },
+  thickness: 1,
+  color: BLUE,
+});
 
-    // ---------------- METHODOLOGY ----------------
-    page.drawText('Methodology', {
-      x: 50,
-      y,
-      size: 12,
-      font: bold,
-      color: BLUE,
-    });
-    y -= 22;
+y -= 40;
 
-    paragraphText(
-      'Emission calculations use UK Government GHG Conversion Factors (DEFRA BEIS). Electricity uses location-based grid factors, fuel emissions use standard kg CO2e/litre values and Scope 3 emissions use category-specific conversion factors.'
-    );
+// ---------------- METHODOLOGY ----------------
+page.drawText('Methodology', {
+  x: 50,
+  y,
+  size: 12,
+  font: bold,
+  color: BLUE,
+});
+y -= 22;
 
-    paragraphText(
-      'Scope 1 reflects direct emissions from fuel use. Scope 2 reflects purchased electricity. Scope 3 reflects only categories recorded during this reporting period and is not a complete value-chain inventory.'
-    );
+let yRef = { value: y };
 
-    paragraphText(
-      'Boundary: This report follows an operational-control boundary unless otherwise stated. The reporting period covers all months entered by the organisation.'
-    );
+// Paragraph 1
+paragraphText(
+  page,
+  font,
+  TEXT,
+  'Emission calculations use UK Government GHG Conversion Factors (DEFRA BEIS). Electricity uses location-based grid factors, fuel emissions use standard kg CO2e/litre values and Scope 3 emissions use category-specific conversion factors.',
+  yRef
+);
 
-    // ---------------- METHODOLOGY CONFIRMATION ----------------
-    page.drawText('SECR methodology confirmation', {
-      x: 50,
-      y,
-      size: 12,
-      font: bold,
-      color: BLUE,
-    });
-    y -= 22;
+paragraphText(
+  page,
+  font,
+  TEXT,
+  'Scope 1 reflects direct emissions from fuel use. Scope 2 reflects purchased electricity. Scope 3 reflects only categories recorded during this reporting period and is not a complete value-chain inventory.',
+  yRef
+);
 
-    if (methodologyConfirmed) {
-      paragraphText(
-        'The organisation has confirmed that the SECR calculation methodology used in this report is correct and approved.'
-      );
-    } else {
-      paragraphText(
-        'The organisation has NOT confirmed the SECR methodology. A fully SECR-compliant disclosure cannot be issued until confirmation is provided.'
-      );
-    }
+paragraphText(
+  page,
+  font,
+  TEXT,
+  'Boundary: This report follows an operational-control boundary unless otherwise stated. The reporting period covers all months entered by the organisation.',
+  yRef
+);
 
-    // ---------------- ORGANISATIONAL BOUNDARY ----------------
-    page.drawText('Organisational boundary', {
-      x: 50,
-      y,
-      size: 12,
-      font: bold,
-      color: BLUE,
-    });
-    y -= 22;
+y = yRef.value;
 
-    paragraphText(
-      'This report covers UK operations under operational control. Additional locations or non-UK operations may be added in future reporting cycles.'
-    );
+// ---------------- METHODOLOGY CONFIRMATION ----------------
+page.drawText('SECR methodology confirmation', {
+  x: 50,
+  y,
+  size: 12,
+  font: bold,
+  color: BLUE,
+});
+y -= 22;
 
-    // ---------------- RESPONSIBILITY STATEMENT ----------------
-    page.drawText('Responsibility statement', {
-      x: 50,
-      y,
-      size: 12,
-      font: bold,
-      color: BLUE,
-    });
-    y -= 22;
+yRef = { value: y };
 
-    paragraphText(
-      'Directors or authorised representatives are responsible for the completeness and accuracy of all data provided. Carbon Central calculations use the data exactly as entered and do not include independent verification unless separately commissioned.'
-    );
+if (methodologyConfirmed) {
+  paragraphText(
+    page,
+    font,
+    TEXT,
+    'The organisation has confirmed that the SECR calculation methodology used in this report is correct and approved.',
+    yRef
+  );
+} else {
+  paragraphText(
+    page,
+    font,
+    TEXT,
+    'The organisation has NOT confirmed the SECR methodology. A fully SECR-compliant disclosure cannot be issued until confirmation is provided.',
+    yRef
+  );
+}
 
-    // ---------------- ENERGY EFFICIENCY ACTIONS ----------------
-    page.drawText('Energy efficiency actions this year', {
-      x: 50,
-      y,
-      size: 12,
-      font: bold,
-      color: BLUE,
-    });
-    y -= 22;
+y = yRef.value;
 
-    if (eeActions && eeActions.trim().length > 0) {
-      paragraphText(eeActions.trim());
-    } else {
-      paragraphText(
-        'No energy-efficiency actions were reported for this year.'
-      );
-    }
+// ---------------- ORGANISATIONAL BOUNDARY ----------------
+page.drawText('Organisational boundary', {
+  x: 50,
+  y,
+  size: 12,
+  font: bold,
+  color: BLUE,
+});
+y -= 22;
 
-    // ---------------- DATA QUALITY ----------------
-    page.drawText('Data quality and limitations', {
-      x: 50,
-      y,
-      size: 12,
-      font: bold,
-      color: BLUE,
-    });
-    y -= 22;
+yRef = { value: y };
 
-    paragraphText(
-      'This report is based only on data entered into Carbon Central. Months with missing entries, zero values or partial Scope 3 coverage may reduce completeness and analytical accuracy.'
-    );
+paragraphText(
+  page,
+  font,
+  TEXT,
+  'This report covers UK operations under operational control. Additional locations or non-UK operations may be added in future reporting cycles.',
+  yRef
+);
 
-    // ---- FOOTER ----
-    page.drawText('Carbon Central · SECR-ready emissions report · Page 5', {
-      x: 180,
-      y: 20,
-      size: 9,
-      font,
-      color: TEXT,
-    });
+y = yRef.value;
+
+// ---------------- RESPONSIBILITY STATEMENT ----------------
+page.drawText('Responsibility statement', {
+  x: 50,
+  y,
+  size: 12,
+  font: bold,
+  color: BLUE,
+});
+y -= 22;
+
+yRef = { value: y };
+
+paragraphText(
+  page,
+  font,
+  TEXT,
+  'Directors or authorised representatives are responsible for the completeness and accuracy of all data provided. Carbon Central calculations use the data exactly as entered and do not include independent verification unless separately commissioned.',
+  yRef
+);
+
+y = yRef.value;
+
+// ---------------- ENERGY EFFICIENCY ACTIONS ----------------
+page.drawText('Energy efficiency actions this year', {
+  x: 50,
+  y,
+  size: 12,
+  font: bold,
+  color: BLUE,
+});
+y -= 22;
+
+yRef = { value: y };
+
+if (eeActions && eeActions.trim().length > 0) {
+  paragraphText(page, font, TEXT, eeActions.trim(), yRef);
+} else {
+  paragraphText(page, font, TEXT, 'No energy-efficiency actions were reported for this year.', yRef);
+}
+
+y = yRef.value;
+
+// ---------------- DATA QUALITY ----------------
+page.drawText('Data quality and limitations', {
+  x: 50,
+  y,
+  size: 12,
+  font: bold,
+  color: BLUE,
+});
+y -= 22;
+
+yRef = { value: y };
+
+paragraphText(
+  page,
+  font,
+  TEXT,
+  'This report is based only on data entered into Carbon Central. Months with missing entries, zero values or partial Scope 3 coverage may reduce completeness and analytical accuracy.',
+  yRef
+);
+
+y = yRef.value;
+
+// ---- FOOTER ----
+page.drawText('Carbon Central · SECR-ready emissions report · Page 5', {
+  x: 180,
+  y: 20,
+  size: 9,
+  font,
+  color: TEXT,
+});
 
     // ========================= RETURN PDF =========================
     const pdfBytes = await pdf.save();
