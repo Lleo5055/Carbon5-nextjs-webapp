@@ -11,8 +11,9 @@ const supabase = createClient(
 );
 
 // IMPORTANT: Use your real key in .env
-const openaiApiKey = process.env.OPENAI_API_KEY!;
-
+const openaiApiKey =
+  process.env.OPENAI_API_KEY ||
+  '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';
 
 const openai = new OpenAI({
   apiKey: openaiApiKey,
@@ -163,7 +164,7 @@ export async function generateAIInsightsForAllUsers(
 
   if (error) throw new Error('Failed loading users: ' + error.message);
 
-  const userIds = [...new Set(data.map((x: any) => x.user_id))];
+  const userIds = Array.from(new Set(data.map((x: any) => x.user_id)));
 
   const results: any[] = [];
 
