@@ -506,16 +506,13 @@ export async function GET(req: NextRequest) {
     const chartBaseY = y;
 
     const sx = (i: number) => {
-
       return 50 + (i / Math.max(values.length - 1, 1)) * 495;
-    }
+    };
     const sy = (v: number) => {
       const max = Math.max(...values, 1);
       const min = Math.min(...values, 0);
       return chartBaseY - 70 + 60 - ((v - min) / (max - min || 1)) * 60;
     };
-    
-    
 
     for (let i = 0; i < values.length - 1; i++) {
       page.drawLine({
@@ -969,428 +966,433 @@ export async function GET(req: NextRequest) {
     y -= 35; // spacing before Page 4
 
     // ========================= PAGE 4 =========================
-page = pdf.addPage([595, 842]);
-y = 780;
+    page = pdf.addPage([595, 842]);
+    y = 780;
 
-// ---- HEADER ----
-page.drawText('4. Key insights, actions and opportunities', {
-  x: 50,
-  y,
-  size: 18,
-  font: bold,
-  color: BLUE,
-});
+    // ---- HEADER ----
+    page.drawText('4. Key insights, actions and opportunities', {
+      x: 50,
+      y,
+      size: 18,
+      font: bold,
+      color: BLUE,
+    });
 
-page.drawLine({
-  start: { x: 50, y: y - 6 },
-  end: { x: 545, y: y - 6 },
-  thickness: 1,
-  color: BLUE,
-});
+    page.drawLine({
+      start: { x: 50, y: y - 6 },
+      end: { x: 545, y: y - 6 },
+      thickness: 1,
+      color: BLUE,
+    });
 
-y -= 40;
+    y -= 40;
 
-// ---------------- DYNAMIC SIGNALS ----------------
-const total_t = scope1_t + scope2_t + scope3_t;
-const s1_share = total_t ? scope1_t / total_t : 0;
-const s2_share = total_t ? scope2_t / total_t : 0;
-const s3_share = total_t ? scope3_t / total_t : 0;
+    // ---------------- DYNAMIC SIGNALS ----------------
+    const total_t = scope1_t + scope2_t + scope3_t;
+    const s1_share = total_t ? scope1_t / total_t : 0;
+    const s2_share = total_t ? scope2_t / total_t : 0;
+    const s3_share = total_t ? scope3_t / total_t : 0;
 
-let dominant = 'fuel';
-if (s2_share > s1_share && s2_share > s3_share) dominant = 'electricity';
-if (s3_share > s1_share && s3_share > s2_share) dominant = 'scope3';
+    let dominant = 'fuel';
+    if (s2_share > s1_share && s2_share > s3_share) dominant = 'electricity';
+    if (s3_share > s1_share && s3_share > s2_share) dominant = 'scope3';
 
-let trend = 'stable';
-if (values.length > 3) {
-  const first = values[0];
-  const last = values[values.length - 1];
-  if (last > first * 1.15) trend = 'rising';
-  else if (last < first * 0.85) trend = 'falling';
-  else trend = 'inconsistent';
-}
+    let trend = 'stable';
+    if (values.length > 3) {
+      const first = values[0];
+      const last = values[values.length - 1];
+      if (last > first * 1.15) trend = 'rising';
+      else if (last < first * 0.85) trend = 'falling';
+      else trend = 'inconsistent';
+    }
 
-const missingData = list.length === 0 || values.includes(0);
+    const missingData = list.length === 0 || values.includes(0);
 
-// ---------------- KEY INSIGHTS ----------------
-page.drawText('Key insights', {
-  x: 50,
-  y,
-  size: 12,
-  font: bold,
-  color: BLUE,
-});
-y -= 26;
+    // ---------------- KEY INSIGHTS ----------------
+    page.drawText('Key insights', {
+      x: 50,
+      y,
+      size: 12,
+      font: bold,
+      color: BLUE,
+    });
+    y -= 26;
 
-// INSIGHT 1 — Emissions profile
-{
-  const yRef = { value: y };
-  paragraphText(
-    page,
-    font,
-    TEXT,
-    dominant === 'fuel'
-      ? 'Fuel combustion is the primary source of emissions, highlighting a fleet-intensive operational model. Mileage patterns, idling behaviour and route variability strongly influence emissions outcomes.'
-      : dominant === 'electricity'
-      ? 'Electricity consumption accounts for the largest emissions share, indicating that facilities, equipment and operational hours drive most carbon intensity.'
-      : 'Scope 3 activities represent the dominant emissions contributors, indicating upstream supply chain processes and purchased goods have the strongest influence on organisational carbon impact.',
-    yRef
-  );
-  y = yRef.value;
-}
+    // INSIGHT 1 — Emissions profile
+    {
+      const yRef = { value: y };
+      paragraphText(
+        page,
+        font,
+        TEXT,
+        dominant === 'fuel'
+          ? 'Fuel combustion is the primary source of emissions, highlighting a fleet-intensive operational model. Mileage patterns, idling behaviour and route variability strongly influence emissions outcomes.'
+          : dominant === 'electricity'
+          ? 'Electricity consumption accounts for the largest emissions share, indicating that facilities, equipment and operational hours drive most carbon intensity.'
+          : 'Scope 3 activities represent the dominant emissions contributors, indicating upstream supply chain processes and purchased goods have the strongest influence on organisational carbon impact.',
+        yRef
+      );
+      y = yRef.value;
+    }
 
-// INSIGHT 2
-{
-  const yRef = { value: y };
-  paragraphText(
-    page,
-    font,
-    TEXT,
-    dominant === 'fuel'
-      ? 'Operational fuel use suggests inefficiencies such as non-optimised routing, inconsistent driver behaviour or under-maintained vehicles. These are common high-impact areas in transport-oriented operations.'
-      : dominant === 'electricity'
-      ? 'Electricity-driven emissions suggest opportunities in equipment efficiency, load control, heating and cooling optimisation and facility utilisation.'
-      : 'A Scope 3-heavy profile highlights the need for deeper supplier engagement, data collection and value-chain transparency to build a complete emissions baseline.',
-    yRef
-  );
-  y = yRef.value;
-}
+    // INSIGHT 2
+    {
+      const yRef = { value: y };
+      paragraphText(
+        page,
+        font,
+        TEXT,
+        dominant === 'fuel'
+          ? 'Operational fuel use suggests inefficiencies such as non-optimised routing, inconsistent driver behaviour or under-maintained vehicles. These are common high-impact areas in transport-oriented operations.'
+          : dominant === 'electricity'
+          ? 'Electricity-driven emissions suggest opportunities in equipment efficiency, load control, heating and cooling optimisation and facility utilisation.'
+          : 'A Scope 3-heavy profile highlights the need for deeper supplier engagement, data collection and value-chain transparency to build a complete emissions baseline.',
+        yRef
+      );
+      y = yRef.value;
+    }
 
-// INSIGHT 3
-{
-  let trendParagraph =
-    trend === 'rising'
-      ? 'Recent emissions indicate an upward trajectory, signalling increased operational load or reduced efficiency. This trend warrants immediate diagnostic analysis.'
-      : trend === 'falling'
-      ? 'Emissions have declined over recent months, reflecting early improvements or reduced operational intensity. Continued monitoring can help maintain momentum.'
-      : 'Month-to-month fluctuations show no consistent trend, suggesting varying operational patterns or inconsistent data logging.';
-  if (missingData)
-    trendParagraph +=
-      ' Some entries appear incomplete or zero, reducing analytical confidence.';
+    // INSIGHT 3
+    {
+      let trendParagraph =
+        trend === 'rising'
+          ? 'Recent emissions indicate an upward trajectory, signalling increased operational load or reduced efficiency. This trend warrants immediate diagnostic analysis.'
+          : trend === 'falling'
+          ? 'Emissions have declined over recent months, reflecting early improvements or reduced operational intensity. Continued monitoring can help maintain momentum.'
+          : 'Month-to-month fluctuations show no consistent trend, suggesting varying operational patterns or inconsistent data logging.';
+      if (missingData)
+        trendParagraph +=
+          ' Some entries appear incomplete or zero, reducing analytical confidence.';
 
-  const yRef = { value: y };
-  paragraphText(page, font, TEXT, trendParagraph, yRef);
-  y = yRef.value;
-}
+      const yRef = { value: y };
+      paragraphText(page, font, TEXT, trendParagraph, yRef);
+      y = yRef.value;
+    }
 
-// INSIGHT 4
-{
-  const yRef = { value: y };
-  paragraphText(
-    page,
-    font,
-    TEXT,
-    dominant === 'fuel'
-      ? 'Long-term decarbonisation will require structured fleet optimisation, including driver training, telematics, preventative maintenance and a phased transition to hybrid or electric vehicles.'
-      : dominant === 'electricity'
-      ? 'Strategic reductions will require integrated energy-efficiency planning, equipment upgrades and a shift towards renewable or lower-carbon electricity procurement.'
-      : 'Meaningful reductions require supply-chain collaboration, sustainability requirements in procurement, data transparency and prioritisation of high-impact suppliers.',
-    yRef
-  );
-  y = yRef.value;
-}
+    // INSIGHT 4
+    {
+      const yRef = { value: y };
+      paragraphText(
+        page,
+        font,
+        TEXT,
+        dominant === 'fuel'
+          ? 'Long-term decarbonisation will require structured fleet optimisation, including driver training, telematics, preventative maintenance and a phased transition to hybrid or electric vehicles.'
+          : dominant === 'electricity'
+          ? 'Strategic reductions will require integrated energy-efficiency planning, equipment upgrades and a shift towards renewable or lower-carbon electricity procurement.'
+          : 'Meaningful reductions require supply-chain collaboration, sustainability requirements in procurement, data transparency and prioritisation of high-impact suppliers.',
+        yRef
+      );
+      y = yRef.value;
+    }
 
-y -= 10;
+    y -= 10;
 
-// ---------------- TOP 3 RECOMMENDED ACTIONS ----------------
-page.drawText('Top 3 recommended actions', {
-  x: 50,
-  y,
-  size: 12,
-  font: bold,
-  color: BLUE,
-});
-y -= 26;
+    // ---------------- TOP 3 RECOMMENDED ACTIONS ----------------
+    page.drawText('Top 3 recommended actions', {
+      x: 50,
+      y,
+      size: 12,
+      font: bold,
+      color: BLUE,
+    });
+    y -= 26;
 
-const actions =
-  dominant === 'fuel'
-    ? [
-        'Improve route planning and integrate idle-reduction policies to reduce unnecessary fuel consumption.',
-        'Implement efficiency-focused driver training covering acceleration, braking and speed discipline.',
-        'Strengthen scheduled maintenance to optimise fuel efficiency and reduce operational wear.',
-      ]
-    : dominant === 'electricity'
-    ? [
-        'Conduct a full energy-efficiency assessment of facility equipment, lighting and HVAC performance.',
-        'Introduce automated controls or smart-metering analytics to reduce off-peak and baseload consumption.',
-        'Explore equipment upgrades and renewable-electricity procurement for sustained long-term reductions.',
-      ]
-    : [
-        'Expand Scope 3 data capture across upstream procurement, waste, logistics and downstream activities.',
-        'Engage strategic suppliers to build shared data-transparency processes and reduction initiatives.',
-        'Embed sustainability requirements into procurement frameworks to influence supply-chain emissions.',
-      ];
+    const actions =
+      dominant === 'fuel'
+        ? [
+            'Improve route planning and integrate idle-reduction policies to reduce unnecessary fuel consumption.',
+            'Implement efficiency-focused driver training covering acceleration, braking and speed discipline.',
+            'Strengthen scheduled maintenance to optimise fuel efficiency and reduce operational wear.',
+          ]
+        : dominant === 'electricity'
+        ? [
+            'Conduct a full energy-efficiency assessment of facility equipment, lighting and HVAC performance.',
+            'Introduce automated controls or smart-metering analytics to reduce off-peak and baseload consumption.',
+            'Explore equipment upgrades and renewable-electricity procurement for sustained long-term reductions.',
+          ]
+        : [
+            'Expand Scope 3 data capture across upstream procurement, waste, logistics and downstream activities.',
+            'Engage strategic suppliers to build shared data-transparency processes and reduction initiatives.',
+            'Embed sustainability requirements into procurement frameworks to influence supply-chain emissions.',
+          ];
 
-for (const a of actions) {
-  const yRef = { value: y };
-  paragraphText(page, font, TEXT, a, yRef);
-  y = yRef.value;
-}
+    for (const a of actions) {
+      const yRef = { value: y };
+      paragraphText(page, font, TEXT, a, yRef);
+      y = yRef.value;
+    }
 
-y -= 10;
+    y -= 10;
 
-// ---------------- IMMEDIATE ACTIONS ----------------
-page.drawText('Immediate actions (0–6 months)', {
-  x: 50,
-  y,
-  size: 12,
-  font: bold,
-  color: BLUE,
-});
-y -= 26;
+    // ---------------- IMMEDIATE ACTIONS ----------------
+    page.drawText('Immediate actions (0–6 months)', {
+      x: 50,
+      y,
+      size: 12,
+      font: bold,
+      color: BLUE,
+    });
+    y -= 26;
 
-const imm =
-  dominant === 'fuel'
-    ? [
-        'Strengthen fuel and mileage tracking to detect inefficient routes or high-waste behaviours.',
-        'Review highest-mileage routes and identify quick-win optimisation opportunities.',
-      ]
-    : dominant === 'electricity'
-    ? [
-        'Analyse peak-load consumption to identify avoidable energy spikes.',
-        'Introduce equipment-shutdown and low-activity control routines.',
-      ]
-    : [
-        'Expand Scope 3 activity-data collection to improve baseline accuracy.',
-        'Engage top suppliers to establish emissions-data submission processes.',
-      ];
+    const imm =
+      dominant === 'fuel'
+        ? [
+            'Strengthen fuel and mileage tracking to detect inefficient routes or high-waste behaviours.',
+            'Review highest-mileage routes and identify quick-win optimisation opportunities.',
+          ]
+        : dominant === 'electricity'
+        ? [
+            'Analyse peak-load consumption to identify avoidable energy spikes.',
+            'Introduce equipment-shutdown and low-activity control routines.',
+          ]
+        : [
+            'Expand Scope 3 activity-data collection to improve baseline accuracy.',
+            'Engage top suppliers to establish emissions-data submission processes.',
+          ];
 
-for (const a of imm) {
-  const yRef = { value: y };
-  paragraphText(page, font, TEXT, a, yRef);
-  y = yRef.value;
-}
+    for (const a of imm) {
+      const yRef = { value: y };
+      paragraphText(page, font, TEXT, a, yRef);
+      y = yRef.value;
+    }
 
-y -= 10;
+    y -= 10;
 
-// ---------------- MEDIUM-TERM ----------------
-page.drawText('Medium term opportunities (6–36 months)', {
-  x: 50,
-  y,
-  size: 12,
-  font: bold,
-  color: BLUE,
-});
-y -= 26;
+    // ---------------- MEDIUM-TERM ----------------
+    page.drawText('Medium term opportunities (6–36 months)', {
+      x: 50,
+      y,
+      size: 12,
+      font: bold,
+      color: BLUE,
+    });
+    y -= 26;
 
-const med =
-  dominant === 'fuel'
-    ? [
-        'Design a staged fleet-transition roadmap evaluating hybrid or electric vehicle suitability.',
-        'Explore logistics consolidation, depot optimisation or integrated planning frameworks to lower mileage.',
-      ]
-    : dominant === 'electricity'
-    ? [
-        'Upgrade to high-efficiency equipment and explore advanced building-management systems.',
-        'Evaluate on-site renewable generation or longer-term renewable-electricity contracts.',
-      ]
-    : [
-        'Develop a supplier-focused decarbonisation roadmap prioritising high-impact categories.',
-        'Integrate emissions-scoring into procurement decisions to incentivise lower-carbon options.',
-      ];
+    const med =
+      dominant === 'fuel'
+        ? [
+            'Design a staged fleet-transition roadmap evaluating hybrid or electric vehicle suitability.',
+            'Explore logistics consolidation, depot optimisation or integrated planning frameworks to lower mileage.',
+          ]
+        : dominant === 'electricity'
+        ? [
+            'Upgrade to high-efficiency equipment and explore advanced building-management systems.',
+            'Evaluate on-site renewable generation or longer-term renewable-electricity contracts.',
+          ]
+        : [
+            'Develop a supplier-focused decarbonisation roadmap prioritising high-impact categories.',
+            'Integrate emissions-scoring into procurement decisions to incentivise lower-carbon options.',
+          ];
 
-for (const a of med) {
-  const yRef = { value: y };
-  paragraphText(page, font, TEXT, a, yRef);
-  y = yRef.value;
-}
+    for (const a of med) {
+      const yRef = { value: y };
+      paragraphText(page, font, TEXT, a, yRef);
+      y = yRef.value;
+    }
 
-// ---- FOOTER ----
-page.drawText('Carbon Central · SECR-ready emissions report · Page 4', {
-  x: 180,
-  y: 20,
-  size: 9,
-  font,
-  color: TEXT,
-});
-} // closes page 4 content block
+    // ---- FOOTER ----
+    page.drawText('Carbon Central · SECR-ready emissions report · Page 4', {
+      x: 180,
+      y: 20,
+      size: 9,
+      font,
+      color: TEXT,
+    });
 
-// ========================= PAGE 5 =========================
-page = pdf.addPage([595, 842]);
+    // ========================= PAGE 5 =========================
+    page = pdf.addPage([595, 842]);
 
-y = 780;
+    y = 780;
 
-page.drawText('5. Methodology and governance', {
-  x: 50,
-  y,
-  size: 18,
-  font: bold,
-  color: BLUE,
-});
+    page.drawText('5. Methodology and governance', {
+      x: 50,
+      y,
+      size: 18,
+      font: bold,
+      color: BLUE,
+    });
 
-page.drawLine({
-  start: { x: 50, y: y - 6 },
-  end: { x: 545, y: y - 6 },
-  thickness: 1,
-  color: BLUE,
-});
+    page.drawLine({
+      start: { x: 50, y: y - 6 },
+      end: { x: 545, y: y - 6 },
+      thickness: 1,
+      color: BLUE,
+    });
 
-y -= 40;
+    y -= 40;
 
-// ---------------- METHODOLOGY ----------------
-page.drawText('Methodology', {
-  x: 50,
-  y,
-  size: 12,
-  font: bold,
-  color: BLUE,
-});
-y -= 22;
+    // ---------------- METHODOLOGY ----------------
+    page.drawText('Methodology', {
+      x: 50,
+      y,
+      size: 12,
+      font: bold,
+      color: BLUE,
+    });
+    y -= 22;
 
-let yRef = { value: y };
+    let yRef = { value: y };
 
-// Paragraph 1
-paragraphText(
-  page,
-  font,
-  TEXT,
-  'Emission calculations use UK Government GHG Conversion Factors (DEFRA BEIS). Electricity uses location-based grid factors, fuel emissions use standard kg CO2e/litre values and Scope 3 emissions use category-specific conversion factors.',
-  yRef
-);
+    // Paragraph 1
+    paragraphText(
+      page,
+      font,
+      TEXT,
+      'Emission calculations use UK Government GHG Conversion Factors (DEFRA BEIS). Electricity uses location-based grid factors, fuel emissions use standard kg CO2e/litre values and Scope 3 emissions use category-specific conversion factors.',
+      yRef
+    );
 
-paragraphText(
-  page,
-  font,
-  TEXT,
-  'Scope 1 reflects direct emissions from fuel use. Scope 2 reflects purchased electricity. Scope 3 reflects only categories recorded during this reporting period and is not a complete value-chain inventory.',
-  yRef
-);
+    paragraphText(
+      page,
+      font,
+      TEXT,
+      'Scope 1 reflects direct emissions from fuel use. Scope 2 reflects purchased electricity. Scope 3 reflects only categories recorded during this reporting period and is not a complete value-chain inventory.',
+      yRef
+    );
 
-paragraphText(
-  page,
-  font,
-  TEXT,
-  'Boundary: This report follows an operational-control boundary unless otherwise stated. The reporting period covers all months entered by the organisation.',
-  yRef
-);
+    paragraphText(
+      page,
+      font,
+      TEXT,
+      'Boundary: This report follows an operational-control boundary unless otherwise stated. The reporting period covers all months entered by the organisation.',
+      yRef
+    );
 
-y = yRef.value;
+    y = yRef.value;
 
-// ---------------- METHODOLOGY CONFIRMATION ----------------
-page.drawText('SECR methodology confirmation', {
-  x: 50,
-  y,
-  size: 12,
-  font: bold,
-  color: BLUE,
-});
-y -= 22;
+    // ---------------- METHODOLOGY CONFIRMATION ----------------
+    page.drawText('SECR methodology confirmation', {
+      x: 50,
+      y,
+      size: 12,
+      font: bold,
+      color: BLUE,
+    });
+    y -= 22;
 
-yRef = { value: y };
+    yRef = { value: y };
 
-if (methodologyConfirmed) {
-  paragraphText(
-    page,
-    font,
-    TEXT,
-    'The organisation has confirmed that the SECR calculation methodology used in this report is correct and approved.',
-    yRef
-  );
-} else {
-  paragraphText(
-    page,
-    font,
-    TEXT,
-    'The organisation has NOT confirmed the SECR methodology. A fully SECR-compliant disclosure cannot be issued until confirmation is provided.',
-    yRef
-  );
-}
+    if (methodologyConfirmed) {
+      paragraphText(
+        page,
+        font,
+        TEXT,
+        'The organisation has confirmed that the SECR calculation methodology used in this report is correct and approved.',
+        yRef
+      );
+    } else {
+      paragraphText(
+        page,
+        font,
+        TEXT,
+        'The organisation has NOT confirmed the SECR methodology. A fully SECR-compliant disclosure cannot be issued until confirmation is provided.',
+        yRef
+      );
+    }
 
-y = yRef.value;
+    y = yRef.value;
 
-// ---------------- ORGANISATIONAL BOUNDARY ----------------
-page.drawText('Organisational boundary', {
-  x: 50,
-  y,
-  size: 12,
-  font: bold,
-  color: BLUE,
-});
-y -= 22;
+    // ---------------- ORGANISATIONAL BOUNDARY ----------------
+    page.drawText('Organisational boundary', {
+      x: 50,
+      y,
+      size: 12,
+      font: bold,
+      color: BLUE,
+    });
+    y -= 22;
 
-yRef = { value: y };
+    yRef = { value: y };
 
-paragraphText(
-  page,
-  font,
-  TEXT,
-  'This report covers UK operations under operational control. Additional locations or non-UK operations may be added in future reporting cycles.',
-  yRef
-);
+    paragraphText(
+      page,
+      font,
+      TEXT,
+      'This report covers UK operations under operational control. Additional locations or non-UK operations may be added in future reporting cycles.',
+      yRef
+    );
 
-y = yRef.value;
+    y = yRef.value;
 
-// ---------------- RESPONSIBILITY STATEMENT ----------------
-page.drawText('Responsibility statement', {
-  x: 50,
-  y,
-  size: 12,
-  font: bold,
-  color: BLUE,
-});
-y -= 22;
+    // ---------------- RESPONSIBILITY STATEMENT ----------------
+    page.drawText('Responsibility statement', {
+      x: 50,
+      y,
+      size: 12,
+      font: bold,
+      color: BLUE,
+    });
+    y -= 22;
 
-yRef = { value: y };
+    yRef = { value: y };
 
-paragraphText(
-  page,
-  font,
-  TEXT,
-  'Directors or authorised representatives are responsible for the completeness and accuracy of all data provided. Carbon Central calculations use the data exactly as entered and do not include independent verification unless separately commissioned.',
-  yRef
-);
+    paragraphText(
+      page,
+      font,
+      TEXT,
+      'Directors or authorised representatives are responsible for the completeness and accuracy of all data provided. Carbon Central calculations use the data exactly as entered and do not include independent verification unless separately commissioned.',
+      yRef
+    );
 
-y = yRef.value;
+    y = yRef.value;
 
-// ---------------- ENERGY EFFICIENCY ACTIONS ----------------
-page.drawText('Energy efficiency actions this year', {
-  x: 50,
-  y,
-  size: 12,
-  font: bold,
-  color: BLUE,
-});
-y -= 22;
+    // ---------------- ENERGY EFFICIENCY ACTIONS ----------------
+    page.drawText('Energy efficiency actions this year', {
+      x: 50,
+      y,
+      size: 12,
+      font: bold,
+      color: BLUE,
+    });
+    y -= 22;
 
-yRef = { value: y };
+    yRef = { value: y };
 
-if (eeActions && eeActions.trim().length > 0) {
-  paragraphText(page, font, TEXT, eeActions.trim(), yRef);
-} else {
-  paragraphText(page, font, TEXT, 'No energy-efficiency actions were reported for this year.', yRef);
-}
+    if (eeActions && eeActions.trim().length > 0) {
+      paragraphText(page, font, TEXT, eeActions.trim(), yRef);
+    } else {
+      paragraphText(
+        page,
+        font,
+        TEXT,
+        'No energy-efficiency actions were reported for this year.',
+        yRef
+      );
+    }
 
-y = yRef.value;
+    y = yRef.value;
 
-// ---------------- DATA QUALITY ----------------
-page.drawText('Data quality and limitations', {
-  x: 50,
-  y,
-  size: 12,
-  font: bold,
-  color: BLUE,
-});
-y -= 22;
+    // ---------------- DATA QUALITY ----------------
+    page.drawText('Data quality and limitations', {
+      x: 50,
+      y,
+      size: 12,
+      font: bold,
+      color: BLUE,
+    });
+    y -= 22;
 
-yRef = { value: y };
+    yRef = { value: y };
 
-paragraphText(
-  page,
-  font,
-  TEXT,
-  'This report is based only on data entered into Carbon Central. Months with missing entries, zero values or partial Scope 3 coverage may reduce completeness and analytical accuracy.',
-  yRef
-);
+    paragraphText(
+      page,
+      font,
+      TEXT,
+      'This report is based only on data entered into Carbon Central. Months with missing entries, zero values or partial Scope 3 coverage may reduce completeness and analytical accuracy.',
+      yRef
+    );
 
-y = yRef.value;
+    y = yRef.value;
 
-// ---- FOOTER ----
-page.drawText('Carbon Central · SECR-ready emissions report · Page 5', {
-  x: 180,
-  y: 20,
-  size: 9,
-  font,
-  color: TEXT,
-});
+    // ---- FOOTER ----
+    page.drawText('Carbon Central · SECR-ready emissions report · Page 5', {
+      x: 180,
+      y: 20,
+      size: 9,
+      font,
+      color: TEXT,
+    });
 
     // ========================= RETURN PDF =========================
     const pdfBytes = await pdf.save();
