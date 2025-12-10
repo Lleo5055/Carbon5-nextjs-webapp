@@ -8,7 +8,8 @@ export const runtime = 'nodejs';
 // ENV CHECKS
 // -------------------------------
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
+
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -33,7 +34,8 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
 // POST handler
 // -------------------------------
 export async function POST(req: NextRequest) {
-  const signature = req.headers.get('stripe-signature');
+  const signature = req.headers.get('stripe-signature') || '';
+
 
   if (!signature) {
     return new NextResponse('Missing signature', { status: 400 });
