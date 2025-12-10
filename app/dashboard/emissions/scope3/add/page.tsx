@@ -37,22 +37,31 @@ const CATEGORY_LABELS: { id: Scope3Category; label: string }[] = [
 export default function AddScope3ActivityPage() {
   const router = useRouter();
 
-  const [month, setMonth] = useState(MONTH_OPTIONS[0]); // ✅ correct
+  // month selector
+  const [month, setMonth] = useState(MONTH_OPTIONS[0]);
 
+  // commuting-specific fields
+  const [oneWayKm, setOneWayKm] = useState<number>(0);
+  const [daysPerMonth, setDaysPerMonth] = useState<number>(0);
+
+  // core category + labels
   const [category, setCategory] =
     useState<Scope3Category>('employee_commuting');
   const [label, setLabel] = useState<string>('');
+
+  // status + messaging
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Shared simple input states
-  const [number1, setNumber1] = useState<string>(''); // reused per category
+  // shared inputs (for other categories)
+  const [number1, setNumber1] = useState<string>('');
   const [number2, setNumber2] = useState<string>('');
   const [number3, setNumber3] = useState<string>('');
-  const [mode, setMode] = useState<string>('car');
+  const [method, setMethod] = useState<string>('');
   const [wasteType, setWasteType] = useState<string>('general_landfill');
-  const [flightType, setFlightType] = useState<string>('short_haul');
+  const [flightType, setFlightType] = useState<string>('');
+  ('short_haul');
 
   const resetMessages = () => {
     setErrorMsg(null);
@@ -64,17 +73,15 @@ export default function AddScope3ActivityPage() {
 
     switch (category) {
       case 'employee_commuting':
-  return {
-    category,
-    ...base,
-    mode: mode as 'car' | 'train' | 'bus' | 'bike_walk',
-    month: month.value,
-    label,
-    oneWayKm,
-    daysPerMonth,
-  };
-
-
+        return {
+          category,
+          ...base,
+          mode: mode as 'car' | 'train' | 'bus' | 'bike_walk',
+          month: month.value,
+          label,
+          oneWayKm,
+          daysPerMonth,
+        };
 
       case 'business_travel':
         return {
