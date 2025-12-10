@@ -29,7 +29,6 @@ function drawText(
   page.drawText(str, { x, y, size, font, color });
 }
 
-
 export async function GET(req: NextRequest) {
   try {
     // ======================== LOAD DATA ========================
@@ -99,7 +98,15 @@ export async function GET(req: NextRequest) {
     const TEXT = rgb(32 / 255, 32 / 255, 34 / 255);
 
     // paragraph wrapper
-    function paragraph(page, str, startX, maxWidth, size, yRef) {
+    // paragraph wrapper
+    const paragraph = (
+      page: PDFPage,
+      str: string,
+      startX: number,
+      maxWidth: number,
+      size: number,
+      yRef: { value: number }
+    ) => {
       const words = str.split(' ');
       let line = '';
       const fontSize = size;
@@ -135,7 +142,7 @@ export async function GET(req: NextRequest) {
       }
 
       yRef.value -= 12;
-    }
+    };
 
     // ========================= PAGE 1 =========================
     let page = pdf.addPage([595, 842]);
