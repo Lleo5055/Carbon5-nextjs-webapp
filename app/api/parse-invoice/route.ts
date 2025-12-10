@@ -131,9 +131,12 @@ Return ONLY valid JSON with the exact fields:
     if (typeof messageContent === 'string') {
       parsed = safeJsonParse<InvoiceSuggestion>(messageContent);
     } else if (Array.isArray(messageContent)) {
-      const textPart = messageContent.find((p: any) => p.type === 'text') as
-        | { type: 'text'; text: string }
-        | undefined;
+  const arr = (messageContent as any[]) || [];
+
+  const textPart = arr.find((p: any) => p?.type === 'text') as
+    | { type: 'text'; text: string }
+    | undefined;
+
       if (textPart) {
         parsed = safeJsonParse<InvoiceSuggestion>(textPart.text);
       }
