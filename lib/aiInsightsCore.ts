@@ -11,9 +11,7 @@ const supabase = createClient(
 );
 
 // IMPORTANT: Use your real key in .env
-const openaiApiKey =
-  process.env.OPENAI_API_KEY ||
-  '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';
+const openaiApiKey = process.env.OPENAI_API_KEY!;
 
 const openai = new OpenAI({
   apiKey: openaiApiKey,
