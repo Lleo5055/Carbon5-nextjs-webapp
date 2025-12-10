@@ -65,6 +65,10 @@ export default function AddScope3ActivityPage() {
   const [number2, setNumber2] = useState<string>('');
   const [number3, setNumber3] = useState<string>('');
   const [method, setMethod] = useState<string>('');
+  const [wasteType, setWasteType] = useState<
+    'mixed_recycling' | 'general_landfill' | 'food'
+  >('general_landfill');
+
   <select
     value={wasteType}
     onChange={(e) =>
