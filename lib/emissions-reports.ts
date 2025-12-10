@@ -1,7 +1,7 @@
 // lib/emissions-report.ts
 
 // ✅ FIXED IMPORT — correct server-side supabase client
-import { supabaseServer as supabase } from '@/lib/supabaseServer';
+import { supabase } from '@/lib/supabaseClient';
 
 export type ReportMonth = {
   monthLabel: string; // e.g. "November 2025"
