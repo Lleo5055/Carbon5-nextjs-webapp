@@ -55,6 +55,7 @@ type EmissionsReport = {
     totalGasKwh: number;
     totalRefKg: number;
   };
+  scope3Rows?: any[] | null;
 };
 
 type Plan = 'free' | 'growth' | 'pro' | 'enterprise';
