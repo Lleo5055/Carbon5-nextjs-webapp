@@ -9,7 +9,7 @@ if (!stripeSecretKey) {
 }
 
 const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: '2024-04-10',
+  apiVersion: '2023-08-16',
 });
 
 export const runtime = 'nodejs';
