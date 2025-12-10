@@ -25,7 +25,7 @@ export default function OnboardingCard({ profile, refreshDashboard }: Props) {
   const [stage, setStage] = useState(profile?.sustainability_stage || '');
 
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState(null);
+  const [msg, setMsg] = useState<string | null>(null);
 
   async function handleSave() {
     setSaving(true);
