@@ -37,60 +37,69 @@ const CATEGORY_LABELS: { id: Scope3Category; label: string }[] = [
 export default function AddScope3ActivityPage() {
   const router = useRouter();
 
-  // month selector
+  // month
   const [month, setMonth] = useState(MONTH_OPTIONS[0]);
 
-  // commuting-specific fields
+  // commuting fields
   const [oneWayKm, setOneWayKm] = useState<number>(0);
   const [daysPerMonth, setDaysPerMonth] = useState<number>(0);
   const [mode, setMode] = useState<'car' | 'train' | 'bus' | 'bike_walk'>(
     'car'
   );
 
-  // core category + labels
+  // core fields
   const [category, setCategory] =
     useState<Scope3Category>('employee_commuting');
   const [label, setLabel] = useState<string>('');
 
-  // status + messaging
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  // business travel
+  const [flightType, setFlightType] = useState<'short_haul' | 'long_haul'>(
+    'short_haul'
+  );
+  const [flightKm, setFlightKm] = useState<number>(0);
+  const [taxiKm, setTaxiKm] = useState<number>(0);
+  const [trainKm, setTrainKm] = useState<number>(0);
 
-  // shared inputs (for other categories)
+  // shared inputs
   const [number1, setNumber1] = useState<string>('');
   const [number2, setNumber2] = useState<string>('');
   const [number3, setNumber3] = useState<string>('');
   const [method, setMethod] = useState<string>('');
   const [wasteType, setWasteType] = useState<string>('general_landfill');
-  const [flightType, setFlightType] = useState<string>('');
-  ('short_haul');
+
+  // status
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const resetMessages = () => {
     setErrorMsg(null);
     setSuccessMsg(null);
   };
 
+  // ------------------- BUILD INPUT (FIXED) -------------------
+
   function buildInput(): Scope3ActivityInput | null {
-    const base = { month, label: label || undefined };
+    const base = {
+      month: month.value, // ✅ ALWAYS string
+      label: label || undefined,
+    };
 
     switch (category) {
       case 'employee_commuting':
         return {
           category,
           ...base,
-          mode: mode as 'car' | 'train' | 'bus' | 'bike_walk',
-          month: month.value,
-          label,
-          oneWayKm,
-          daysPerMonth,
+          mode,
+          oneWayKm: Number(number1) || 0,
+          daysPerMonth: Number(number2) || 0,
         };
 
       case 'business_travel':
         return {
           category,
           ...base,
-          flightType: flightType as 'short_haul' | 'long_haul',
+          flightType,
           flightKm: Number(number1) || 0,
           taxiKm: Number(number2) || 0,
           trainKm: Number(number3) || 0,
@@ -107,10 +116,7 @@ export default function AddScope3ActivityPage() {
         return {
           category,
           ...base,
-          wasteType: wasteType as
-            | 'mixed_recycling'
-            | 'general_landfill'
-            | 'food',
+          wasteType,
           weightKg: Number(number1) || 0,
         };
 
@@ -119,7 +125,7 @@ export default function AddScope3ActivityPage() {
         return {
           category,
           ...base,
-          mode: mode as 'road' | 'sea' | 'air',
+          mode: method as 'road' | 'sea' | 'air',
           weightKg: Number(number1) || 0,
           distanceKm: Number(number2) || 0,
         };
@@ -128,6 +134,8 @@ export default function AddScope3ActivityPage() {
         return null;
     }
   }
+
+  // ------------------- SUBMIT HANDLER -------------------
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -147,35 +155,25 @@ export default function AddScope3ActivityPage() {
 
     setLoading(true);
     try {
-      // get session user id
       const {
         data: { user },
-        error: userError,
       } = await supabase.auth.getUser();
 
-      if (userError || !user) {
-        throw new Error('You must be signed in to add activities.');
-      }
+      if (!user) throw new Error('You must be signed in to add activities.');
 
-      const { error: insertError } = await supabase
-        .from('scope3_activities')
-        .insert({
-          user_id: user.id,
-          month: input.month,
-          category: input.category,
-          label: input.label ?? null,
-          data: input,
-          co2e_kg: co2e,
-        });
+      const { error } = await supabase.from('scope3_activities').insert({
+        user_id: user.id,
+        month: input.month,
+        category: input.category,
+        label: input.label ?? null,
+        data: input,
+        co2e_kg: co2e,
+      });
 
-      if (insertError) {
-        console.error('Error inserting scope3 activity', insertError);
-        throw new Error('Could not save this activity. Please try again.');
-      }
+      if (error) throw error;
 
       setSuccessMsg(`Scope 3 activity saved (${co2e.toFixed(2)} kg CO₂e).`);
 
-      // gentle redirect back to emissions view
       setTimeout(() => {
         router.push('/dashboard/emissions/view-emissions');
       }, 900);
@@ -186,7 +184,7 @@ export default function AddScope3ActivityPage() {
     }
   }
 
-  // ---------- Render category-specific fields ----------
+  // ------------------- CATEGORY FIELDS -------------------
 
   function renderCategoryFields() {
     switch (category) {
@@ -199,7 +197,7 @@ export default function AddScope3ActivityPage() {
               </label>
               <select
                 value={mode}
-                onChange={(e) => setMode(e.target.value)}
+                onChange={(e) => setMode(e.target.value as any)}
                 className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
               >
                 <option value="car">Car</option>
@@ -207,9 +205,6 @@ export default function AddScope3ActivityPage() {
                 <option value="bus">Bus</option>
                 <option value="bike_walk">Bike / walk</option>
               </select>
-              <p className="mt-1 text-[11px] text-slate-500">
-                Typical way most staff commute to work.
-              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -219,26 +214,21 @@ export default function AddScope3ActivityPage() {
                 </label>
                 <input
                   type="number"
-                  min="0"
-                  step="0.1"
                   value={number1}
                   onChange={(e) => setNumber1(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
-                  placeholder="e.g. 12"
                 />
               </div>
+
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">
                   Days per month
                 </label>
                 <input
                   type="number"
-                  min="0"
-                  step="1"
                   value={number2}
                   onChange={(e) => setNumber2(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
-                  placeholder="e.g. 18"
                 />
               </div>
             </div>
@@ -255,25 +245,25 @@ export default function AddScope3ActivityPage() {
                 </label>
                 <select
                   value={flightType}
-                  onChange={(e) => setFlightType(e.target.value)}
+                  onChange={(e) =>
+                    setFlightType(e.target.value as 'short_haul' | 'long_haul')
+                  }
                   className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
                 >
                   <option value="short_haul">Short-haul</option>
                   <option value="long_haul">Long-haul</option>
                 </select>
               </div>
+
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">
                   Flight distance (km)
                 </label>
                 <input
                   type="number"
-                  min="0"
-                  step="1"
                   value={number1}
                   onChange={(e) => setNumber1(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
-                  placeholder="e.g. 4200"
                 />
               </div>
             </div>
@@ -285,26 +275,21 @@ export default function AddScope3ActivityPage() {
                 </label>
                 <input
                   type="number"
-                  min="0"
-                  step="1"
                   value={number2}
                   onChange={(e) => setNumber2(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
-                  placeholder="e.g. 120"
                 />
               </div>
+
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">
                   Train (km)
                 </label>
                 <input
                   type="number"
-                  min="0"
-                  step="1"
                   value={number3}
                   onChange={(e) => setNumber3(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
-                  placeholder="e.g. 300"
                 />
               </div>
             </div>
@@ -315,20 +300,14 @@ export default function AddScope3ActivityPage() {
         return (
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">
-              Spend (£, excl. VAT)
+              Spend (£)
             </label>
             <input
               type="number"
-              min="0"
-              step="0.01"
               value={number1}
               onChange={(e) => setNumber1(e.target.value)}
               className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
-              placeholder="e.g. 12000"
             />
-            <p className="mt-1 text-[11px] text-slate-500">
-              Approximate total spend this month for the selected category.
-            </p>
           </div>
         );
 
@@ -344,25 +323,21 @@ export default function AddScope3ActivityPage() {
                 onChange={(e) => setWasteType(e.target.value)}
                 className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
               >
-                <option value="general_landfill">
-                  General waste (landfill)
-                </option>
+                <option value="general_landfill">General landfill</option>
                 <option value="mixed_recycling">Mixed recycling</option>
                 <option value="food">Food waste</option>
               </select>
             </div>
+
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
                 Weight (kg)
               </label>
               <input
                 type="number"
-                min="0"
-                step="0.1"
                 value={number1}
                 onChange={(e) => setNumber1(e.target.value)}
                 className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
-                placeholder="e.g. 350"
               />
             </div>
           </>
@@ -374,11 +349,11 @@ export default function AddScope3ActivityPage() {
           <>
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
-                Transport mode
+                Transport method
               </label>
               <select
-                value={mode}
-                onChange={(e) => setMode(e.target.value)}
+                value={method}
+                onChange={(e) => setMethod(e.target.value)}
                 className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
               >
                 <option value="road">Road</option>
@@ -390,30 +365,25 @@ export default function AddScope3ActivityPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">
-                  Total weight (kg)
+                  Weight (kg)
                 </label>
                 <input
                   type="number"
-                  min="0"
-                  step="0.1"
                   value={number1}
                   onChange={(e) => setNumber1(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
-                  placeholder="e.g. 1200"
                 />
               </div>
+
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">
                   Distance (km)
                 </label>
                 <input
                   type="number"
-                  min="0"
-                  step="1"
                   value={number2}
                   onChange={(e) => setNumber2(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
-                  placeholder="e.g. 450"
                 />
               </div>
             </div>
@@ -425,41 +395,19 @@ export default function AddScope3ActivityPage() {
     }
   }
 
+  // ------------------- RENDER -------------------
+
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-4xl px-4 py-10 space-y-6">
-        {/* Header card */}
-        <section className="rounded-xl bg-white border p-6 shadow flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">
-              Scope 3
-            </p>
-            <h1 className="text-2xl font-semibold text-slate-900 mt-1">
-              Add Scope 3 activity
-            </h1>
-            <p className="text-sm text-slate-600 mt-1">
-              Log one real-world activity (commuting, travel, purchases, waste
-              or logistics). We&apos;ll calculate the Scope 3 CO₂e impact.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2 justify-start md:justify-end">
-            <Link
-              href="/dashboard/emissions/view-emissions"
-              className="h-[32px] px-4 rounded-full border text-xs font-medium bg-white text-slate-700 border-slate-300 hover:bg-slate-900 hover:text-white flex items-center justify-center"
-            >
-              View emissions history
-            </Link>
-            <Link
-              href="/dashboard"
-              className="h-[32px] px-4 rounded-full border text-xs font-medium bg-slate-900 text-white border-slate-900 hover:bg-slate-800 flex items-center justify-center"
-            >
-              ← Back to dashboard
-            </Link>
-          </div>
+        {/* Header */}
+        <section className="rounded-xl bg-white border p-6 shadow">
+          <h1 className="text-xl font-semibold text-slate-900">
+            Add Scope 3 Activity
+          </h1>
         </section>
 
-        {/* Form card */}
+        {/* Form */}
         <section className="rounded-xl bg-white border p-6 shadow">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Month + category */}
@@ -469,8 +417,12 @@ export default function AddScope3ActivityPage() {
                   Reporting month
                 </label>
                 <select
-                  value={month}
-                  onChange={(e) => setMonth(e.target.value)}
+                  value={month.value}
+                  onChange={(e) =>
+                    setMonth(
+                      MONTH_OPTIONS.find((m) => m.value === e.target.value)!
+                    )
+                  }
                   className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
                 >
                   {MONTH_OPTIONS.map((m) => (
@@ -489,12 +441,10 @@ export default function AddScope3ActivityPage() {
                   value={category}
                   onChange={(e) => {
                     setCategory(e.target.value as Scope3Category);
-                    // reset basic fields when category changes
                     setNumber1('');
                     setNumber2('');
                     setNumber3('');
-                    setMode('car');
-                    setWasteType('general_landfill');
+                    setMethod('');
                     setFlightType('short_haul');
                     resetMessages();
                   }}
@@ -519,46 +469,41 @@ export default function AddScope3ActivityPage() {
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
                 className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
-                placeholder="e.g. Team offsite flights, Q2 courier shipments"
               />
             </div>
 
-            {/* Category-specific fields */}
+            {/* Category-specific */}
             <div className="border border-slate-200 rounded-lg p-4 bg-slate-50 space-y-4">
               {renderCategoryFields()}
             </div>
 
             {/* Messages */}
-            {(errorMsg || successMsg) && (
-              <div className="text-xs">
-                {errorMsg && (
-                  <p className="text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
-                    {errorMsg}
-                  </p>
-                )}
-                {successMsg && (
-                  <p className="text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 mt-2">
-                    {successMsg}
-                  </p>
-                )}
-              </div>
+            {errorMsg && (
+              <p className="text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+                {errorMsg}
+              </p>
+            )}
+            {successMsg && (
+              <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+                {successMsg}
+              </p>
             )}
 
-            {/* Actions */}
+            {/* Buttons */}
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() =>
                   router.push('/dashboard/emissions/view-emissions')
                 }
-                className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 text-xs font-medium px-4 py-2 hover:bg-slate-900 hover:text-white"
+                className="rounded-full border border-slate-300 bg-white text-slate-700 text-xs font-medium px-4 py-2"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="inline-flex items-center justify-center rounded-full bg-slate-900 text-white text-xs font-medium px-5 py-2 hover:bg-slate-800 disabled:opacity-60"
+                className="rounded-full bg-slate-900 text-white text-xs font-medium px-5 py-2 disabled:opacity-60"
               >
                 {loading ? 'Saving…' : 'Save Scope 3 activity'}
               </button>
