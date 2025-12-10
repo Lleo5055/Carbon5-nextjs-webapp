@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabaseClient';
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
   const [form, setForm] = useState({
     company_name: '',
     industry: '',
@@ -21,9 +22,16 @@ export default function ProfilePage() {
     contact_email: '',
     has_company_vehicles: false,
     renewable_energy_tariff: false,
+
+    // NEW SECR FIELDS
+    annual_revenue: '',
+    employee_count: '',
+    annual_output_units: '',
+    methodology_confirmed: false,
+    energy_efficiency_actions: '',
   });
 
-  // Load user + profile data on mount
+  // Load profile
   useEffect(() => {
     async function load() {
       const { data: auth } = await supabase.auth.getUser();
@@ -52,6 +60,13 @@ export default function ProfilePage() {
           contact_email: profile.contact_email || '',
           has_company_vehicles: profile.has_company_vehicles || false,
           renewable_energy_tariff: profile.renewable_energy_tariff || false,
+
+          // NEW FIELDS
+          annual_revenue: profile.annual_revenue || '',
+          employee_count: profile.employee_count || '',
+          annual_output_units: profile.annual_output_units || '',
+          methodology_confirmed: profile.methodology_confirmed || false,
+          energy_efficiency_actions: profile.energy_efficiency_actions || '',
         });
       }
 
@@ -112,7 +127,9 @@ export default function ProfilePage() {
           onSubmit={saveProfile}
           className="mt-8 space-y-8 rounded-xl bg-white p-6 shadow border border-slate-200"
         >
+          {/* --------------------------------------------- */}
           {/* COMPANY DETAILS */}
+          {/* --------------------------------------------- */}
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Company details
@@ -195,11 +212,14 @@ export default function ProfilePage() {
             </div>
           </section>
 
+          {/* --------------------------------------------- */}
           {/* ORG SIZE */}
+          {/* --------------------------------------------- */}
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Organisation scale
             </h2>
+
             <select
               className="w-full rounded-lg border px-3 py-2 text-sm"
               value={form.company_size}
@@ -213,7 +233,9 @@ export default function ProfilePage() {
             </select>
           </section>
 
+          {/* --------------------------------------------- */}
           {/* COMPLIANCE */}
+          {/* --------------------------------------------- */}
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Compliance
@@ -240,7 +262,103 @@ export default function ProfilePage() {
             </label>
           </section>
 
+          {/* --------------------------------------------- */}
+          {/* SECR REPORTING BLOCK */}
+          {/* --------------------------------------------- */}
+          <section>
+            <h2 className="text-sm font-semibold text-slate-700 mb-3">
+              SECR reporting (optional but required for SECR-compliant reports)
+            </h2>
+
+            {/* INTENSITY METRICS */}
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-slate-600">
+                  Annual revenue (£)
+                </label>
+                <input
+                  type="number"
+                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                  value={form.annual_revenue}
+                  onChange={(e) =>
+                    updateField('annual_revenue', e.target.value)
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-slate-600">
+                  Number of employees
+                </label>
+                <input
+                  type="number"
+                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                  value={form.employee_count}
+                  onChange={(e) =>
+                    updateField('employee_count', e.target.value)
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-slate-600">
+                  Annual output units (optional)
+                </label>
+                <input
+                  type="number"
+                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                  value={form.annual_output_units}
+                  onChange={(e) =>
+                    updateField('annual_output_units', e.target.value)
+                  }
+                />
+              </div>
+            </div>
+
+            {/* ENERGY EFFICIENCY ACTIONS */}
+            <div className="mt-6">
+              <label className="text-xs font-medium text-slate-600">
+                Energy efficiency actions taken this reporting year
+              </label>
+              <textarea
+                className="mt-1 w-full rounded-lg border px-3 py-2 text-sm h-24"
+                value={form.energy_efficiency_actions}
+                onChange={(e) =>
+                  updateField('energy_efficiency_actions', e.target.value)
+                }
+                placeholder="Describe any actions taken to reduce energy use (required for SECR)."
+              />
+            </div>
+
+            {/* METHODOLOGY NOTE */}
+            <div className="mt-6 rounded-lg bg-slate-50 border border-slate-200 p-3">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                <strong>Methodology used for SECR reporting:</strong>
+                <br />
+                Carbon Central uses the official UK Government GHG Conversion
+                Factors (DEFRA BEIS). Electricity uses location-based grid
+                factors, fuel emissions use standard kg CO₂e per litre, and
+                Scope 3 categories use DEFRA category-specific conversion
+                factors. This aligns with SECR reporting guidance.
+              </p>
+            </div>
+
+            {/* METHODOLOGY CONFIRMATION */}
+            <label className="flex items-center gap-2 text-sm text-slate-700 mt-4">
+              <input
+                type="checkbox"
+                checked={form.methodology_confirmed}
+                onChange={(e) =>
+                  updateField('methodology_confirmed', e.target.checked)
+                }
+              />
+              I confirm that the SECR calculation methodology used is correct.
+            </label>
+          </section>
+
+          {/* --------------------------------------------- */}
           {/* SUSTAINABILITY */}
+          {/* --------------------------------------------- */}
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Sustainability & Operations
@@ -282,7 +400,9 @@ export default function ProfilePage() {
             </label>
           </section>
 
+          {/* --------------------------------------------- */}
           {/* CONTACT */}
+          {/* --------------------------------------------- */}
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Contact details

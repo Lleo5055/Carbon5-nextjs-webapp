@@ -1,23 +1,15 @@
-// app/dashboard/emissions/view-emissions/DownloadReportButton.tsx
 'use client';
 
 import React from 'react';
 
 export default function DownloadReportButton({ pdfHref }: { pdfHref: string }) {
-  /**
-   * Extract query params from current URL.
-   * This gives us:
-   * - period (1m, 3m, 6m, 12m, all)
-   * - customStart (YYYY-MM)
-   * - customEnd (YYYY-MM)
-   */
   const getPeriodParams = () => {
     const url = new URL(window.location.href);
+
     const period = url.searchParams.get('period') || 'all';
     const start = url.searchParams.get('start') || '';
     const end = url.searchParams.get('end') || '';
 
-    // Option C intelligence: auto classify period
     let periodType: 'quick' | 'custom' | 'all' = 'all';
 
     if (period === 'all') {
@@ -35,7 +27,7 @@ export default function DownloadReportButton({ pdfHref }: { pdfHref: string }) {
     try {
       const { periodType, period, start, end } = getPeriodParams();
 
-      // Build final URL
+      // Build final API URL safely
       const url = new URL(pdfHref, window.location.origin);
 
       url.searchParams.set('periodType', periodType);
@@ -49,7 +41,6 @@ export default function DownloadReportButton({ pdfHref }: { pdfHref: string }) {
       const finalHref = url.toString();
 
       const res = await fetch(finalHref, { method: 'GET' });
-
       if (!res.ok) {
         alert('Could not generate PDF report. Please try again.');
         return;
@@ -58,12 +49,8 @@ export default function DownloadReportButton({ pdfHref }: { pdfHref: string }) {
       const blob = await res.blob();
       const pdfUrl = URL.createObjectURL(blob);
 
-      // Open PDF directly
-      window.location.href = pdfUrl;
-
-      setTimeout(() => {
-        window.print();
-      }, 900);
+      // Open PDF in new tab for consistent browser behavior
+      window.open(pdfUrl, '_blank');
     } catch (err) {
       console.error(err);
       alert('Failed to download report.');

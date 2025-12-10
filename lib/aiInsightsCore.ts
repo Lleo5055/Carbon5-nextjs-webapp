@@ -14,6 +14,10 @@ const supabase = createClient(
 const openaiApiKey = process.env.OPENAI_API_KEY!;
 
 
+const openai = new OpenAI({
+  apiKey: openaiApiKey,
+});
+
 // This matches YOUR REAL DATABASE COLUMNS
 type CompactMonth = {
   month: string;

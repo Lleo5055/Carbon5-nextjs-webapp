@@ -773,6 +773,14 @@ export default async function ViewEmissionsPage({ searchParams }: Props) {
                     Download PDF
                   </button>
                 </form>
+                {/* Leadership Snapshot */}
+                <a
+                  href="/api/snapshot"
+                  target="_blank"
+                  className="h-[32px] px-4 rounded-full border text-xs font-medium bg-white text-slate-700 border-slate-300 hover:bg-slate-900 hover:text-white flex items-center justify-center"
+                >
+                  Leadership Snapshot
+                </a>
 
                 {/* CSV / Excel */}
                 {isFreePlan ? (
