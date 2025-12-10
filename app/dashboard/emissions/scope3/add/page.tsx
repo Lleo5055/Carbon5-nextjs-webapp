@@ -37,7 +37,8 @@ const CATEGORY_LABELS: { id: Scope3Category; label: string }[] = [
 export default function AddScope3ActivityPage() {
   const router = useRouter();
 
-  const [month, setMonth] = useState<string>(MONTH_OPTIONS[0]);
+  const [month, setMonth] = useState(MONTH_OPTIONS[0]); // ✅ correct
+
   const [category, setCategory] =
     useState<Scope3Category>('employee_commuting');
   const [label, setLabel] = useState<string>('');
