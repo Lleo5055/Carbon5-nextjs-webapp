@@ -43,6 +43,9 @@ export default function AddScope3ActivityPage() {
   // commuting-specific fields
   const [oneWayKm, setOneWayKm] = useState<number>(0);
   const [daysPerMonth, setDaysPerMonth] = useState<number>(0);
+  const [mode, setMode] = useState<'car' | 'train' | 'bus' | 'bike_walk'>(
+    'car'
+  );
 
   // core category + labels
   const [category, setCategory] =
