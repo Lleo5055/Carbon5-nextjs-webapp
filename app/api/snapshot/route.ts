@@ -2,25 +2,27 @@
 import { NextResponse } from 'next/server';
 import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
-import { supabase } from '@/lib/supabaseClient';
 
-// IMPORTANT — USE YOUR EXISTING SERVER HTML BUILDER
+import { supabaseServer } from '@/lib/supabaseServer';
 import LeadershipSnapshotServer from '@/app/components/LeadershipSnapshotServer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    // 1. AUTH
-    const { data: auth } = await supabase.auth.getUser();
-    const userId = auth.user?.id;
+    // 1. AUTH – must use server client
+    const supabase = supabaseServer();
 
-    if (!userId) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    // 2. LOAD DATA (same supabaseClient you already use)
+    // 2. LOAD DATA WITH SERVER CLIENT
     const { data: emissions } = await supabase
       .from('emissions')
       .select('*')
@@ -31,13 +33,13 @@ export async function GET() {
       .select('*')
       .order('month', { ascending: true });
 
-    // 3. GENERATE HTML STRING USING YOUR SERVER COMPONENT
+    // 3. BUILD HTML
     const html = LeadershipSnapshotServer({
       emissions: emissions ?? [],
       scope3: scope3 ?? [],
     });
 
-    // 4. LAUNCH BROWSER (VERCEL-SAFE)
+    // 4. LAUNCH PUPPETEER
     const browser = await puppeteer.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
@@ -45,8 +47,6 @@ export async function GET() {
     });
 
     const page = await browser.newPage();
-
-    // load HTML into Puppeteer
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
     // 5. GENERATE PDF
@@ -58,7 +58,7 @@ export async function GET() {
 
     await browser.close();
 
-    // 6. RETURN PDF RESPONSE
+    // 6. RETURN PDF
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
