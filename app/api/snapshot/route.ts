@@ -7,7 +7,7 @@ import LeadershipSnapshotServer from '@/app/components/LeadershipSnapshotServer'
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Same as REPORT ROUTE:
+// Supabase service client — same as report route
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -15,9 +15,7 @@ const supabase = createClient(
 
 export async function GET() {
   try {
-    // --- NO AUTH CHECK HERE ---
-
-    // --- LOAD DATA ---
+    // ---- LOAD DATA (no auth required) ----
     const { data: emissions } = await supabase
       .from('emissions')
       .select('*')
@@ -28,23 +26,23 @@ export async function GET() {
       .select('*')
       .order('month', { ascending: true });
 
+    // ---- GENERATE HTML ----
     const html = LeadershipSnapshotServer({
       emissions: emissions ?? [],
       scope3: scope3 ?? [],
     });
 
+    // ---- LAUNCH CHROMIUM ----
     const browser = await puppeteer.launch({
-  args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
-  defaultViewport: chromium.defaultViewport,
-  executablePath:
-    process.env.CHROME_EXECUTABLE_PATH || (await chromium.executablePath()),
-  headless: true,
-});
-
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+    });
 
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
+    // ---- PDF ----
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
@@ -53,13 +51,15 @@ export async function GET() {
 
     await browser.close();
 
-    return new NextResponse(pdfBuffer, {
+    // ---- RETURN PDF ----
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': 'attachment; filename="leadership-snapshot.pdf"',
       },
     });
+
   } catch (err) {
     console.error('SNAPSHOT ERROR:', err);
     return NextResponse.json(
