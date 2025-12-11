@@ -467,15 +467,12 @@ export default async function DashboardPage({
     console.warn('No user session found → AI actions fallback will be used');
   }
 
-  // --- Load AI Performance (score, status, risk, stability, compliance) ---
+  // --- Load AI Performance ---
   let perf = null;
   try {
-    const res = await fetch('http://localhost:3000/api/ai/performance', {
-      cache: 'no-store',
-    });
+    const res = await fetch('/api/ai/performance', { cache: 'no-store' });
     if (res.ok) perf = await res.json();
-    // --- HARD BLOCK ALL AI METRICS (score, risk, stability, compliance) ---
-    // We keep AI status + AI insight only.
+
     if (perf) {
       perf.score = undefined;
       perf.risk = undefined;
@@ -486,16 +483,10 @@ export default async function DashboardPage({
     console.error('AI performance failed', e);
   }
 
-  // Load AI benchmarking (safe fallback)
+  // Load AI benchmarking
   let ai = null;
   try {
-    // Always use localhost during dev. No env logic, no ternary — no mistakes.
-    const base = 'http://localhost:3000';
-
-    const res = await fetch(base.replace(/\/$/, '') + '/api/ai', {
-      cache: 'no-store',
-    });
-
+    const res = await fetch('/api/ai', { cache: 'no-store' });
     if (res.ok) ai = await res.json();
   } catch (e) {
     console.error('AI load failed', e);
@@ -529,21 +520,17 @@ export default async function DashboardPage({
   let finalActions: any[] = [];
 
   try {
-    const res = await fetch(
-      'http://localhost:3000/api/ai/recommended-actions',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          electricity: breakdownBySource.electricitySharePercent,
-          fuel: breakdownBySource.fuelSharePercent,
-          refrigerant: breakdownBySource.refrigerantSharePercent,
-          months: months.length,
-        }),
-
-        cache: 'no-store',
-      }
-    );
+    const res = await fetch('/api/ai/recommended-actions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        electricity: breakdownBySource.electricitySharePercent,
+        fuel: breakdownBySource.fuelSharePercent,
+        refrigerant: breakdownBySource.refrigerantSharePercent,
+        months: months.length,
+      }),
+      cache: 'no-store',
+    });
 
     const json = await res.json();
     finalActions = json.actions || [];
