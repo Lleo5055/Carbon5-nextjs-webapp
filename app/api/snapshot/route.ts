@@ -34,10 +34,13 @@ export async function GET() {
     });
 
     const browser = await puppeteer.launch({
-      args: chromium.args,
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
-    });
+  args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
+  defaultViewport: chromium.defaultViewport,
+  executablePath:
+    process.env.CHROME_EXECUTABLE_PATH || (await chromium.executablePath()),
+  headless: true,
+});
+
 
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
