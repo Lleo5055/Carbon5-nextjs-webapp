@@ -6,7 +6,7 @@ import React from 'react';
 import Link from 'next/link';
 
 // FIX: use browser supabase client (NOT supabaseServer)
-import { supabase } from '../../../lib/supabaseClient';
+import { supabase } from '../../../../lib/supabaseClient';
 import Scope3ActionsCell from './Scope3ActionsCell';
 
 import {
@@ -15,7 +15,7 @@ import {
   EF_PETROL_KG_PER_LITRE,
   EF_NATURAL_GAS_KG_PER_KWH,
   calcRefrigerantCo2e,
-} from '../../../lib/emissionFactors';
+} from '../../../../lib/emissionFactors';
 
 import RowActionsClient from './RowActionsClient';
 
