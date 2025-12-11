@@ -10,7 +10,7 @@ import {
   calcFuelCo2eKg,
   calcRefrigerantCo2e,
 } from '../../../lib/emissionFactors';
-
+import { Suspense } from 'react';
 // --------------------------------
 // FIX 1: Safe default Scope 3 key
 // --------------------------------
@@ -142,7 +142,7 @@ const SCOPE3_FACTOR_CONFIG: Record<
   },
 };
 
-export default function EmissionsPage() {
+function EmissionsPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const editingId = searchParams.get('id');
@@ -773,5 +773,13 @@ export default function EmissionsPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function EmissionsPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <EmissionsPageInner />
+    </Suspense>
   );
 }
