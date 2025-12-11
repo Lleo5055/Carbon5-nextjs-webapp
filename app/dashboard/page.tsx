@@ -5,13 +5,16 @@ import React from 'react';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabaseClient';
 import OnboardingCard from './OnboardingCard';
-import { useRouter } from 'next/navigation';
 
 import {
   EF_GRID_ELECTRICITY_KG_PER_KWH,
   calcFuelCo2eKg,
   calcRefrigerantCo2e,
 } from '../../lib/emissionFactors';
+// Safe absolute base URL for server-side fetch (Vercel SSR fix)
+const baseUrl = process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : 'http://localhost:3000';
 
 export const dynamic = 'force-dynamic';
 
@@ -470,8 +473,14 @@ export default async function DashboardPage({
   // --- Load AI Performance ---
   let perf = null;
   try {
-    const res = await fetch('/api/ai/performance', { cache: 'no-store' });
+    const res = await fetch(`${baseUrl}/api/ai/performance`, {
+      cache: 'no-store',
+    });
+
     if (res.ok) perf = await res.json();
+
+    // FIX 3 — ensure perf is always an object
+    if (!perf) perf = {};
 
     if (perf) {
       perf.score = undefined;
@@ -486,7 +495,8 @@ export default async function DashboardPage({
   // Load AI benchmarking
   let ai = null;
   try {
-    const res = await fetch('/api/ai', { cache: 'no-store' });
+    const res = await fetch(`${baseUrl}/api/ai`, { cache: 'no-store' });
+
     if (res.ok) ai = await res.json();
   } catch (e) {
     console.error('AI load failed', e);
@@ -520,7 +530,7 @@ export default async function DashboardPage({
   let finalActions: any[] = [];
 
   try {
-    const res = await fetch('/api/ai/recommended-actions', {
+    const res = await fetch(`${baseUrl}/api/ai/recommended-actions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -532,11 +542,15 @@ export default async function DashboardPage({
       cache: 'no-store',
     });
 
-    const json = await res.json();
-    finalActions = json.actions || [];
+    if (res.ok) {
+      const json = await res.json();
+      finalActions = json.actions || [];
+    }
   } catch (e) {
     console.error('AI Recommended Actions fetch failed:', e);
-  } // --- FALLBACK WHEN AI RETURNS NOTHING ---
+  }
+
+  // --- FALLBACK WHEN AI RETURNS NOTHING ---
   if (!finalActions || finalActions.length === 0) {
     finalActions = [
       {
@@ -556,6 +570,7 @@ export default async function DashboardPage({
       },
     ];
   }
+
   const hotspot = dashData.hotspot;
   const scopeBreakdown = dashData.scopeBreakdown;
 
@@ -674,8 +689,10 @@ export default async function DashboardPage({
   }
 
   // 6️⃣ Attach for UI — OUR SCORE ONLY (AI blocked)
-  ai.performance_score_100 = performanceScore100;
-  ai.performance_score = performanceStars;
+  if (ai) {
+    ai.performance_score_100 = performanceScore100;
+    ai.performance_score = performanceStars;
+  }
 
   const recommendations: { title: string; description: string }[] = [];
 
