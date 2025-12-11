@@ -11,7 +11,7 @@
   "dependencies": {
     "@sparticuz/chromium": "^119.0.2",
     "@supabase/ssr": "0.8.0",
-    "@supabase/supabase-js": "2.45.0",
+    "@supabase/supabase-js": "^2.87.1",
     "@types/node": "20.6.2",
     "@types/react": "18.2.14",
     "@types/react-dom": "18.2.7",
