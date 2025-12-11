@@ -1,26 +1,23 @@
-// app/api/snapshot/route.ts
 import { NextResponse } from 'next/server';
 import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
-import { supabase } from '@/lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 import LeadershipSnapshotServer from '@/app/components/LeadershipSnapshotServer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Same as REPORT ROUTE:
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
 export async function GET() {
   try {
-    // AUTH (client session)
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    // --- NO AUTH CHECK HERE ---
 
-    const userId = session?.user?.id;
-    if (!userId) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    // LOAD DATA
+    // --- LOAD DATA ---
     const { data: emissions } = await supabase
       .from('emissions')
       .select('*')
@@ -31,13 +28,11 @@ export async function GET() {
       .select('*')
       .order('month', { ascending: true });
 
-    // BUILD HTML
     const html = LeadershipSnapshotServer({
       emissions: emissions ?? [],
       scope3: scope3 ?? [],
     });
 
-    // LAUNCH BROWSER (VERCEL SAFE)
     const browser = await puppeteer.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
@@ -47,7 +42,6 @@ export async function GET() {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
-    // PDF
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
