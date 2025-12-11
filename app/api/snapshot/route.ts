@@ -1,13 +1,8 @@
-// app/api/snapshot/route.ts 
+// app/api/snapshot/route.ts
 import { NextResponse } from 'next/server';
 import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
-
-// FIX: use proper Supabase server route client
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-
-// IMPORTANT — USE YOUR EXISTING SERVER HTML BUILDER
+import { supabase } from '@/lib/supabaseClient';
 import LeadershipSnapshotServer from '@/app/components/LeadershipSnapshotServer';
 
 export const runtime = 'nodejs';
@@ -15,21 +10,17 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    // ✔ create a Supabase client that reads user cookies
-    const supabase = createRouteHandlerClient({ cookies });
-
-    // 1. AUTH
+    // AUTH (client session)
     const {
       data: { session },
     } = await supabase.auth.getSession();
 
     const userId = session?.user?.id;
-
     if (!userId) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    // 2. LOAD DATA
+    // LOAD DATA
     const { data: emissions } = await supabase
       .from('emissions')
       .select('*')
@@ -40,13 +31,13 @@ export async function GET() {
       .select('*')
       .order('month', { ascending: true });
 
-    // 3. GENERATE HTML STRING USING YOUR SERVER COMPONENT
+    // BUILD HTML
     const html = LeadershipSnapshotServer({
       emissions: emissions ?? [],
       scope3: scope3 ?? [],
     });
 
-    // 4. LAUNCH BROWSER (VERCEL-SAFE)
+    // LAUNCH BROWSER (VERCEL SAFE)
     const browser = await puppeteer.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
@@ -54,10 +45,9 @@ export async function GET() {
     });
 
     const page = await browser.newPage();
-
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
-    // 5. GENERATE PDF
+    // PDF
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
@@ -66,7 +56,6 @@ export async function GET() {
 
     await browser.close();
 
-    // 6. RETURN PDF RESPONSE
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
