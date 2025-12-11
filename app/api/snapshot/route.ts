@@ -1,8 +1,11 @@
-// app/api/snapshot/route.ts
+// app/api/snapshot/route.ts 
 import { NextResponse } from 'next/server';
 import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
-import { supabase } from '@/lib/supabaseClient';
+
+// FIX: use proper Supabase server route client
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 // IMPORTANT — USE YOUR EXISTING SERVER HTML BUILDER
 import LeadershipSnapshotServer from '@/app/components/LeadershipSnapshotServer';
@@ -12,6 +15,9 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
+    // ✔ create a Supabase client that reads user cookies
+    const supabase = createRouteHandlerClient({ cookies });
+
     // 1. AUTH
     const {
       data: { session },
@@ -23,7 +29,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    // 2. LOAD DATA (same supabaseClient you already use)
+    // 2. LOAD DATA
     const { data: emissions } = await supabase
       .from('emissions')
       .select('*')
@@ -49,7 +55,6 @@ export async function GET() {
 
     const page = await browser.newPage();
 
-    // load HTML into Puppeteer
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
     // 5. GENERATE PDF
