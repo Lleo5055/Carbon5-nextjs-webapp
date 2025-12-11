@@ -2,27 +2,28 @@
 import { NextResponse } from 'next/server';
 import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
+import { supabase } from '@/lib/supabaseClient';
 
-import { supabaseServer } from '@/lib/supabaseServer';
+// IMPORTANT — USE YOUR EXISTING SERVER HTML BUILDER
 import LeadershipSnapshotServer from '@/app/components/LeadershipSnapshotServer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    // 1. AUTH – must use server client
-    const supabase = supabaseServer();
-
+    // 1. AUTH
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    if (!user) {
+    const userId = session?.user?.id;
+
+    if (!userId) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    // 2. LOAD DATA WITH SERVER CLIENT
+    // 2. LOAD DATA (same supabaseClient you already use)
     const { data: emissions } = await supabase
       .from('emissions')
       .select('*')
@@ -33,13 +34,13 @@ export async function GET(req: Request) {
       .select('*')
       .order('month', { ascending: true });
 
-    // 3. BUILD HTML
+    // 3. GENERATE HTML STRING USING YOUR SERVER COMPONENT
     const html = LeadershipSnapshotServer({
       emissions: emissions ?? [],
       scope3: scope3 ?? [],
     });
 
-    // 4. LAUNCH PUPPETEER
+    // 4. LAUNCH BROWSER (VERCEL-SAFE)
     const browser = await puppeteer.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
@@ -47,6 +48,8 @@ export async function GET(req: Request) {
     });
 
     const page = await browser.newPage();
+
+    // load HTML into Puppeteer
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
     // 5. GENERATE PDF
@@ -58,7 +61,7 @@ export async function GET(req: Request) {
 
     await browser.close();
 
-    // 6. RETURN PDF
+    // 6. RETURN PDF RESPONSE
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
