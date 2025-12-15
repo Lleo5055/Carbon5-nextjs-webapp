@@ -2,26 +2,94 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+/* ---------------------------------------
+   Global smoothing + background
+---------------------------------------- */
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+/* ---------------------------------------
+   LINKS
+---------------------------------------- */
+a {
+  @apply text-slate-900;
+}
+
+/* ---------------------------------------
+   Remove spinner from number inputs
+---------------------------------------- */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/* ---------------------------------------
+   TABLE FIX (consistent font)
+---------------------------------------- */
+table {
+  @apply text-xs;
+}
+
+/* ---------------------------------------
+   MOBILE INPUT FIX 
+   Ensures inputs, selects, textareas display correctly on mobile
+---------------------------------------- */
+input,
+select,
+textarea {
+  @apply w-full px-3 py-2 text-slate-800 bg-white border border-slate-300 rounded-md;
+}
+
+input::placeholder,
+textarea::placeholder {
+  @apply text-slate-400;
+}
+
+/* ---------------------------------------
+   NEW: Prevent iOS zoom + ensure visibility
+---------------------------------------- */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+    line-height: 1.4 !important;
   }
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+/* ---------------------------------------
+   NEW: Fix text clipping inside buttons on mobile
+---------------------------------------- */
+button {
+  @apply text-sm;
+}
+@media (max-width: 640px) {
+  button {
+    font-size: 14px !important;
+    padding: 0.6rem 1rem !important;
+  }
+}
+
+/* ---------------------------------------
+   NEW: Fix cards overflowing on mobile 
+---------------------------------------- */
+@media (max-width: 640px) {
+  .card,
+  .panel,
+  section,
+  article {
+    @apply w-full overflow-x-hidden;
+  }
+}
+
+/* ---------------------------------------
+   NEW: Fix table overflow on small screens 
+---------------------------------------- */
+.table-container {
+  @apply overflow-x-auto;
 }

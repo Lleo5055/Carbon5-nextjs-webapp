@@ -88,8 +88,18 @@ export async function GET(req: NextRequest) {
       .select('*')
       .order('month', { ascending: true });
 
-    const s3 = scope3.data || [];
-    const list = rows || [];
+    const s3 = (scope3.data || []).sort((a, b) => {
+  const da = new Date(a.month + ' 1');
+  const db = new Date(b.month + ' 1');
+  return da.getTime() - db.getTime();
+});
+
+    const list = (rows || []).sort((a, b) => {
+  const da = new Date(a.month + ' 1');
+  const db = new Date(b.month + ' 1');
+  return da.getTime() - db.getTime();
+});
+
 
     // ======================== LOAD USER PROFILE ========================
     const { data: auth } = await supabase.auth.getUser();
@@ -212,29 +222,42 @@ export async function GET(req: NextRequest) {
 
     y -= 40;
 
-    // Reporting metadata
-    drawText(
-      page,
-      `Reporting period: all recorded months (${list.length})`,
-      50,
-      y,
-      11,
-      font,
-      TEXT
-    );
-    y -= 18;
-    drawText(page, `Organisation: ${companyName}`, 50, y, 11, font, TEXT);
-    y -= 18;
-    drawText(
-      page,
-      `Report date: ${new Date().toISOString().slice(0, 10)}`,
-      50,
-      y,
-      11,
-      font,
-      TEXT
-    );
-    y -= 20;
+    // Reporting metadata (SECR-compliant start/end period)
+const startMonth = list.length > 0 ? list[0].month : 'N/A';
+const endMonth = list.length > 0 ? list[list.length - 1].month : 'N/A';
+
+drawText(
+  page,
+  `Reporting period: ${startMonth} to ${endMonth} (${list.length} months)`,
+  50,
+  y,
+  11,
+  font,
+  TEXT
+);
+y -= 18;
+
+drawText(page, `Organisation: ${companyName}`, 50, y, 11, font, TEXT);
+y -= 18;
+
+// --- UK date format ---
+const d = new Date();
+const reportDate = `${String(d.getDate()).padStart(2, '0')}/${String(
+  d.getMonth() + 1
+).padStart(2, '0')}/${d.getFullYear()}`;
+
+drawText(
+  page,
+  `Report date: ${reportDate}`,
+  50,
+  y,
+  11,
+  font,
+  TEXT
+);
+
+y -= 20;
+
 
     // ---------------- ORGANISATION CARD ----------------
     page.drawRectangle({
@@ -1201,198 +1224,366 @@ export async function GET(req: NextRequest) {
     });
 
     // ========================= PAGE 5 =========================
-    page = pdf.addPage([595, 842]);
+page = pdf.addPage([595, 842]);
 
-    y = 780;
+y = 780;
 
-    page.drawText('5. Methodology and governance', {
-      x: 50,
-      y,
-      size: 18,
-      font: bold,
-      color: BLUE,
-    });
+page.drawText('5. Methodology and governance', {
+  x: 50,
+  y,
+  size: 18,
+  font: bold,
+  color: BLUE,
+});
 
-    page.drawLine({
-      start: { x: 50, y: y - 6 },
-      end: { x: 545, y: y - 6 },
-      thickness: 1,
-      color: BLUE,
-    });
+page.drawLine({
+  start: { x: 50, y: y - 6 },
+  end: { x: 545, y: y - 6 },
+  thickness: 1,
+  color: BLUE,
+});
 
-    y -= 40;
+y -= 40;
 
-    // ---------------- METHODOLOGY ----------------
-    page.drawText('Methodology', {
-      x: 50,
-      y,
-      size: 12,
-      font: bold,
-      color: BLUE,
-    });
-    y -= 22;
+// ---------------- METHODOLOGY ----------------
+page.drawText('Methodology', {
+  x: 50,
+  y,
+  size: 12,
+  font: bold,
+  color: BLUE,
+});
+y -= 22;
 
-    let yRef = { value: y };
+let yRef = { value: y };
 
-    // Paragraph 1
-    paragraphText(
-      page,
-      font,
-      TEXT,
-      'Emission calculations use UK Government GHG Conversion Factors (DEFRA BEIS). Electricity uses location-based grid factors, fuel emissions use standard kg CO2e/litre values and Scope 3 emissions use category-specific conversion factors.',
-      yRef
-    );
+// Paragraph 1 (updated)
+paragraphText(
+  page,
+  font,
+  TEXT,
+  'Emission calculations use the UK Government GHG Conversion Factors (DEFRA/BEIS, 2024). Electricity emissions use location-based grid factors and do not include market-based supplier factors. Fuel emissions use standard CO2e per-litre values, and Scope 3 emissions use category-specific DEFRA factors.',
+  yRef
+);
 
-    paragraphText(
-      page,
-      font,
-      TEXT,
-      'Scope 1 reflects direct emissions from fuel use. Scope 2 reflects purchased electricity. Scope 3 reflects only categories recorded during this reporting period and is not a complete value-chain inventory.',
-      yRef
-    );
+// Paragraph 2 (updated)
+paragraphText(
+  page,
+  font,
+  TEXT,
+  'Scope 1 reflects direct combustion of fuels. Scope 2 reflects purchased electricity. Scope 3 reflects only the categories reported during this period and does not constitute a complete value-chain inventory. Data gaps may exist where Scope 3 information has not been collected.',
+  yRef
+);
 
-    paragraphText(
-      page,
-      font,
-      TEXT,
-      'Boundary: This report follows an operational-control boundary unless otherwise stated. The reporting period covers all months entered by the organisation.',
-      yRef
-    );
+// Paragraph 3 (updated)
+paragraphText(
+  page,
+  font,
+  TEXT,
+  'Boundary: This report applies an operational-control boundary and covers UK operations only. Non-UK sites are excluded. As this is the organisation’s first SECR reporting period, no prior-year comparison is presented.',
+  yRef
+);
 
-    y = yRef.value;
+// Paragraph 4 (updated)
+paragraphText(
+  page,
+  font,
+  TEXT,
+  'The primary SECR intensity ratio is tCO2e per employee, as it reflects organisational activity. Supplementary ratios—tCO2e per £ revenue and tCO2e per output unit—are included for transparency.',
+  yRef
+);
 
-    // ---------------- METHODOLOGY CONFIRMATION ----------------
-    page.drawText('SECR methodology confirmation', {
-      x: 50,
-      y,
-      size: 12,
-      font: bold,
-      color: BLUE,
-    });
-    y -= 22;
+y = yRef.value;
 
-    yRef = { value: y };
+// ---------------- SECR METHODOLOGY CONFIRMATION ----------------
+page.drawText('SECR methodology confirmation', {
+  x: 50,
+  y,
+  size: 12,
+  font: bold,
+  color: BLUE,
+});
+y -= 22;
 
-    if (methodologyConfirmed) {
-      paragraphText(
-        page,
-        font,
-        TEXT,
-        'The organisation has confirmed that the SECR calculation methodology used in this report is correct and approved.',
-        yRef
-      );
-    } else {
-      paragraphText(
-        page,
-        font,
-        TEXT,
-        'The organisation has NOT confirmed the SECR methodology. A fully SECR-compliant disclosure cannot be issued until confirmation is provided.',
-        yRef
-      );
-    }
+yRef = { value: y };
 
-    y = yRef.value;
+if (methodologyConfirmed) {
+  paragraphText(
+    page,
+    font,
+    TEXT,
+    'The organisation has confirmed the SECR calculation methodology used in this report.',
+    yRef
+  );
+} else {
+  paragraphText(
+    page,
+    font,
+    TEXT,
+    'The organisation has not yet confirmed the SECR calculation methodology. A fully compliant SECR disclosure cannot be issued until confirmation is provided.',
+    yRef
+  );
+}
 
-    // ---------------- ORGANISATIONAL BOUNDARY ----------------
-    page.drawText('Organisational boundary', {
-      x: 50,
-      y,
-      size: 12,
-      font: bold,
-      color: BLUE,
-    });
-    y -= 22;
+y = yRef.value;
 
-    yRef = { value: y };
+// ---------------- ORGANISATIONAL BOUNDARY ----------------
+page.drawText('Organisational boundary', {
+  x: 50,
+  y,
+  size: 12,
+  font: bold,
+  color: BLUE,
+});
+y -= 22;
 
-    paragraphText(
-      page,
-      font,
-      TEXT,
-      'This report covers UK operations under operational control. Additional locations or non-UK operations may be added in future reporting cycles.',
-      yRef
-    );
+yRef = { value: y };
 
-    y = yRef.value;
+paragraphText(
+  page,
+  font,
+  TEXT,
+  'This report covers UK operations under operational control. Additional sites, subsidiaries or non-UK activities may be incorporated in future reporting cycles.',
+  yRef
+);
 
-    // ---------------- RESPONSIBILITY STATEMENT ----------------
-    page.drawText('Responsibility statement', {
-      x: 50,
-      y,
-      size: 12,
-      font: bold,
-      color: BLUE,
-    });
-    y -= 22;
+y = yRef.value;
 
-    yRef = { value: y };
+// ---------------- RESPONSIBILITY STATEMENT ----------------
+page.drawText('Responsibility statement', {
+  x: 50,
+  y,
+  size: 12,
+  font: bold,
+  color: BLUE,
+});
+y -= 22;
 
-    paragraphText(
-      page,
-      font,
-      TEXT,
-      'Directors or authorised representatives are responsible for the completeness and accuracy of all data provided. Carbon Central calculations use the data exactly as entered and do not include independent verification unless separately commissioned.',
-      yRef
-    );
+yRef = { value: y };
 
-    y = yRef.value;
+paragraphText(
+  page,
+  font,
+  TEXT,
+  'Directors or authorised representatives are responsible for the completeness and accuracy of all data submitted. Carbon Central applies calculations directly to the data provided and does not perform independent verification unless separately commissioned.',
+  yRef
+);
 
-    // ---------------- ENERGY EFFICIENCY ACTIONS ----------------
-    page.drawText('Energy efficiency actions this year', {
-      x: 50,
-      y,
-      size: 12,
-      font: bold,
-      color: BLUE,
-    });
-    y -= 22;
+y = yRef.value;
 
-    yRef = { value: y };
+// ---------------- ENERGY EFFICIENCY ACTIONS ----------------
+page.drawText('Energy efficiency actions this year', {
+  x: 50,
+  y,
+  size: 12,
+  font: bold,
+  color: BLUE,
+});
+y -= 22;
 
-    if (eeActions && eeActions.trim().length > 0) {
-      paragraphText(page, font, TEXT, eeActions.trim(), yRef);
-    } else {
-      paragraphText(
-        page,
-        font,
-        TEXT,
-        'No energy-efficiency actions were reported for this year.',
-        yRef
-      );
-    }
+yRef = { value: y };
 
-    y = yRef.value;
+if (eeActions && eeActions.trim().length > 0) {
+  paragraphText(page, font, TEXT, eeActions.trim(), yRef);
+} else {
+  paragraphText(
+    page,
+    font,
+    TEXT,
+    'No energy-efficiency actions were reported for this year.',
+    yRef
+  );
+}
 
-    // ---------------- DATA QUALITY ----------------
-    page.drawText('Data quality and limitations', {
-      x: 50,
-      y,
-      size: 12,
-      font: bold,
-      color: BLUE,
-    });
-    y -= 22;
+y = yRef.value;
 
-    yRef = { value: y };
+// ---------------- DATA QUALITY ----------------
+page.drawText('Data quality and limitations', {
+  x: 50,
+  y,
+  size: 12,
+  font: bold,
+  color: BLUE,
+});
+y -= 22;
 
-    paragraphText(
-      page,
-      font,
-      TEXT,
-      'This report is based only on data entered into Carbon Central. Months with missing entries, zero values or partial Scope 3 coverage may reduce completeness and analytical accuracy.',
-      yRef
-    );
+yRef = { value: y };
 
-    y = yRef.value;
+paragraphText(
+  page,
+  font,
+  TEXT,
+  'This report is based only on data entered into Carbon Central. Missing months, zero-value entries or incomplete Scope 3 coverage may reduce analytical completeness.',
+  yRef
+);
 
-    // ---- FOOTER ----
-    page.drawText('Carbon Central · SECR-ready emissions report · Page 5', {
-      x: 180,
-      y: 20,
-      size: 9,
-      font,
-      color: TEXT,
-    });
+y = yRef.value;
+
+// ---- FOOTER ----
+page.drawText('Carbon Central · SECR-ready emissions report · Page 5', {
+  x: 180,
+  y: 20,
+  size: 9,
+  font,
+  color: TEXT,
+});
+// ========================= PAGE 6 (Emission Factors Appendix) =========================
+page = pdf.addPage([595, 842]);
+y = 780;
+
+// Header
+page.drawText('6. Emission factors appendix', {
+  x: 50,
+  y,
+  size: 18,
+  font: bold,
+  color: BLUE,
+});
+
+page.drawLine({
+  start: { x: 50, y: y - 6 },
+  end: { x: 545, y: y - 6 },
+  thickness: 1,
+  color: BLUE,
+});
+
+y -= 40;
+
+// Intro paragraph
+{
+  const yRef = { value: y };
+  paragraphText(
+    page,
+    font,
+    TEXT,
+    'All calculations use the UK Government GHG Conversion Factors for Company Reporting (DEFRA/BEIS 2024). These factors cover Scope 1, Scope 2 and Scope 3 (selected categories).',
+    yRef
+  );
+  y = yRef.value;
+}
+
+y -= 10;
+
+// --------------------------- SCOPE 1 ---------------------------
+page.drawText('Scope 1 — Direct emissions factors (fuel combustion)', {
+  x: 50,
+  y,
+  size: 12,
+  font: bold,
+  color: BLUE,
+});
+y -= 22;
+
+page.drawText('Diesel (average blend): 2.687 kg CO2e per litre', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
+page.drawText('Petrol: 2.174 kg CO2e per litre', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
+page.drawText('LPG: 1.527 kg CO2e per litre', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
+page.drawText('Natural gas: 0.182 kg CO2e per kWh', { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
+
+// --------------------------- SCOPE 2 ---------------------------
+page.drawText('Scope 2 — Purchased electricity (location-based)', {
+  x: 50,
+  y,
+  size: 12,
+  font: bold,
+  color: BLUE,
+});
+y -= 22;
+
+page.drawText('UK grid electricity: 0.233 kg CO2e per kWh', {
+  x: 60,
+  y,
+  size: 11,
+  font,
+  color: TEXT,
+});
+y -= 15;
+
+page.drawText('Market-based factors are not used for SECR.', {
+  x: 60,
+  y,
+  size: 11,
+  font,
+  color: TEXT,
+});
+y -= 25;
+
+// --------------------------- SCOPE 3 ---------------------------
+page.drawText('Scope 3 — Selected categories', {
+  x: 50,
+  y,
+  size: 12,
+  font: bold,
+  color: BLUE,
+});
+y -= 22;
+
+// Business Travel
+page.drawText('Business travel factors:', { x: 50, y, size: 11, font: bold, color: TEXT }); 
+y -= 18;
+
+page.drawText('Car (diesel): 0.171 kg CO2e per km', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
+page.drawText('Car (petrol): 0.140 kg CO2e per km', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
+page.drawText('Taxi: 0.153 kg CO2e per km', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
+page.drawText('Rail: 0.036 kg CO2e per km', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
+page.drawText('Domestic flight: 0.254 kg CO2e per km', { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
+
+// Employee commuting
+page.drawText('Employee commuting:', { x: 50, y, size: 11, font: bold, color: TEXT });
+y -= 18;
+
+page.drawText('Average commuter: 0.109 kg CO2e per km', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
+page.drawText('Car (unspecified): 0.163 kg CO2e per km', { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
+
+// Waste
+page.drawText('Waste factors:', { x: 50, y, size: 11, font: bold, color: TEXT });
+y -= 18;
+
+page.drawText('General waste to landfill: 0.466 kg CO2e per kg', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
+page.drawText('Mixed recycling: 0.021 kg CO2e per kg', { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
+
+// Water
+page.drawText('Water supply & treatment:', { x: 50, y, size: 11, font: bold, color: TEXT });
+y -= 18;
+
+page.drawText('Water supply: 0.344 kg CO2e per m3', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
+page.drawText('Water treatment: 0.708 kg CO2e per m3', { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
+
+// --------------------------- ENERGY CONVERSION ---------------------------
+page.drawText('Energy conversion (SECR requirement)', {
+  x: 50,
+  y,
+  size: 12,
+  font: bold,
+  color: BLUE,
+});
+y -= 22;
+
+page.drawText('Diesel: 10.9 kWh per litre', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
+page.drawText('Petrol: 9.4 kWh per litre', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
+page.drawText('LPG: 7.1 kWh per litre', { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
+
+// Review paragraph
+{
+  const yRef = { value: y };
+  paragraphText(
+    page,
+    font,
+    TEXT,
+    'Emission factors are updated annually following publication of new DEFRA GHG Conversion Factors. Carbon Central automatically uses the latest factors for the reporting year.',
+    yRef
+  );
+  y = yRef.value;
+}
+
+// Footer
+page.drawText('Carbon Central · SECR-ready emissions report · Page 6', {
+  x: 180,
+  y: 20,
+  size: 9,
+  font,
+  color: TEXT,
+});
+
 
     // ========================= RETURN PDF =========================
     const pdfBytes = await pdf.save();

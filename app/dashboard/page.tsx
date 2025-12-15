@@ -861,11 +861,11 @@ export default async function DashboardPage({
       <div className="mx-auto max-w-6xl px-4 py-10 space-y-6">
         {/* ONBOARDING CARD */}
         {profile && !profile.onboarding_complete && (
-          <section className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-4 shadow">
-            <p className="text-xs font-semibold text-amber-800">
+          <section className="rounded-xl bg-pink-50 border border-amber-200 px-4 py-4 shadow">
+            <p className="text-xs font-semibold text-black-800">
               Complete your setup
             </p>
-            <p className="text-[11px] text-amber-700 mt-1">
+            <p className="text-[11px] text-black-700 mt-1">
               Finish setting up your company profile to unlock personalisation.
             </p>
 
@@ -881,30 +881,47 @@ export default async function DashboardPage({
         {/* HEADER - aligned with emissions headers */}
         <section className="relative rounded-xl border border-slate-200 shadow bg-gradient-to-r from-slate-50 via-slate-50 to-indigo-50 px-4 py-5 md:px-6 md:py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           {/* PROFILE ICON (top-right) */}
-          <Link
-            href="/profile"
-            className="absolute top-4 right-4 z-50
-             flex items-center justify-center
-             w-9 h-9 rounded-full 
-             bg-white shadow-sm border border-slate-200
-             text-slate-600 hover:text-slate-800
-             hover:bg-slate-50 transition"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.8}
-              stroke="currentColor"
-              className="w-5 h-5"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M9.75 3.75h4.5m-4.5 16.5h4.5m-7.5-8.25h10.5m-10.5 0a5.25 5.25 0 0110.5 0"
-              />
-            </svg>
-          </Link>
+         <div className="absolute top-4 right-4 z-50"> 
+  <details className="relative">
+    <summary className="list-none cursor-pointer flex items-center justify-center 
+        w-9 h-9 rounded-full bg-white shadow-sm border border-slate-200 
+        text-slate-600 hover:text-slate-800 hover:bg-slate-50 transition">
+
+      {/* NEW SETTINGS ICON */}
+      <svg 
+  xmlns="http://www.w3.org/2000/svg" 
+  viewBox="0 0 24 24" 
+  fill="currentColor" 
+  className="w-6 h-6 text-slate-700"
+>
+  <path d="M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5zm-7 9c0-3.866 3.582-7 8-7 .778 0 1.528.099 2.236.282a6.46 6.46 0 00-.236 1.718c0 .586.078 1.152.223 1.691A9.987 9.987 0 0112 22H5zm16.707-5.293l-1.414-1.414-1.293.647a4.018 4.018 0 00-.707-.408l-.193-1.445h-2l-.193 1.445c-.246.111-.479.249-.707.408l-1.293-.647-1.414 1.414.647 1.293c-.159.228-.297.461-.408.707l-1.445.193v2l1.445.193c.111.246.249.479.408.707l-.647 1.293 1.414 1.414 1.293-.647c.228.159.461.297.707.408l.193 1.445h2l.193-1.445c.246-.111.479-.249.707-.408l1.293.647 1.414-1.414-.647-1.293c.159-.228.297-.461.408-.707l1.445-.193v-2l-1.445-.193a4.06 4.06 0 00-.408-.707l.647-1.293zM18 19a1 1 0 110-2 1 1 0 010 2z"/>
+</svg>
+
+
+
+    </summary>
+
+    <div className="absolute right-0 mt-2 w-40 bg-white border border-slate-200 
+        rounded-lg shadow-lg py-1 text-sm">
+
+      <Link href="/profile" className="block px-4 py-2 hover:bg-slate-100">
+        Profile
+      </Link>
+
+      <Link href="/billing" className="block px-4 py-2 hover:bg-slate-100">
+        Billing
+      </Link>
+
+      <Link href="/logout" className="block px-4 py-2 text-rose-600 hover:bg-slate-100">
+        Logout
+      </Link>
+
+    </div>
+  </details>
+</div>
+
+
+
 
           <div>
             <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">
@@ -941,7 +958,41 @@ export default async function DashboardPage({
             </div>
           </div>
 
-          {/* Right side: tiny KPI + progress bar */}
+          
+        </section>
+
+        {/* MAIN LAYOUT: LEFT SIDEBAR + RIGHT CONTENT */}
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+          {/* LEFT: SIDEBAR – Emissions, Main hotspot, Summary */}
+          <aside className="w-full lg:w-72 flex-shrink-0 space-y-4">
+            {/* Emissions / quick actions at the top */}
+            <AddEmissionsPanel />
+
+            {hasData && (
+              <>
+                {/* Main hotspot card – moved into sidebar */}
+                <section className="rounded-xl bg-white border p-6 shadow flex flex-col gap-3">
+                  <header className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">
+                        Main hotspot
+                      </p>
+                      <p
+                        className={`mt-1 text-sm font-semibold ${hotspotTextClass}`}
+                      >
+                        {hotspotLabel}
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-slate-400">
+                      Click a slice for detail
+                    </span>
+                  </header>
+
+                  <div className="mt-1">
+                    <HotspotPieChart breakdown={breakdownBySource} />
+                  </div>
+                </section>
+{/* Right side: tiny KPI + progress bar */}
           <div className="w-full md:w-64 lg:w-72 rounded-xl bg-white/80 border border-slate-200 px-4 py-3 shadow-sm backdrop-blur">
             <div className="flex items-center justify-between gap-2 text-xs">
               <div>
@@ -976,40 +1027,6 @@ export default async function DashboardPage({
               </p>
             </div>
           </div>
-        </section>
-
-        {/* MAIN LAYOUT: LEFT SIDEBAR + RIGHT CONTENT */}
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
-          {/* LEFT: SIDEBAR – Emissions, Main hotspot, Summary */}
-          <aside className="w-full lg:w-72 flex-shrink-0 space-y-4">
-            {/* Emissions / quick actions at the top */}
-            <AddEmissionsPanel />
-
-            {hasData && (
-              <>
-                {/* Main hotspot card – moved into sidebar */}
-                <section className="rounded-xl bg-white border p-6 shadow flex flex-col gap-3">
-                  <header className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">
-                        Main hotspot
-                      </p>
-                      <p
-                        className={`mt-1 text-sm font-semibold ${hotspotTextClass}`}
-                      >
-                        {hotspotLabel}
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-slate-400">
-                      Click a slice for detail
-                    </span>
-                  </header>
-
-                  <div className="mt-1">
-                    <HotspotPieChart breakdown={breakdownBySource} />
-                  </div>
-                </section>
-
                 {/* Summary – now purely numbers / narrative */}
                 <section className="rounded-xl bg-white border p-6 shadow flex flex-col gap-4">
                   <header className="flex items-start justify-between gap-2">

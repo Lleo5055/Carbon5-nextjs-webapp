@@ -1,8 +1,8 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'UAE SME Carbon Reporting',
-  description: 'Simple carbon reporting for UAE SMEs',
+  title: 'UK SME Carbon Accounting',
+  description: 'Simple and reliable carbon accounting for UK SMEs',
 };
 
 export default function RootLayout({
