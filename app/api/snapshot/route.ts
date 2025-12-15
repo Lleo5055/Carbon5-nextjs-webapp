@@ -104,9 +104,10 @@ if (trend.length >= 2) {
   const range = max - min || 1;
   const step = chartWidth / (trend.length - 1);
 
-  function scale(value: number) {
-    return chartY + ((value - min) / range) * chartHeight;
-  }
+  const scale = (value: number) => {
+  return chartY + ((value - min) / range) * chartHeight;
+};
+
 
   // Draw line segments
   for (let i = 0; i < trend.length - 1; i++) {
