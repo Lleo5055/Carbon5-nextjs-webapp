@@ -16,7 +16,7 @@ export default function HomePage() {
               <span className="text-sm font-semibold text-emerald-700">CC</span>
             </div>
             <span className="text-sm font-semibold tracking-tight text-slate-900">
-              Carbon Central
+              Greenio
             </span>
           </div>
 
@@ -248,7 +248,7 @@ export default function HomePage() {
                 {/* UPDATED COPY */}
                 <p className="text-sm leading-relaxed text-slate-700">
                   Most UK SMEs don&apos;t have a sustainability team.
-                  Carbon Central gives you a clear, credible carbon account
+                  Greenio gives you a clear, credible carbon account
                   with the minimum amount of noise — built for operations,
                   finance and compliance teams.
                 </p>
@@ -302,7 +302,7 @@ export default function HomePage() {
 
             <div className="mb-10 text-center">
               <h2 className="text-sm font-semibold tracking-tight text-slate-900">
-                How Carbon Central works
+                How Greenio works
               </h2>
 
               {/* UPDATED COPY */}
@@ -564,6 +564,7 @@ export default function HomePage() {
                 <ul className="mt-4 space-y-2 text-xs leading-relaxed text-slate-800">
                   <li>Everything in Growth</li>
                   <li>Team access (multi-user)</li>
+                  <li>Leadership Snapshot</li>
                   <li>Early AI reduction insights</li>
                 </ul>
 
@@ -622,7 +623,7 @@ export default function HomePage() {
 
                 <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-700">
                   Whether you&apos;re just starting or tightening a net-zero commitment,
-                  Carbon Central gives you a clear baseline and simple next steps —
+                  Greenio gives you a clear baseline and simple next steps —
                   built for real UK businesses.
                 </p>
 
@@ -657,10 +658,10 @@ export default function HomePage() {
                 <p className="mt-3 text-slate-600">
                   Email:{' '}
                   <a
-                    href="mailto:hello@carboncentral.app"
+                    href="mailto:hello@greenio.co"
                     className="font-medium underline decoration-slate-400 underline-offset-2 hover:text-slate-900"
                   >
-                    hello@carboncentral.app
+                    hello@greenio.co
                   </a>
                 </p>
               </div>
@@ -672,7 +673,7 @@ export default function HomePage() {
       {/* FOOTER */}
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-5 text-[11px] text-slate-600 sm:flex-row sm:px-6 lg:px-8">
-          <p>© {year} Carbon Central. All rights reserved.</p>
+          <p>© {year} Greenio. All rights reserved.</p>
 
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1">

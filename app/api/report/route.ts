@@ -390,7 +390,7 @@ y -= 20;
     });
 
     // ==== FOOTER PAGE 1 ====
-    page.drawText('Carbon Central · SECR-ready emissions report · Page 1', {
+    page.drawText('Greenio · SECR-ready emissions report · Page 1', {
       x: 180,
       y: 20,
       size: 9,
@@ -657,7 +657,7 @@ y -= 20;
     }
 
     // ---- FOOTER PAGE 2 ----
-    page.drawText('Carbon Central · SECR-ready emissions report · Page 2', {
+    page.drawText('Greenio · SECR-ready emissions report · Page 2', {
       x: 180,
       y: 20,
       size: 9,
@@ -731,7 +731,7 @@ y -= 20;
 
     paragraph(
       page,
-      'Scope 3 values represent only categories recorded in Carbon Central. This is not a complete Scope 3 inventory.',
+      'Scope 3 values represent only categories recorded in Greenio. This is not a complete Scope 3 inventory.',
       50,
       480,
       11,
@@ -979,7 +979,7 @@ y -= 20;
       { x: 50, y, size: 11, font, color: TEXT }
     );
     // ---- FOOTER ----
-    page.drawText('Carbon Central · SECR-ready emissions report · Page 3', {
+    page.drawText('Greenio · SECR-ready emissions report · Page 3', {
       x: 180,
       y: 20,
       size: 9,
@@ -1215,7 +1215,7 @@ y -= 20;
     }
 
     // ---- FOOTER ----
-    page.drawText('Carbon Central · SECR-ready emissions report · Page 4', {
+    page.drawText('Greenio · SECR-ready emissions report · Page 4', {
       x: 180,
       y: 20,
       size: 9,
@@ -1365,7 +1365,7 @@ paragraphText(
   page,
   font,
   TEXT,
-  'Directors or authorised representatives are responsible for the completeness and accuracy of all data submitted. Carbon Central applies calculations directly to the data provided and does not perform independent verification unless separately commissioned.',
+  'Directors or authorised representatives are responsible for the completeness and accuracy of all data submitted. Greenio applies calculations directly to the data provided and does not perform independent verification unless separately commissioned.',
   yRef
 );
 
@@ -1413,14 +1413,14 @@ paragraphText(
   page,
   font,
   TEXT,
-  'This report is based only on data entered into Carbon Central. Missing months, zero-value entries or incomplete Scope 3 coverage may reduce analytical completeness.',
+  'This report is based only on data entered into Greenio. Missing months, zero-value entries or incomplete Scope 3 coverage may reduce analytical completeness.',
   yRef
 );
 
 y = yRef.value;
 
 // ---- FOOTER ----
-page.drawText('Carbon Central · SECR-ready emissions report · Page 5', {
+page.drawText('Greenio · SECR-ready emissions report · Page 5', {
   x: 180,
   y: 20,
   size: 9,
@@ -1569,14 +1569,14 @@ page.drawText('LPG: 7.1 kWh per litre', { x: 60, y, size: 11, font, color: TEXT 
     page,
     font,
     TEXT,
-    'Emission factors are updated annually following publication of new DEFRA GHG Conversion Factors. Carbon Central automatically uses the latest factors for the reporting year.',
+    'Emission factors are updated annually following publication of new DEFRA GHG Conversion Factors. Greenio automatically uses the latest factors for the reporting year.',
     yRef
   );
   y = yRef.value;
 }
 
 // Footer
-page.drawText('Carbon Central · SECR-ready emissions report · Page 6', {
+page.drawText('Greenio · SECR-ready emissions report · Page 6', {
   x: 180,
   y: 20,
   size: 9,
