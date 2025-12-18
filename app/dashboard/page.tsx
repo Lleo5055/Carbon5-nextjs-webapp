@@ -621,7 +621,8 @@ const industryLabel =
   profile?.industry
     ? profile.industry
         .replace(/_/g, ' ')
-        .replace(/\b\w/g, (c) => c.toUpperCase())
+        .replace(/\b\w/g, (c: string) => c.toUpperCase())
+
     : 'UK SME';
 
   // --------------------------------------
