@@ -145,8 +145,11 @@ const SCOPE3_FACTOR_CONFIG: Record<
 function EmissionsPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  // ✅ Scope 3 edit support
+  const edit = searchParams.get('edit');
   const editingId = searchParams.get('id');
-  const isEditMode = Boolean(editingId);
+  const isEditMode = edit === 'scope3' && Boolean(editingId);
 
   const today = new Date();
   const currentYear = today.getFullYear();
@@ -159,7 +162,9 @@ function EmissionsPageInner() {
   const [petrolLitres, setPetrolLitres] = useState<string>('');
   const [gasKwh, setGasKwh] = useState<string>('');
   const [refrigerantKg, setRefrigerantKg] = useState<string>('');
-  const [refrigerantCode, setRefrigerantCode] = useState<string>('GENERIC_HFC');
+  const [refrigerantCode, setRefrigerantCode] =
+    useState<string>('GENERIC_HFC');
+
 
   // --------------------------------
   // Scope 3 FIXED: guaranteed default
@@ -228,6 +233,33 @@ function EmissionsPageInner() {
       cancelled = true;
     };
   }, [editingId]);
+// --------------------------------
+// Load existing Scope 3 row when editing
+// --------------------------------
+useEffect(() => {
+  if (!isEditMode || !editingId) return;
+
+  supabase
+    .from('scope3_activities')
+    .select('*')
+    .eq('id', editingId)
+    .single()
+    .then(({ data }) => {
+      if (!data) return;
+
+      const parsed = parseMonthLabel(data.month as string | null);
+      setMonthName(parsed.monthName);
+      setYear(parsed.year);
+
+      setScope3Enabled(true);
+      setScope3Category(data.category ?? DEFAULT_SCOPE3);
+      setScope3Label(data.label ?? '');
+      setScope3ActivityValue(
+        data.data?.activity_value != null ? String(data.data.activity_value) : ''
+      );
+    });
+}, [isEditMode, editingId]); // ✅ correct
+
 
   // -------------------------------------------
   // FIX 2: Safe Scope 3 config + calc block
@@ -277,6 +309,21 @@ function EmissionsPageInner() {
       setLoading(false);
       return;
     }
+// ----------------------------------
+// BLOCK SAVE IF MONTH IS LOCKED
+// ----------------------------------
+const { data: lock } = await supabase
+  .from('report_locks')
+  .select('locked')
+  .eq('user_id', user.id)
+  .eq('month', monthLabel)
+  .maybeSingle();
+
+if (lock?.locked) {
+  setError('This month is locked. Unlock it to make changes.');
+  setLoading(false);
+  return;
+}
 
     const fuelCo2 = calcFuelCo2eKg({
       dieselLitres: diesel,
@@ -304,21 +351,66 @@ function EmissionsPageInner() {
         const existing = existingRows?.[0];
 
         if (existing) {
+
           // EDIT MODE → REPLACE VALUES, DO NOT ACCUMULATE
+          const updatedElectricity = isEditMode
+  ? elec
+  : (existing.electricity_kw ?? 0) + elec;
+
+const updatedDiesel = isEditMode
+  ? diesel
+  : (existing.diesel_litres ?? 0) + diesel;
+
+const updatedPetrol = isEditMode
+  ? petrol
+  : (existing.petrol_litres ?? 0) + petrol;
+
+const updatedGas = isEditMode
+  ? gas
+  : (existing.gas_kwh ?? 0) + gas;
+
+const updatedRefrigerant = isEditMode
+  ? ref
+  : (existing.refrigerant_kg ?? 0) + ref;
+const updatedFuelCo2 = calcFuelCo2eKg({
+  dieselLitres: updatedDiesel,
+  petrolLitres: updatedPetrol,
+  gasKwh: updatedGas,
+});
+
+const updatedElecCo2 =
+  updatedElectricity * EF_GRID_ELECTRICITY_KG_PER_KWH;
+
+const updatedRefCo2 = calcRefrigerantCo2e(
+  updatedRefrigerant,
+  refCode
+);
+
+const updatedTotalCo2e =
+  updatedElecCo2 + updatedFuelCo2 + updatedRefCo2;
+
           const { error: updateError } = await supabase
             .from('emissions')
             .update({
-              electricity_kw: elec,
-              diesel_litres: diesel,
-              petrol_litres: petrol,
-              gas_kwh: gas,
-              refrigerant_kg: ref,
-              refrigerant_code: refCode,
-              total_co2e: totalCo2e,
+              electricity_kw: updatedElectricity,
+diesel_litres: updatedDiesel,
+petrol_litres: updatedPetrol,
+gas_kwh: updatedGas,
+refrigerant_kg: updatedRefrigerant,
+refrigerant_code: refCode,
+total_co2e: updatedTotalCo2e,
+
             })
             .eq('id', existing.id);
 
           if (updateError) throw updateError;
+await supabase.from('edit_history').insert({
+  user_id: user.id,
+  month: monthLabel,
+  entity: 'emissions',
+  entity_id: existing.id,
+  action: 'edit',
+});
 
           scope12MessagePart = `Scope 1 & 2 updated for ${monthLabel}. `;
         } else {
@@ -336,38 +428,88 @@ function EmissionsPageInner() {
               refrigerant_code: refCode,
               total_co2e: totalCo2e,
             });
+if (insertError) throw insertError;
 
-          if (insertError) throw insertError;
+await supabase.from('edit_history').insert({
+  user_id: user.id,
+  month: monthLabel,
+  entity: 'emissions',
+  entity_id: null, // insert
+  action: 'add',
+});
+
+      
+          
+
 
           scope12MessagePart = `Scope 1 & 2 saved for ${monthLabel}. `;
         }
       }
 
       // ----------------------------------
-      // SCOPE 3 — FIXED for consistency
-      // ----------------------------------
-      if (hasScope3Activity) {
-        const { error: scope3Error } = await supabase
-          .from('scope3_activities')
-          .insert({
-            user_id: user.id,
-            month: monthLabel,
-            category: scope3Category,
-            label: scope3Label || null,
-            data: {
-              activity_value: parsedActivity,
-              unit: activeScope3Config.unitLabel,
-              factor_kg_per_unit: activeScope3Config.factorKgPerUnit,
-            },
-            co2e_kg: calculatedScope3Kg,
-          });
+// SCOPE 3 — INSERT OR UPDATE (FIXED)
+// ----------------------------------
+if (hasScope3Activity) {
+  if (isEditMode && editingId) {
+    const { error } = await supabase
+      .from('scope3_activities')
+      .update({
+        category: scope3Category,
+        label: scope3Label || null,
+        data: {
+          activity_value: parsedActivity,
+          unit: activeScope3Config.unitLabel,
+          factor_kg_per_unit: activeScope3Config.factorKgPerUnit,
+        },
+        co2e_kg: calculatedScope3Kg,
+      })
+      .eq('id', editingId);
 
-        if (scope3Error) throw scope3Error;
+    if (error) throw error;
+await supabase.from('edit_history').insert({
+  user_id: user.id,
+  month: monthLabel,
+  entity: 'scope3',
+  entity_id: editingId,
+  action: 'edit',
+});
 
-        scope3MessagePart = `Scope 3 activity recorded (${calculatedScope3Kg.toFixed(
-          1
-        )} kg CO₂e).`;
-      }
+
+
+    scope3MessagePart = `Scope 3 updated (${calculatedScope3Kg.toFixed(
+      1
+    )} kg CO₂e).`;
+  } else {
+    const { error } = await supabase
+      .from('scope3_activities')
+      .insert({
+        user_id: user.id,
+        month: monthLabel,
+        category: scope3Category,
+        label: scope3Label || null,
+        data: {
+          activity_value: parsedActivity,
+          unit: activeScope3Config.unitLabel,
+          factor_kg_per_unit: activeScope3Config.factorKgPerUnit,
+        },
+        co2e_kg: calculatedScope3Kg,
+      });
+
+    if (error) throw error;
+await supabase.from('edit_history').insert({
+  user_id: user.id,
+  month: monthLabel,
+  entity: 'scope3',
+  entity_id: null, // new row
+  action: 'add',
+});
+
+    scope3MessagePart = `Scope 3 activity recorded (${calculatedScope3Kg.toFixed(
+      1
+    )} kg CO₂e).`;
+  }
+}
+
 
       const combinedMsg = `${scope12MessagePart}${scope3MessagePart}`.trim();
       setMessage(combinedMsg || 'Saved.');

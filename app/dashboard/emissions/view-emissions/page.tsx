@@ -2,7 +2,8 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+
 import Link from 'next/link';
 
 // FIX: use browser supabase client (NOT supabaseServer)
@@ -160,12 +161,16 @@ async function getCurrentPlan(): Promise<Plan> {
 
 /* ---------- MAIN REPORT BUILDER ---------- */
 async function getEmissionsReport(
+  
   period: PeriodKey,
   customStart?: string | null,
   customEnd?: string | null
 ): Promise<EmissionsReport> {
   // ✅ FIX: use supabase directly
   const db = supabase;
+console.log('[VIEW-EMISSIONS] getEmissionsReport START');
+
+const { data: sessionData } = await supabase.auth.getSession();
 
   const { data, error } = await db
     .from('emissions')
@@ -518,7 +523,17 @@ interface Props {
   };
 }
 
-export default async function ViewEmissionsPage({ searchParams }: Props) {
+export default function ViewEmissionsPage({ searchParams }: Props) {
+  // -----------------------------
+  // STATE
+  // -----------------------------
+  const [loading, setLoading] = useState(true);
+  const [plan, setPlan] = useState<Plan>('free');
+  const [report, setReport] = useState<EmissionsReport | null>(null);
+
+  // -----------------------------
+  // PARAMS (must come BEFORE useEffect)
+  // -----------------------------
   const raw = (searchParams?.period ?? 'all') as PeriodKey;
   const period: PeriodKey = ['1m', '3m', '6m', '12m', 'all', 'custom'].includes(
     raw
@@ -533,11 +548,46 @@ export default async function ViewEmissionsPage({ searchParams }: Props) {
   const showDeletedToast =
     searchParams?.deleted === '1' && typeof deletedMonth === 'string';
 
-  const plan = await getCurrentPlan();
-  const isFreePlan = plan === 'free';
+  // -----------------------------
+  // DATA LOAD (CLIENT ONLY)
+  // -----------------------------
+  useEffect(() => {
+    let mounted = true;
 
-  const report = await getEmissionsReport(period, customStart, customEnd);
+    async function load() {
+      setLoading(true);
 
+      const p = await getCurrentPlan();
+      const r = await getEmissionsReport(period, customStart, customEnd);
+
+      if (!mounted) return;
+
+      setPlan(p);
+      setReport(r);
+      setLoading(false);
+    }
+
+    load();
+
+    return () => {
+      mounted = false;
+    };
+  }, [period, customStart, customEnd]);
+
+  // -----------------------------
+  // LOADING GATE
+  // -----------------------------
+  if (loading || !report) {
+    return (
+      <main className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <p className="text-xs text-slate-500">Loading emissions…</p>
+      </main>
+    );
+  }
+
+  // -----------------------------
+  // SAFE DESTRUCTURE (report is now guaranteed)
+  // -----------------------------
   const {
     months,
     breakdownBySource,
@@ -545,8 +595,10 @@ export default async function ViewEmissionsPage({ searchParams }: Props) {
     periodLabel,
     availableMonths,
     totals,
-    scope3Rows, // ✅ FIX: now available below
+    scope3Rows,
   } = report;
+
+  const isFreePlan = plan === 'free';
 
   const hasData = months.length > 0;
   const totalCo2e = totals.totalCo2eKg;
@@ -568,6 +620,9 @@ export default async function ViewEmissionsPage({ searchParams }: Props) {
 
   const latestMonthLabel = latest.monthLabel;
 
+  // -----------------------------
+  // REMAINING LOGIC (unchanged)
+  // -----------------------------
   const { totalElecKwh, totalDieselLitres, totalPetrolLitres, totalGasKwh } =
     totals;
 
@@ -624,6 +679,9 @@ export default async function ViewEmissionsPage({ searchParams }: Props) {
       ? customEnd
       : availableMonths[availableMonths.length - 1] ?? '';
 
+  // -----------------------------
+  // JSX RETURN (your existing JSX continues here)
+  // -----------------------------
   return (
     <main className="min-h-screen bg-slate-50">
       {/* Success toast */}
@@ -640,6 +698,9 @@ export default async function ViewEmissionsPage({ searchParams }: Props) {
           </div>
         </div>
       )}
+
+      {/* ⬇️ REST OF YOUR JSX STAYS EXACTLY THE SAME ⬇️ */}
+
 
       <div className="mx-auto max-w-6xl px-4 py-10 space-y-6">
         {/* Top Header */}

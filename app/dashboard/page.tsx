@@ -1,9 +1,11 @@
 // app/dashboard/page.tsx
-import BenchmarkingSection from './BenchmarkingSection';
+
+
 import HotspotPieChart from './HotspotPieChart';
 import React from 'react';
 import Link from 'next/link';
-import { supabase } from '../../lib/supabaseClient';
+import { supabaseServer as supabase } from '../../lib/supabaseServer';
+
 import OnboardingCard from './OnboardingCard';
 
 import {
@@ -17,6 +19,14 @@ const baseUrl = process.env.VERCEL_URL
   : 'http://localhost:3000';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
+
+
+console.log(
+  '[DASHBOARD MODULE LOADED]',
+  new Date().toISOString()
+);
 
 type DashboardMonth = {
   monthLabel: string;
@@ -59,6 +69,20 @@ const PERIOD_LABELS: Record<PeriodKey, string> = {
   '12m': 'Last 12 months',
   all: 'All data',
 };
+// UK SME annual baseline emissions (tonnes CO₂e / year)
+// Conservative, public-sector aligned estimates
+const UK_SME_BASELINES: Record<string, number> = {
+  logistics: 3.5,
+  supply_chain: 3.0,
+  manufacturing: 4.0,
+  retail: 2.2,
+  hospitality: 2.5,
+  office: 1.6,
+  education: 1.5,
+  healthcare: 2.0,
+  technology: 1.4,
+  other: 1.82, // fallback
+};
 
 function formatKg(v: number) {
   return `${v.toLocaleString()} kg CO₂e`;
@@ -72,6 +96,18 @@ function formatTonnes(v: number) {
 const SECTION_LABEL = 'text-[10px] uppercase tracking-[0.16em] text-slate-500';
 
 async function getDashboardData(period: PeriodKey): Promise<DashboardData> {
+  console.log(
+  '[DASHBOARD RUN]',
+  new Date().toISOString(),
+  'period=',
+  period
+);
+console.log(
+  '[DASHBOARD RENDER]',
+  new Date().toISOString()
+);
+
+
   // 1. Load emissions
   const { data: emissionsData, error: emissionsError } = await supabase
     .from('emissions')
@@ -444,6 +480,14 @@ function renderValueWithTrend(
     </span>
   );
 }
+function normaliseIndustry(raw?: string | null): string {
+  if (!raw) return 'other';
+
+  return raw
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '_'); // "supply chain" → "supply_chain"
+}
 
 export default async function DashboardPage({
   searchParams,
@@ -573,6 +617,12 @@ export default async function DashboardPage({
 
   const hotspot = dashData.hotspot;
   const scopeBreakdown = dashData.scopeBreakdown;
+const industryLabel =
+  profile?.industry
+    ? profile.industry
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase())
+    : 'UK SME';
 
   // --------------------------------------
   // PERIOD LABEL
@@ -1297,202 +1347,200 @@ export default async function DashboardPage({
                   {/* RIGHT CARD: PERFORMANCE + AI INSIGHTS + BENCHMARKING */}
                   <article className="rounded-xl bg-white border p-6 shadow flex flex-col">
                     {/* PERFORMANCE */}
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 flex items-center gap-2">
-                        <span>Performance</span>
-                        <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-slate-600">
-                          Beta
-                        </span>
-                      </p>
-                      {performanceScore100 !== null && (
-                        <p className="text-[10px] text-slate-500">
-                          Score (0–100):{' '}
-                          <span className="font-semibold text-slate-900">
-                            {performanceScore100}
-                          </span>
-                        </p>
-                      )}
-                    </div>
+<div className="flex items-center justify-between gap-2">
+  <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 flex items-center gap-2">
+    <span>Performance</span>
+    <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-slate-600">
+      Beta
+    </span>
+  </p>
+  {performanceScore100 !== null && (
+    <p className="text-[10px] text-slate-500">
+      Score (0–100):{' '}
+      <span className="font-semibold text-slate-900">
+        {performanceScore100}
+      </span>
+    </p>
+  )}
+</div>
 
-                    {statusPillLabel && (
-                      <p className="mt-4 inline-flex items-center rounded-full px-2 py-1 text-[10px] font-medium bg-slate-200 text-slate-800">
-                        {perf?.status || statusPillLabel}
-                      </p>
-                    )}
+{statusPillLabel && (
+  <p className="mt-4 inline-flex items-center rounded-full px-2 py-1 text-[10px] font-medium bg-slate-200 text-slate-800">
+    {statusPillLabel}
+  </p>
+)}
 
-                    {statusDescription && (
-                      <p className="mt-3 text-[11px] text-slate-600">
-                        {perf?.insight || statusDescription}
-                      </p>
-                    )}
+{statusDescription && (
+  <p className="mt-3 text-[11px] text-slate-600">
+    {statusDescription}
+  </p>
+)}
 
-                    {performanceStars !== null &&
-                      performanceScore100 !== null && (
-                        <div className="mt-4 flex items-center gap-2 text-[11px] text-slate-600">
-                          <span>Performance score:</span>
-                          <div className="flex items-center gap-0.5">
-                            {[1, 2, 3, 4, 5].map((i) => (
-                              <span
-                                key={i}
-                                className={
-                                  i <= performanceStars
-                                    ? 'text-yellow-400'
-                                    : 'text-slate-300'
-                                }
-                              >
-                                ★
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+{performanceStars !== null &&
+  performanceScore100 !== null && (
+    <div className="mt-4 flex items-center gap-2 text-[11px] text-slate-600">
+      <span>Performance score:</span>
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <span
+            key={i}
+            className={
+              i <= performanceStars
+                ? 'text-yellow-400'
+                : 'text-slate-300'
+            }
+          >
+            ★
+          </span>
+        ))}
+      </div>
+    </div>
+  )}
 
-                    {/* SCORE BREAKDOWN – stat cards */}
-                    <div className="mt-6 grid grid-cols-2 gap-3 text-[11px] text-slate-600">
-                      <div className="border border-slate-100 rounded-lg px-3 py-2 bg-slate-50">
-                        <p className="font-medium text-slate-900">
-                          Risk signals
-                        </p>
-                        <p className="text-slate-500">
-                          {perf?.risk || riskLevel}
-                        </p>
-                      </div>
+{/* SCORE BREAKDOWN – stat cards */}
+<div className="mt-6 grid grid-cols-2 gap-3 text-[11px] text-slate-600">
+  <div className="border border-slate-100 rounded-lg px-3 py-2 bg-slate-50">
+    <p className="font-medium text-slate-900">
+      Risk signals
+    </p>
+    <p className="text-slate-500">
+      {riskLevel}
+    </p>
+  </div>
 
-                      <div className="border border-slate-100 rounded-lg px-3 py-2 bg-slate-50">
-                        <p className="font-medium text-slate-900">
-                          Trend stability
-                        </p>
-                        <p className="text-slate-500">
-                          {perf?.stability ||
-                            (statusDescription
-                              ? statusDescription.split(' ')[0]
-                              : 'n/a')}
-                        </p>
-                      </div>
+  <div className="border border-slate-100 rounded-lg px-3 py-2 bg-slate-50">
+    <p className="font-medium text-slate-900">
+      Trend stability
+    </p>
+    <p className="text-slate-500">
+      {statusPillLabel ?? 'n/a'}
+    </p>
+  </div>
 
-                      <div className="border border-slate-100 rounded-lg px-3 py-2 bg-slate-50 col-span-2 md:col-span-1">
-                        <p className="font-medium text-slate-900">
-                          Monthly compliance
-                        </p>
-                        <p className="text-slate-500">
-                          {perf?.compliance ||
-                            (hasData ? 'On track' : 'Not started')}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* AI INSIGHTS CARD */}
-                    <div className="mt-6 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500 mb-2">
-                        AI insights
-                      </p>
-                      <ul className="list-disc pl-4 text-[11px] text-slate-500 space-y-1.5">
-                        {refrigerantSharePercent > 60 && (
-                          <li>
-                            Refrigerant drives most of your footprint (
-                            {refrigerantSharePercent}%). Likely leaks or
-                            inefficient cooling assets.
-                          </li>
-                        )}
-
-                        {Math.abs(monthChangePercent) < 3 && (
-                          <li>
-                            Month-to-month footprint is almost flat. To see a
-                            shift, run one focused change and track results.
-                          </li>
-                        )}
-
-                        {electricitySharePercent < 5 &&
-                          refrigerantSharePercent > 70 && (
-                            <li>
-                              Electricity impact is small; biggest gains will
-                              come from cooling, not power use.
-                            </li>
-                          )}
-
-                        {refrigerantSharePercent <= 60 &&
-                          Math.abs(monthChangePercent) >= 3 && (
-                            <li>
-                              Emissions are moving. Check which source changed
-                              most to spot the driver.
-                            </li>
-                          )}
-
-                        {refrigerantSharePercent <= 60 &&
-                          Math.abs(monthChangePercent) < 3 &&
-                          electricitySharePercent >= 5 && (
-                            <li>
-                              Footprint is balanced. Pick one hotspot and run a
-                              2–3 month pilot for clear learnings.
-                            </li>
-                          )}
-                      </ul>
-                    </div>
-
+  <div className="border border-slate-100 rounded-lg px-3 py-2 bg-slate-50 col-span-2 md:col-span-1">
+    <p className="font-medium text-slate-900">
+      Monthly compliance
+    </p>
+    <p className="text-slate-500">
+      {hasData ? 'On track' : 'Not started'}
+    </p>
+  </div>
+</div>
                     {/* BENCHMARKING */}
-                    <div className="mt-6 pt-5 border-t border-slate-100">
-                      <h2 className="text-sm font-semibold text-slate-900 mb-2">
-                        Benchmarking
-                      </h2>
-                      <p className="text-xs text-slate-600 mb-3">
-                        A comparison against a typical SME in your sector.
-                        Values are generated based on your total emissions.
-                      </p>
+<div className="mt-6 pt-5 border-t border-slate-100">
+  <h2 className="text-sm font-semibold text-slate-900 mb-2">
+    Benchmarking
+  </h2>
 
-                      <p className="text-sm text-slate-700 mb-3">
-                        {ai ? (
-                          <>
-                            {typeof ai.summary === 'string'
-                              ? ai.summary
-                              : ai.summary?.text || 'Benchmarking unavailable'}
-                          </>
-                        ) : (
-                          <>
-                            You are emitting{' '}
-                            <span className="font-semibold text-emerald-700">
-                              23% less
-                            </span>{' '}
-                            than a typical SME in your sector.
-                          </>
-                        )}
-                      </p>
+  <p className="text-xs text-slate-600 mb-3">
+  Comparison against a typical {industryLabel} SME, scaled to the selected period.
+</p>
 
-                      {/* Micro bar visual */}
-                      <div className="space-y-2 mb-3">
-                        <div>
-                          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                            Industry average
-                          </p>
-                          <div className="mt-1 flex items-center gap-2">
-                            <div className="h-2 w-full rounded-full bg-slate-100">
-                              <div className="h-2 rounded-full bg-slate-300 w-4/5" />
-                            </div>
-                            <span className="text-[11px] font-medium tabular-nums text-slate-600">
-                              {ai?.key_metrics?.industry_average_tonnes ??
-                                '1.82 t CO₂e'}
-                            </span>
-                          </div>
-                        </div>
 
-                        <div>
-                          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                            You
-                          </p>
-                          <div className="mt-1 flex items-center gap-2">
-                            <div className="h-2 w-full rounded-full bg-slate-100">
-                              <div className="h-2 rounded-full bg-slate-900 w-2/3" />
-                            </div>
-                            <span className="text-[11px] font-medium tabular-nums text-slate-900">
-                              {formatTonnes(dashData.totalCo2eKg)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
+  {months.length > 0 ? (() => {
+    // --- UK SME BASELINE (annual, tonnes CO2e) ---
+    const industryKey = normaliseIndustry(profile?.industry);
 
-                      <div className="inline-flex items-center mt-1 text-[10px] font-medium px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-                        Top 25% performance
-                      </div>
-                    </div>
+const annualBaselineTonnes =
+  UK_SME_BASELINES[industryKey] ??
+  UK_SME_BASELINES.other;
+
+
+    // --- YOUR EMISSIONS (period-based) ---
+    const youTonnes = dashData.totalCo2eKg / 1000;
+
+    // --- SCALE BASELINE TO PERIOD ---
+    const industryForPeriod =
+  annualBaselineTonnes * (months.length / 12);
+
+
+    // --- DIFFERENCE ---
+    const diffPercent =
+      industryForPeriod > 0
+        ? ((youTonnes - industryForPeriod) / industryForPeriod) * 100
+        : 0;
+
+    // --- LABEL ---
+    let label = 'In line with average';
+    let labelClass = 'bg-slate-100 text-slate-700 border-slate-200';
+
+    if (diffPercent <= -10) {
+      label = 'Better than average';
+      labelClass = 'bg-emerald-50 text-emerald-700 border-emerald-100';
+    } else if (diffPercent >= 10) {
+      label = 'Above average';
+      labelClass = 'bg-rose-50 text-rose-700 border-rose-100';
+    }
+
+    // --- BAR WIDTHS ---
+    const maxVal = Math.max(youTonnes, industryForPeriod, 0.01);
+    const youWidth = Math.min(100, (youTonnes / maxVal) * 100);
+    const industryWidth = Math.min(100, (industryForPeriod / maxVal) * 100);
+
+    return (
+      <>
+        <p className="text-sm text-slate-700 mb-3">
+          Over this period, your total emissions are{' '}
+          <span className="font-semibold">
+            {diffPercent >= 0 ? '+' : ''}
+            {diffPercent.toFixed(1)}%
+          </span>{' '}
+          compared to a typical UK SME.
+        </p>
+
+        <div className="space-y-3 mb-3">
+          <div>
+  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+    {industryLabel} Industry average
+  </p>
+
+  <div className="mt-1 flex items-center gap-2">
+    <div className="h-2 w-full rounded-full bg-slate-100">
+      <div
+        className="h-2 rounded-full bg-slate-300"
+        style={{ width: `${industryWidth}%` }}
+      />
+    </div>
+    <span className="text-[11px] font-medium tabular-nums text-slate-600">
+      {industryForPeriod.toFixed(2)} t CO₂e
+    </span>
+  </div>
+</div>
+
+
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              You
+            </p>
+            <div className="mt-1 flex items-center gap-2">
+              <div className="h-2 w-full rounded-full bg-slate-100">
+                <div
+                  className="h-2 rounded-full bg-slate-900"
+                  style={{ width: `${youWidth}%` }}
+                />
+              </div>
+              <span className="text-[11px] font-medium tabular-nums text-slate-900">
+                {youTonnes.toFixed(2)} t CO₂e
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={`inline-flex items-center mt-1 text-[10px] font-medium px-3 py-1 rounded-full border ${labelClass}`}
+        >
+          {label}
+        </div>
+      </>
+    );
+  })() : (
+    <p className="text-xs text-slate-500">
+      Add emissions data to enable benchmarking.
+    </p>
+  )}
+</div>
+
+
                   </article>
                 </section>
                 {ai?.recommendations && ai.recommendations.length > 0 && (

@@ -3,12 +3,28 @@
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../../lib/supabaseClient';
 
-export default function Scope3DeleteButton({ id }: { id: string }) {
+type Props = {
+  id: string;
+  month: string;
+};
+
+export default function Scope3DeleteButton({ id, month }: Props) {
   const router = useRouter();
 
   async function handleDelete() {
     if (!confirm('Delete this Scope 3 activity?')) return;
 
+    // get user for audit
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      alert('You must be signed in.');
+      return;
+    }
+
+    // delete scope 3 row
     const { error } = await supabase
       .from('scope3_activities')
       .delete()
@@ -19,6 +35,15 @@ export default function Scope3DeleteButton({ id }: { id: string }) {
       alert('Could not delete entry.');
       return;
     }
+
+    // ✅ AUDIT EVENT
+    await supabase.from('edit_history').insert({
+      user_id: user.id,
+      month,
+      entity: 'scope3',
+      entity_id: id,
+      action: 'delete',
+    });
 
     router.refresh();
   }
