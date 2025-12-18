@@ -514,27 +514,6 @@ export default async function DashboardPage({
     console.warn('No user session found → AI actions fallback will be used');
   }
 
-  // --- Load AI Performance ---
-  let perf = null;
-  try {
-    const res = await fetch(`${baseUrl}/api/ai/performance`, {
-      cache: 'no-store',
-    });
-
-    if (res.ok) perf = await res.json();
-
-    // FIX 3 — ensure perf is always an object
-    if (!perf) perf = {};
-
-    if (perf) {
-      perf.score = undefined;
-      perf.risk = undefined;
-      perf.stability = undefined;
-      perf.compliance = undefined;
-    }
-  } catch (e) {
-    console.error('AI performance failed', e);
-  }
 
   // Load AI benchmarking
   let ai = null;
@@ -696,11 +675,11 @@ const industryLabel =
 
   try {
     // 1️⃣ INDUSTRY SCORE (0–40)
-    const youTonnes = dashData.totalCo2eKg / 1000;
-    const industryTonnes =
-      typeof ai?.industry_average_tonnes === 'number'
-        ? ai.industry_average_tonnes
-        : 2.0;
+    const industryKey = normaliseIndustry(profile?.industry);
+const industryTonnes =
+  UK_SME_BASELINES[industryKey] ?? UK_SME_BASELINES.other;
+
+const youTonnes = dashData.totalCo2eKg / 1000;
 
     let industryScore = 0;
     const ratio = youTonnes / industryTonnes;
@@ -739,11 +718,6 @@ const industryLabel =
     performanceStars = 1;
   }
 
-  // 6️⃣ Attach for UI — OUR SCORE ONLY (AI blocked)
-  if (ai) {
-    ai.performance_score_100 = performanceScore100;
-    ai.performance_score = performanceStars;
-  }
 
   const recommendations: { title: string; description: string }[] = [];
 
