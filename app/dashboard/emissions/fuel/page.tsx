@@ -7,6 +7,7 @@ import {
   EF_GRID_ELECTRICITY_KG_PER_KWH,
   calcRefrigerantCo2e,
 } from '../../../../lib/emissionFactors';
+import { normaliseSharesTo100 } from '@/lib/normalisePercentages';
 
 export const dynamic = 'force-dynamic';
 
@@ -173,7 +174,17 @@ async function getFuelInsights(period: PeriodKey): Promise<FuelInsightsData> {
   );
 
   const denom = totalElec + totalFuel + totalRef || 1;
-  const shareOfFootprintPercent = (totalFuel / denom) * 100;
+
+const rawShares = {
+  electricity: (totalElec / denom) * 100,
+  fuel: (totalFuel / denom) * 100,
+  refrigerant: (totalRef / denom) * 100,
+};
+
+const normalisedShares = normaliseSharesTo100(rawShares);
+
+const shareOfFootprintPercent = normalisedShares.fuel;
+
 
   return {
     months: insightsMonths,

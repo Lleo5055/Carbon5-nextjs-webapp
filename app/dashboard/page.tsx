@@ -5,6 +5,7 @@ import HotspotPieChart from './HotspotPieChart';
 import React from 'react';
 import Link from 'next/link';
 import { supabaseServer as supabase } from '../../lib/supabaseServer';
+import { normaliseSharesTo100 } from '@/lib/normalisePercentages';
 
 import OnboardingCard from './OnboardingCard';
 
@@ -297,11 +298,20 @@ console.log(
 
   const denom = totalElec + totalFuel + totalRef || 1;
 
-  const breakdownBySource = {
-    electricitySharePercent: Math.round((totalElec / denom) * 1000) / 10,
-    fuelSharePercent: Math.round((totalFuel / denom) * 1000) / 10,
-    refrigerantSharePercent: Math.round((totalRef / denom) * 1000) / 10,
-  };
+  const rawShares = {
+  electricity: (totalElec / denom) * 100,
+  fuel: (totalFuel / denom) * 100,
+  refrigerant: (totalRef / denom) * 100,
+};
+
+const normalised = normaliseSharesTo100(rawShares);
+
+const breakdownBySource = {
+  electricitySharePercent: normalised.electricity,
+  fuelSharePercent: normalised.fuel,
+  refrigerantSharePercent: normalised.refrigerant,
+};
+
 
   let hotspot: DashboardData['hotspot'] = null;
   const { electricitySharePercent, fuelSharePercent, refrigerantSharePercent } =

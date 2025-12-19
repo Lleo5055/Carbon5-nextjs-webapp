@@ -7,6 +7,7 @@ import {
   calcFuelCo2eKg,
   calcRefrigerantCo2e,
 } from '../../../../lib/emissionFactors';
+import { normaliseSharesTo100 } from '@/lib/normalisePercentages';
 
 export const dynamic = 'force-dynamic';
 
@@ -157,7 +158,17 @@ async function getElectricityInsights(
   );
 
   const denom = totalElec + totalFuel + totalRef || 1;
-  const shareOfFootprintPercent = (totalElec / denom) * 100;
+
+const rawShares = {
+  electricity: (totalElec / denom) * 100,
+  fuel: (totalFuel / denom) * 100,
+  refrigerant: (totalRef / denom) * 100,
+};
+
+const normalisedShares = normaliseSharesTo100(rawShares);
+
+const shareOfFootprintPercent = normalisedShares.electricity;
+
 
   return {
     months: insightsMonths,
