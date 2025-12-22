@@ -530,6 +530,7 @@ export default function ViewEmissionsPage({ searchParams }: Props) {
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState<Plan>('free');
   const [report, setReport] = useState<EmissionsReport | null>(null);
+const [userId, setUserId] = useState<string | null>(null);
 
   // -----------------------------
   // PARAMS (must come BEFORE useEffect)
@@ -548,31 +549,43 @@ export default function ViewEmissionsPage({ searchParams }: Props) {
   const showDeletedToast =
     searchParams?.deleted === '1' && typeof deletedMonth === 'string';
 
-  // -----------------------------
-  // DATA LOAD (CLIENT ONLY)
-  // -----------------------------
-  useEffect(() => {
-    let mounted = true;
+  
 
-    async function load() {
-      setLoading(true);
+// -----------------------------
+// AUTH USER (CLIENT ONLY)  ✅ EDIT 2 GOES HERE
+// -----------------------------
+useEffect(() => {
+  supabase.auth.getUser().then(({ data }) => {
+    setUserId(data.user?.id ?? null);
+  });
+}, []);
 
-      const p = await getCurrentPlan();
-      const r = await getEmissionsReport(period, customStart, customEnd);
+// -----------------------------
+// DATA LOAD (CLIENT ONLY)
+// -----------------------------
+useEffect(() => {
+  let mounted = true;
 
-      if (!mounted) return;
+  async function load() {
+    setLoading(true);
 
-      setPlan(p);
-      setReport(r);
-      setLoading(false);
-    }
+    const p = await getCurrentPlan();
+    const r = await getEmissionsReport(period, customStart, customEnd);
 
-    load();
+    if (!mounted) return;
 
-    return () => {
-      mounted = false;
-    };
-  }, [period, customStart, customEnd]);
+    setPlan(p);
+    setReport(r);
+    setLoading(false);
+  }
+
+  load();
+
+  return () => {
+    mounted = false;
+  };
+}, [period, customStart, customEnd]);
+
 
   // -----------------------------
   // LOADING GATE
@@ -812,30 +825,27 @@ export default function ViewEmissionsPage({ searchParams }: Props) {
               <div className="flex flex-wrap items-center justify-start lg:justify-end gap-2">
                 {/* PDF */}
                 <form method="GET" action="/api/report" target="_blank">
-                  <input
-                    type="hidden"
-                    name="periodType"
-                    value={period === 'custom' ? 'custom' : 'quick'}
-                  />
-                  <input type="hidden" name="period" value={period} />
-                  {period === 'custom' && (
-                    <>
-                      <input
-                        type="hidden"
-                        name="start"
-                        value={customStart ?? ''}
-                      />
-                      <input type="hidden" name="end" value={customEnd ?? ''} />
-                    </>
-                  )}
+  <input type="hidden" name="userId" value={userId ?? ''} />
 
-                  <button
-                    type="submit"
-                    className="h-[32px] px-4 rounded-full border text-xs font-medium bg-white text-slate-700 border-slate-300 hover:bg-slate-900 hover:text-white flex items-center justify-center"
-                  >
-                    Emission Report
-                  </button>
-                </form>
+  <input
+    type="hidden"
+    name="periodType"
+    value={period === 'custom' ? 'custom' : 'quick'}
+  />
+  <input type="hidden" name="period" value={period} />
+
+  {period === 'custom' && (
+    <>
+      <input type="hidden" name="start" value={customStart ?? ''} />
+      <input type="hidden" name="end" value={customEnd ?? ''} />
+    </>
+  )}
+
+  <button type="submit" className="h-[32px] px-4 rounded-full border text-xs font-medium bg-white text-slate-700 border-slate-300 hover:bg-slate-900 hover:text-white">
+    Emission Report
+  </button>
+</form>
+
                 {/* Leadership Snapshot */}
                 <a
                   href="/api/snapshot"

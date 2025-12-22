@@ -102,18 +102,28 @@ export async function GET(req: NextRequest) {
 
 
     // ======================== LOAD USER PROFILE ========================
-    const { data: auth } = await supabase.auth.getUser();
-    const userId = auth.user?.id || null;
 
-    let profile: any = {};
-    if (userId) {
-      const { data: p } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      profile = p || {};
-    }
+// ⬇️ 1. Read userId from request URL
+const { searchParams } = new URL(req.url);
+const userId = searchParams.get('userId');
+
+// ⬇️ 2. Load profile explicitly using service role
+let profile: any = {};
+
+if (userId) {
+  const { data: p, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
+
+  if (error) {
+    console.error('Profile load error:', error);
+  }
+
+  profile = p || {};
+}
+
 
     // Extract profile fields (Organisation Card)
     const companyName = profile.company_name || 'Not provided';
@@ -149,7 +159,8 @@ export async function GET(req: NextRequest) {
     const font = await pdf.embedFont(StandardFonts.Helvetica);
     const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
-    const BLUE = rgb(28 / 255, 60 / 255, 180 / 255); // carbon blue
+    const BLUE = rgb(52 / 255, 168 / 255, 83 / 255); // chrome green
+
     const LIGHT_TILE = rgb(230 / 255, 238 / 255, 255 / 255);
     const TEXT = rgb(32 / 255, 32 / 255, 34 / 255);
 
@@ -201,202 +212,199 @@ export async function GET(req: NextRequest) {
     };
 
     // ========================= PAGE 1 =========================
-    let page = pdf.addPage([595, 842]);
-    let y = 780;
+let page = pdf.addPage([595, 842]);
+let y = 780;
 
-    // Header
-    page.drawText('Carbon Footprint Assessment Report', {
-      x: 50,
-      y,
-      size: 22,
-      font: bold,
-      color: BLUE,
-    });
+// Local colours (PAGE 1 ONLY)
+const GREEN = rgb(52 / 255, 168 / 255, 83 / 255);
+const BLACK = rgb(20 / 255, 20 / 255, 20 / 255);
+const DIVIDER = rgb(220 / 255, 223 / 255, 228 / 255);
 
-    page.drawLine({
-      start: { x: 50, y: y - 6 },
-      end: { x: 545, y: y - 6 },
-      thickness: 1,
-      color: BLUE,
-    });
+// =========================
+// TITLE
+// =========================
+page.drawText('Carbon Footprint Assessment Report', {
+  x: 50,
+  y,
+  size: 22,
+  font: bold,
+  color: BLACK,
+});
 
-    y -= 40;
+page.drawLine({
+  start: { x: 50, y: y - 6 },
+  end: { x: 545, y: y - 6 },
+  thickness: 1,
+  color: GREEN,
+});
 
-    // Reporting metadata (SECR-compliant start/end period)
+y -= 42;
+
+// =========================
+// METADATA
+// =========================
 const startMonth = list.length > 0 ? list[0].month : 'N/A';
 const endMonth = list.length > 0 ? list[list.length - 1].month : 'N/A';
 
 drawText(
   page,
-  `Reporting period: ${startMonth} to ${endMonth} (${list.length} months)`,
+  `Reporting period: ${startMonth} to ${endMonth}`,
   50,
   y,
   11,
   font,
-  TEXT
+  BLACK
 );
-y -= 18;
+y -= 16;
 
-drawText(page, `Organisation: ${companyName}`, 50, y, 11, font, TEXT);
-y -= 18;
+drawText(page, `Organisation: ${companyName}`, 50, y, 11, font, BLACK);
+y -= 16;
 
-// --- UK date format ---
 const d = new Date();
 const reportDate = `${String(d.getDate()).padStart(2, '0')}/${String(
   d.getMonth() + 1
 ).padStart(2, '0')}/${d.getFullYear()}`;
 
+drawText(page, `Report date: ${reportDate}`, 50, y, 11, font, BLACK);
+
+y -= 20;
+
+// ---- divider ABOVE hero ----
+page.drawLine({
+  start: { x: 50, y },
+  end: { x: 545, y },
+  thickness: 0.6,
+  color: DIVIDER,
+});
+
+y -= 50;
+
+// =========================
+// HERO METRIC (CENTRED)
+// =========================
+const heroText = `${(totalCO2 / 1000).toFixed(2)} tCO2e`;
+const heroSize = 34;
+const heroWidth = bold.widthOfTextAtSize(heroText, heroSize);
+const heroX = 50 + (495 - heroWidth) / 2;
+
+page.drawText(heroText, {
+  x: heroX,
+  y,
+  size: heroSize,
+  font: bold,
+  color: GREEN,
+});
+
+y -= 28;
+
+const subText = 'Total emissions this period';
+const subWidth = font.widthOfTextAtSize(subText, 12);
+const subX = 50 + (495 - subWidth) / 2;
+
+page.drawText(subText, {
+  x: subX,
+  y,
+  size: 12,
+  font,
+  color: BLACK,
+});
+
+y -= 28;
+
+// ---- divider BELOW hero ----
+page.drawLine({
+  start: { x: 50, y },
+  end: { x: 545, y },
+  thickness: 0.6,
+  color: DIVIDER,
+});
+
+y -= 32;
+
+// =========================
+// EMISSIONS SUMMARY
+// =========================
+page.drawText('Emissions summary', {
+  x: 50,
+  y,
+  size: 14,
+  font: bold,
+  color: TEXT,
+});
+
+y -= 18;
+
+drawText(page, `Scope 1 (fuels): ${scope1_t.toFixed(2)} tCO2e`, 50, y, 11, font, BLACK);
+y -= 16;
+
 drawText(
   page,
-  `Report date: ${reportDate}`,
+  `Scope 2 (electricity): ${scope2_t.toFixed(2)} tCO2e`,
   50,
   y,
   11,
   font,
-  TEXT
+  BLACK
+);
+y -= 16;
+
+drawText(
+  page,
+  `Scope 3 (selected): ${scope3_t.toFixed(2)} tCO2e`,
+  50,
+  y,
+  11,
+  font,
+  BLACK
 );
 
-y -= 20;
 
+y -= 18;
 
-    // ---------------- ORGANISATION CARD ----------------
-    page.drawRectangle({
-      x: 50,
-      y: y - 115,
-      width: 225,
-      height: 115,
-      color: LIGHT_TILE,
-    });
+const energy_kwh = totalElec + totalDiesel * 10;
 
-    let oy = y - 14;
+drawText(page, `Energy use equivalent: ${energy_kwh} kWh`, 50, y, 11, font, BLACK);
+y -= 16;
 
-    page.drawText('Organisation details', {
-      x: 60,
-      y: oy,
-      size: 12,
-      font: bold,
-      color: BLUE,
-    });
+drawText(page, 'Main hotspot: Diesel fuel use', 50, y, 11, font, BLACK);
 
-    oy -= 18;
-    page.drawText(`Company: ${companyName}`, {
-      x: 60,
-      y: oy,
-      size: 10,
-      font,
-      color: TEXT,
-    });
-    oy -= 14;
-    page.drawText(`Industry: ${industry}`, {
-      x: 60,
-      y: oy,
-      size: 10,
-      font,
-      color: TEXT,
-    });
-    oy -= 14;
-    page.drawText(`Employees: ${empCount}`, {
-      x: 60,
-      y: oy,
-      size: 10,
-      font,
-      color: TEXT,
-    });
-    oy -= 14;
-    page.drawText(`Revenue: £${revenue.toLocaleString()}`, {
-      x: 60,
-      y: oy,
-      size: 10,
-      font,
-      color: TEXT,
-    });
-    oy -= 14;
-    page.drawText(`Output units: ${outputUnits}`, {
-      x: 60,
-      y: oy,
-      size: 10,
-      font,
-      color: TEXT,
-    });
+y -= 40;
 
-    // ---------------- TOTAL EMISSIONS ----------------
-    y -= 140;
-    page.drawText(
-      `Total emissions this period: ${(totalCO2 / 1000).toFixed(2)} tCO2e`,
-      { x: 50, y, size: 16, font: bold, color: BLUE }
-    );
+// =========================
+// ORGANISATION PROFILE
+// =========================
+page.drawText('Organisation profile', {
+  x: 50,
+  y,
+  size: 14,
+  font: bold,
+  color: TEXT,
+});
 
-    y -= 30;
+y -= 18;
 
-    // Summary sentence
-    paragraph(
-      page,
-      'This report provides a structured SECR-ready summary of your greenhouse gas emissions, hotspots, and recommended actions.',
-      50,
-      480,
-      11,
-      { value: y }
-    );
-    y = y - 0;
+drawText(page, `Industry: ${industry}`, 50, y, 11, font, BLACK);
+y -= 14;
 
-    // ---------------- AT A GLANCE TILE ----------------
-    y -= 20;
+drawText(page, `Employees: ${empCount}`, 50, y, 11, font, BLACK);
+y -= 14;
 
-    page.drawRectangle({
-      x: 45,
-      y: y - 110,
-      width: 510,
-      height: 110,
-      color: LIGHT_TILE,
-    });
+drawText(page, `Revenue: £${revenue.toLocaleString()}`, 50, y, 11, font, BLACK);
+y -= 14;
 
-    page.drawText(`Scope 1 (fuels): ${scope1_t.toFixed(2)} tCO2e`, {
-      x: 55,
-      y: y - 12,
-      size: 11,
-      font,
-      color: TEXT,
-    });
-    page.drawText(`Scope 2 (electricity): ${scope2_t.toFixed(2)} tCO2e`, {
-      x: 55,
-      y: y - 32,
-      size: 11,
-      font,
-      color: TEXT,
-    });
-    page.drawText(`Scope 3 (selected): ${scope3_t.toFixed(2)} tCO2e`, {
-      x: 55,
-      y: y - 52,
-      size: 11,
-      font,
-      color: TEXT,
-    });
+drawText(page, `Output units: ${outputUnits}`, 50, y, 11, font, BLACK);
 
-    const energy_kwh = totalElec + totalDiesel * 10;
-    page.drawText(`Energy use equivalent: ${energy_kwh} kWh`, {
-      x: 55,
-      y: y - 72,
-      size: 11,
-      font,
-      color: TEXT,
-    });
+// =========================
+// FOOTER
+// =========================
+page.drawText('Greenio · SECR-ready emissions report · Page 1', {
+  x: 180,
+  y: 20,
+  size: 9,
+  font,
+  color: BLACK,
+});
 
-    page.drawText(`Main hotspot: diesel fuel use`, {
-      x: 55,
-      y: y - 92,
-      size: 11,
-      font,
-      color: TEXT,
-    });
-
-    // ==== FOOTER PAGE 1 ====
-    page.drawText('Greenio · SECR-ready emissions report · Page 1', {
-      x: 180,
-      y: 20,
-      size: 9,
-      font,
-      color: TEXT,
-    });
     // ========================= PAGE 2 =========================
     page = pdf.addPage([595, 842]);
     y = 780;
@@ -472,7 +480,7 @@ y -= 20;
       y,
       size: 12,
       font: bold,
-      color: BLUE,
+      color: TEXT,
     });
     y -= 22;
 
@@ -504,7 +512,7 @@ y -= 20;
       y,
       size: 12,
       font: bold,
-      color: BLUE,
+      color: TEXT,
     });
 
     y -= 30;
@@ -747,7 +755,7 @@ y -= 20;
       y,
       size: 12,
       font: bold,
-      color: BLUE,
+      color: TEXT,
     });
     y -= 20;
 
@@ -834,7 +842,7 @@ y -= 20;
       y,
       size: 12,
       font: bold,
-      color: BLUE,
+      color: TEXT,
     });
     y -= 20;
 
@@ -855,7 +863,7 @@ y -= 20;
       y,
       size: 12,
       font: bold,
-      color: BLUE,
+      color: TEXT,
     });
     y -= 22;
 
@@ -948,7 +956,7 @@ y -= 20;
       y,
       size: 12,
       font: bold,
-      color: BLUE,
+      color: TEXT,
     });
     y -= 20;
 
@@ -1037,7 +1045,7 @@ y -= 20;
       y,
       size: 12,
       font: bold,
-      color: BLUE,
+      color: TEXT,
     });
     y -= 26;
 
@@ -1117,7 +1125,7 @@ y -= 20;
       y,
       size: 12,
       font: bold,
-      color: BLUE,
+      color: TEXT,
     });
     y -= 26;
 
@@ -1154,7 +1162,7 @@ y -= 20;
       y,
       size: 12,
       font: bold,
-      color: BLUE,
+      color: TEXT,
     });
     y -= 26;
 
@@ -1188,7 +1196,7 @@ y -= 20;
       y,
       size: 12,
       font: bold,
-      color: BLUE,
+      color: TEXT,
     });
     y -= 26;
 
@@ -1251,7 +1259,7 @@ page.drawText('Methodology', {
   y,
   size: 12,
   font: bold,
-  color: BLUE,
+  color: TEXT,
 });
 y -= 22;
 
@@ -1301,7 +1309,7 @@ page.drawText('SECR methodology confirmation', {
   y,
   size: 12,
   font: bold,
-  color: BLUE,
+  color: TEXT,
 });
 y -= 22;
 
@@ -1333,7 +1341,7 @@ page.drawText('Organisational boundary', {
   y,
   size: 12,
   font: bold,
-  color: BLUE,
+  color: TEXT,
 });
 y -= 22;
 
@@ -1355,7 +1363,7 @@ page.drawText('Responsibility statement', {
   y,
   size: 12,
   font: bold,
-  color: BLUE,
+  color: TEXT,
 });
 y -= 22;
 
@@ -1377,7 +1385,7 @@ page.drawText('Energy efficiency actions this year', {
   y,
   size: 12,
   font: bold,
-  color: BLUE,
+  color: TEXT,
 });
 y -= 22;
 
@@ -1403,7 +1411,7 @@ page.drawText('Data quality and limitations', {
   y,
   size: 12,
   font: bold,
-  color: BLUE,
+  color: TEXT,
 });
 y -= 22;
 
@@ -1470,7 +1478,7 @@ page.drawText('Scope 1 — Direct emissions factors (fuel combustion)', {
   y,
   size: 12,
   font: bold,
-  color: BLUE,
+  color: TEXT,
 });
 y -= 22;
 
@@ -1485,7 +1493,7 @@ page.drawText('Scope 2 — Purchased electricity (location-based)', {
   y,
   size: 12,
   font: bold,
-  color: BLUE,
+  color: TEXT,
 });
 y -= 22;
 
@@ -1513,7 +1521,7 @@ page.drawText('Scope 3 — Selected categories', {
   y,
   size: 12,
   font: bold,
-  color: BLUE,
+  color: TEXT,
 });
 y -= 22;
 
@@ -1554,7 +1562,7 @@ page.drawText('Energy conversion (SECR requirement)', {
   y,
   size: 12,
   font: bold,
-  color: BLUE,
+  color: TEXT,
 });
 y -= 22;
 
@@ -1572,7 +1580,7 @@ page.drawText('LPG: 7.1 kWh per litre', { x: 60, y, size: 11, font, color: TEXT 
     'Emission factors are updated annually following publication of new DEFRA GHG Conversion Factors. Greenio automatically uses the latest factors for the reporting year.',
     yRef
   );
-  y = yRef.value;
+  y = yRef.value;  
 }
 
 // Footer
