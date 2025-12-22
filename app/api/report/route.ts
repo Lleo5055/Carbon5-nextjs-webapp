@@ -415,7 +415,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
       y,
       size: 18,
       font: bold,
-      color: BLUE,
+      color: TEXT,
     });
 
     page.drawLine({
@@ -571,7 +571,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
       y,
       size: 18,
       font: bold,
-      color: BLUE,
+      color: TEXT,
     });
 
     page.drawLine({
@@ -683,7 +683,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
       y,
       size: 18,
       font: bold,
-      color: BLUE,
+      color: TEXT,
     });
     page.drawLine({
       start: { x: 50, y: y - 6 },
@@ -1006,7 +1006,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
       y,
       size: 18,
       font: bold,
-      color: BLUE,
+      color: TEXT,
     });
 
     page.drawLine({
@@ -1241,7 +1241,7 @@ page.drawText('5. Methodology and governance', {
   y,
   size: 18,
   font: bold,
-  color: BLUE,
+  color: TEXT,
 });
 
 page.drawLine({
@@ -1445,7 +1445,7 @@ page.drawText('6. Emission factors appendix', {
   y,
   size: 18,
   font: bold,
-  color: BLUE,
+  color: TEXT,
 });
 
 page.drawLine({
