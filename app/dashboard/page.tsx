@@ -4,7 +4,11 @@
 import HotspotPieChart from './HotspotPieChart';
 import React from 'react';
 import Link from 'next/link';
-import { supabaseServer as supabase } from '../../lib/supabaseServer';
+import { supabaseServer } from '../../lib/supabaseServer';
+
+const supabase = supabaseServer;
+
+
 import { normaliseSharesTo100 } from '@/lib/normalisePercentages';
 
 import OnboardingCard from './OnboardingCard';
