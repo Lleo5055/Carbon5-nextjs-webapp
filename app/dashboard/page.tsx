@@ -6,7 +6,7 @@ import React from 'react';
 import Link from 'next/link';
 import { supabaseServer } from '../../lib/supabaseServer';
 
-const supabase = supabaseServer;
+
 
 
 import { normaliseSharesTo100 } from '@/lib/normalisePercentages';
@@ -100,13 +100,39 @@ function formatTonnes(v: number) {
 // Shared label style for small section headings
 const SECTION_LABEL = 'text-[10px] uppercase tracking-[0.16em] text-slate-500';
 
-async function getDashboardData(period: PeriodKey): Promise<DashboardData> {
+async function getDashboardData(
+  supabase: ReturnType<typeof supabaseServer>,
+  period: PeriodKey,
+  userId: string | undefined
+): Promise<DashboardData> {
+
+  // ✅ ADD THIS BLOCK — EXACTLY HERE
+  if (!userId) {
+    return {
+      months: [],
+      totalCo2eKg: 0,
+      lastMonth: null,
+      prevMonth: null,
+      breakdownBySource: {
+        electricitySharePercent: 0,
+        fuelSharePercent: 0,
+        refrigerantSharePercent: 0,
+      },
+      hotspot: null,
+      scopeBreakdown: {
+        scope1and2Co2eKg: 0,
+        scope3Co2eKg: 0,
+      },
+    };
+  }
+
   console.log(
-  '[DASHBOARD RUN]',
-  new Date().toISOString(),
-  'period=',
-  period
-);
+    '[DASHBOARD RUN]',
+    new Date().toISOString(),
+    'period=',
+    period
+  );
+
 console.log(
   '[DASHBOARD RENDER]',
   new Date().toISOString()
@@ -116,7 +142,9 @@ console.log(
   // 1. Load emissions
   const { data: emissionsData, error: emissionsError } = await supabase
     .from('emissions')
-    .select('*')
+.select('*')
+.eq('user_id', userId)
+
     .order('month', { ascending: true });
 
   // 1B. Load latest AI insight
@@ -130,7 +158,9 @@ console.log(
   // 2. Load Scope 3
   const { data: scope3Data, error: scope3Error } = await supabase
     .from('scope3_activities')
-    .select('*');
+.select('*')
+.eq('user_id', userId)
+
 
   if (emissionsError) {
     console.error('Error loading emissions for dashboard', emissionsError);
@@ -508,6 +538,8 @@ export default async function DashboardPage({
 }: {
   searchParams?: { period?: string };
 }) {
+  const supabase = supabaseServer();
+
   // Resolve selected period from query
   const rawPeriod = (searchParams?.period ?? 'all') as string;
   const period: PeriodKey =
@@ -515,7 +547,7 @@ export default async function DashboardPage({
       ? (rawPeriod as PeriodKey)
       : 'all';
 
-  const dashData = await getDashboardData(period);
+ 
   // --- FETCH AUTH USER ---
   const {
     data: { session },
@@ -527,6 +559,8 @@ export default async function DashboardPage({
   if (!userId) {
     console.warn('No user session found → AI actions fallback will be used');
   }
+ const dashData = await getDashboardData(supabase, period, userId);
+
 
 
   // Load AI benchmarking
