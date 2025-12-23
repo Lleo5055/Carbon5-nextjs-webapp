@@ -1,10 +1,12 @@
 // app/dashboard/page.tsx
 
+'use client';
 
 import HotspotPieChart from './HotspotPieChart';
 import React from 'react';
 import Link from 'next/link';
-import { supabaseServer } from '../../lib/supabaseServer';
+import { supabase } from '../../lib/supabaseClient';
+
 
 
 
@@ -23,9 +25,7 @@ const baseUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
   : 'http://localhost:3000';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-export const fetchCache = 'force-no-store';
+
 
 
 console.log(
@@ -101,7 +101,8 @@ function formatTonnes(v: number) {
 const SECTION_LABEL = 'text-[10px] uppercase tracking-[0.16em] text-slate-500';
 
 async function getDashboardData(
-  supabase: ReturnType<typeof supabaseServer>,
+  supabase: typeof import('../../lib/supabaseClient').supabase,
+
   period: PeriodKey,
   userId: string | undefined
 ): Promise<DashboardData> {
@@ -143,7 +144,6 @@ console.log(
   const { data: emissionsData, error: emissionsError } = await supabase
     .from('emissions')
 .select('*')
-.eq('user_id', userId)
 
     .order('month', { ascending: true });
 
@@ -159,7 +159,7 @@ console.log(
   const { data: scope3Data, error: scope3Error } = await supabase
     .from('scope3_activities')
 .select('*')
-.eq('user_id', userId)
+
 
 
   if (emissionsError) {
@@ -533,51 +533,119 @@ function normaliseIndustry(raw?: string | null): string {
     .replace(/\s+/g, '_'); // "supply chain" → "supply_chain"
 }
 
-export default async function DashboardPage({
-  searchParams,
-}: {
-  searchParams?: { period?: string };
-}) {
-  const supabase = supabaseServer();
+export default function DashboardPage() {
 
-  // Resolve selected period from query
-  const rawPeriod = (searchParams?.period ?? 'all') as string;
+  // STEP 6.2 — READ PERIOD (CLIENT-SAFE)
+  const searchParams = new URLSearchParams(
+    typeof window !== 'undefined' ? window.location.search : ''
+  );
+
+  const rawPeriod = searchParams.get('period') ?? 'all';
+
   const period: PeriodKey =
-    rawPeriod === '3m' || rawPeriod === '6m' || rawPeriod === '12m'
-      ? (rawPeriod as PeriodKey)
-      : 'all';
+  rawPeriod === '3m' || rawPeriod === '6m' || rawPeriod === '12m'
+    ? (rawPeriod as PeriodKey)
+    : 'all';
+
+// STEP 6.3 — LOAD DATA (CLIENT, SAME AS EMISSIONS HISTORY)
+const [state, setState] = React.useState<{
+  dashData: DashboardData;
+  profile: any;
+  finalActions: { title: string; description: string }[];
+} | null>(null);
+
+
+React.useEffect(() => {
+  let cancelled = false;
+
+  async function load() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      console.warn('No user session');
+      return;
+    }
+
+    const dashData = await getDashboardData(
+      supabase,
+      period,
+      user.id
+    );
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('onboarding_complete, industry, company_name')
+      .single();
+// Load AI recommended actions (client-safe)
+let finalActionsLocal: any[] = [];
+
+try {
+  const res = await fetch('/api/ai/recommended-actions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      electricity: dashData.breakdownBySource.electricitySharePercent,
+      fuel: dashData.breakdownBySource.fuelSharePercent,
+      refrigerant: dashData.breakdownBySource.refrigerantSharePercent,
+      months: dashData.months.length,
+    }),
+  });
+
+  if (res.ok) {
+    const json = await res.json();
+    finalActionsLocal = json.actions || [];
+  }
+} catch (e) {
+  console.error('AI actions failed', e);
+}
+
+    if (!cancelled) {
+      setState({
+  dashData,
+  profile,
+  finalActions: finalActionsLocal,
+});
+
+
+    }
+  }
+
+  load();
+
+  return () => {
+    cancelled = true;
+  };
+}, [period]);
+// STEP 6.4 — HARD STOP
+if (!state) {
+  return (
+    <main className="p-6 text-sm text-slate-500">
+      Dashboard loading…
+    </main>
+  );
+}
+
+const { dashData, profile, finalActions } = state;
+
+
+  // 👇 everything else continues BELOW (state, useEffect, render, etc.)
+
+
+
 
  
   // --- FETCH AUTH USER ---
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  const userId = session?.user?.id;
-  console.log('AUTH USER ID:', userId);
-
-  if (!userId) {
-    console.warn('No user session found → AI actions fallback will be used');
-  }
- const dashData = await getDashboardData(supabase, period, userId);
+  
 
 
 
   // Load AI benchmarking
-  let ai = null;
-  try {
-    const res = await fetch(`${baseUrl}/api/ai`, { cache: 'no-store' });
-
-    if (res.ok) ai = await res.json();
-  } catch (e) {
-    console.error('AI load failed', e);
-  }
+  
 
   // Load onboarding status
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('onboarding_complete, industry, company_name')
-    .single();
+  
 
   // Dummy refresh (Dashboard is a server component so no useRouter here)
   const refresh = () => {};
@@ -597,50 +665,10 @@ export default async function DashboardPage({
     fuelSharePercent = 0,
     refrigerantSharePercent = 0,
   } = breakdownBySource || {};
-  // --- LOAD AI Recommended Next Actions (Simple AI Call) ---
-  let finalActions: any[] = [];
-
-  try {
-    const res = await fetch(`${baseUrl}/api/ai/recommended-actions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        electricity: breakdownBySource.electricitySharePercent,
-        fuel: breakdownBySource.fuelSharePercent,
-        refrigerant: breakdownBySource.refrigerantSharePercent,
-        months: months.length,
-      }),
-      cache: 'no-store',
-    });
-
-    if (res.ok) {
-      const json = await res.json();
-      finalActions = json.actions || [];
-    }
-  } catch (e) {
-    console.error('AI Recommended Actions fetch failed:', e);
-  }
+  
 
   // --- FALLBACK WHEN AI RETURNS NOTHING ---
-  if (!finalActions || finalActions.length === 0) {
-    finalActions = [
-      {
-        title: 'Strengthen your baseline',
-        description:
-          'Add at least 6 months of data so trends and risks become accurate.',
-      },
-      {
-        title: 'Launch a hotspot pilot',
-        description:
-          'Pick one hotspot and test 2–3 operational changes next month.',
-      },
-      {
-        title: 'Create a monthly update ritual',
-        description:
-          'Update emissions on the same day each month to keep insights relevant.',
-      },
-    ];
-  }
+  
 
   const hotspot = dashData.hotspot;
   const scopeBreakdown = dashData.scopeBreakdown;
@@ -1566,24 +1594,7 @@ const annualBaselineTonnes =
 
                   </article>
                 </section>
-                {ai?.recommendations && ai.recommendations.length > 0 && (
-                  <section className="rounded-xl bg-white border p-6 shadow">
-                    <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500 mb-3">
-                      AI recommendations
-                    </p>
-
-                    <ul className="grid gap-2 text-[11px] md:grid-cols-2">
-                      {ai.recommendations.map((rec: string, idx: number) => (
-                        <li
-                          key={idx}
-                          className="border rounded-lg px-3 py-2 bg-slate-50"
-                        >
-                          <p className="text-slate-600">{rec}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                )}
+                
 
                 {/* RECOMMENDED NEXT ACTIONS (AI + fallback) */}
                 {finalActions.length > 0 && (
