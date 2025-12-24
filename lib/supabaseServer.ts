@@ -1,15 +1,8 @@
-// lib/supabaseServer.ts
-import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
 export function supabaseServer() {
   const cookieStore = cookies();
-
-  // 🔍 DIAGNOSTIC — DO NOT REMOVE YET
-  console.log(
-    '[SERVER COOKIES]',
-    cookieStore.getAll().map(c => c.name)
-  );
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

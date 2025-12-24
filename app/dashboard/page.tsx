@@ -66,6 +66,7 @@ type DashboardData = {
   };
 };
 
+
 type PeriodKey = '3m' | '6m' | '12m' | 'all';
 
 const PERIOD_LABELS: Record<PeriodKey, string> = {
@@ -535,6 +536,25 @@ function normaliseIndustry(raw?: string | null): string {
 
 export default function DashboardPage() {
 
+  // 🔒 Hydration + cache guard
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+
+
+  // Restore cached dashboard immediately (no white flash)
+  React.useEffect(() => {
+    if (!mounted) return;
+
+    const cached = sessionStorage.getItem('dashboard_state');
+    if (cached && !state) {
+      setState(JSON.parse(cached));
+    }
+  }, [mounted]);
+
   // STEP 6.2 — READ PERIOD (CLIENT-SAFE)
   const searchParams = new URLSearchParams(
     typeof window !== 'undefined' ? window.location.search : ''
@@ -555,6 +575,8 @@ const [state, setState] = React.useState<{
 } | null>(null);
 
 
+
+
 React.useEffect(() => {
   let cancelled = false;
 
@@ -563,53 +585,76 @@ React.useEffect(() => {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) {
-      console.warn('No user session');
-      return;
-    }
+    if (!user || cancelled) return;
 
+    // 1️⃣ Load dashboard data first (fast path)
     const dashData = await getDashboardData(
       supabase,
       period,
       user.id
     );
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('onboarding_complete, industry, company_name')
-      .single();
-// Load AI recommended actions (client-safe)
-let finalActionsLocal: any[] = [];
-
-try {
-  const res = await fetch('/api/ai/recommended-actions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      electricity: dashData.breakdownBySource.electricitySharePercent,
-      fuel: dashData.breakdownBySource.fuelSharePercent,
-      refrigerant: dashData.breakdownBySource.refrigerantSharePercent,
-      months: dashData.months.length,
-    }),
-  });
-
-  if (res.ok) {
-    const json = await res.json();
-    finalActionsLocal = json.actions || [];
-  }
-} catch (e) {
-  console.error('AI actions failed', e);
-}
-
     if (!cancelled) {
       setState({
-  dashData,
-  profile,
-  finalActions: finalActionsLocal,
-});
-
-
+        dashData,
+        profile: null,
+        finalActions: [],
+      });
     }
+if (!cancelled) {
+  sessionStorage.setItem(
+    'dashboard_state',
+    JSON.stringify({
+      dashData,
+      profile: null,
+      finalActions: [],
+    })
+  );
+}
+
+    // 2️⃣ Load profile (non-blocking)
+    supabase
+      .from('profiles')
+      .select('onboarding_complete, industry, company_name')
+      .single()
+      .then(({ data }) => {
+        if (!cancelled && data) {
+          setState((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  profile: data,
+                }
+              : prev
+          );
+        }
+      });
+
+    // 3️⃣ Load AI actions (non-blocking)
+    fetch('/api/ai/recommended-actions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        electricity: dashData.breakdownBySource.electricitySharePercent,
+        fuel: dashData.breakdownBySource.fuelSharePercent,
+        refrigerant: dashData.breakdownBySource.refrigerantSharePercent,
+        months: dashData.months.length,
+      }),
+    })
+      .then((res) => res.json())
+      .then((json) => {
+        if (!cancelled && json?.actions) {
+          setState((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  finalActions: json.actions,
+                }
+              : prev
+          );
+        }
+      })
+      .catch(() => {});
   }
 
   load();
@@ -618,14 +663,13 @@ try {
     cancelled = true;
   };
 }, [period]);
+
 // STEP 6.4 — HARD STOP
-if (!state) {
-  return (
-    <main className="p-6 text-sm text-slate-500">
-      Dashboard loading…
-    </main>
-  );
+if (!mounted || !state) {
+  return null;
 }
+
+
 
 const { dashData, profile, finalActions } = state;
 
