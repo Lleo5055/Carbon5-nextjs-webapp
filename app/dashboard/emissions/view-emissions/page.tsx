@@ -19,6 +19,8 @@ import {
 } from '../../../../lib/emissionFactors';
 
 import RowActionsClient from './RowActionsClient';
+const EMISSIONS_CACHE_KEY = 'view_emissions_report_v1';
+
 
 type ReportMonth = {
   id: number | string;
@@ -527,10 +529,51 @@ export default function ViewEmissionsPage({ searchParams }: Props) {
   // -----------------------------
   // STATE
   // -----------------------------
-  const [loading, setLoading] = useState(true);
+  
   const [plan, setPlan] = useState<Plan>('free');
-  const [report, setReport] = useState<EmissionsReport | null>(null);
+  const [report, setReport] = useState<EmissionsReport>({
+  periodLabel: '',
+  months: [],
+  breakdownBySource: {
+    electricitySharePercent: 0,
+    dieselSharePercent: 0,
+    petrolSharePercent: 0,
+    gasSharePercent: 0,
+    refrigerantSharePercent: 0,
+  },
+  suggestions: [],
+  availableMonths: [],
+  totals: {
+    totalCo2eKg: 0,
+    totalScope1and2Co2eKg: 0,
+    totalScope3Co2eKg: 0,
+    totalElecKwh: 0,
+    totalDieselLitres: 0,
+    totalPetrolLitres: 0,
+    totalGasKwh: 0,
+    totalRefKg: 0,
+  },
+  scope3Rows: [],
+});
+
+const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+
+
 const [userId, setUserId] = useState<string | null>(null);
+// -----------------------------
+// RESTORE CACHED REPORT (INSTANT PAINT)
+// -----------------------------
+useEffect(() => {
+  try {
+    const cached = sessionStorage.getItem(EMISSIONS_CACHE_KEY);
+    if (cached) {
+      const parsed: EmissionsReport = JSON.parse(cached);
+      setReport(parsed);
+    }
+  } catch (e) {
+    console.warn('Failed to restore emissions cache', e);
+  }
+}, []);
 
   // -----------------------------
   // PARAMS (must come BEFORE useEffect)
@@ -567,8 +610,6 @@ useEffect(() => {
   let mounted = true;
 
   async function load() {
-    setLoading(true);
-
     const p = await getCurrentPlan();
     const r = await getEmissionsReport(period, customStart, customEnd);
 
@@ -576,7 +617,8 @@ useEffect(() => {
 
     setPlan(p);
     setReport(r);
-    setLoading(false);
+    setHasLoadedOnce(true);
+    sessionStorage.setItem(EMISSIONS_CACHE_KEY, JSON.stringify(r));
   }
 
   load();
@@ -587,29 +629,25 @@ useEffect(() => {
 }, [period, customStart, customEnd]);
 
 
+
   // -----------------------------
   // LOADING GATE
   // -----------------------------
-  if (loading || !report) {
-    return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <p className="text-xs text-slate-500">Loading emissions…</p>
-      </main>
-    );
-  }
+  
 
   // -----------------------------
   // SAFE DESTRUCTURE (report is now guaranteed)
   // -----------------------------
   const {
-    months,
-    breakdownBySource,
-    suggestions,
-    periodLabel,
-    availableMonths,
-    totals,
-    scope3Rows,
-  } = report;
+  months,
+  breakdownBySource,
+  suggestions,
+  periodLabel,
+  availableMonths,
+  totals,
+  scope3Rows,
+} = report;
+
 
   const isFreePlan = plan === 'free';
 
@@ -919,7 +957,7 @@ useEffect(() => {
         </section>
 
         {/* NO DATA */}
-        {!hasData ? (
+        {hasLoadedOnce && !hasData ? (
           <section className="rounded-xl bg-white border p-8 text-center shadow">
             <p className="text-sm font-medium text-slate-800">
               No data available.
