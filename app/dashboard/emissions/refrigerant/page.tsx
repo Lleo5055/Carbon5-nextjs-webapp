@@ -535,3 +535,4 @@ export default async function RefrigerantInsightsPage({
     </main>
   );
 }
+      
