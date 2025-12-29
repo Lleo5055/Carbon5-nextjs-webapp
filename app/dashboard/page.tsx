@@ -613,22 +613,29 @@ if (!cancelled) {
 }
 
     // 2️⃣ Load profile (non-blocking)
-    supabase
-      .from('profiles')
-      .select('onboarding_complete, industry, company_name')
-      .single()
-      .then(({ data }) => {
-        if (!cancelled && data) {
-          setState((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  profile: data,
-                }
-              : prev
-          );
-        }
-      });
+supabase
+  .from('profiles')
+  .select('onboarding_complete, industry, company_name')
+  .eq('id', user.id) // ✅ IMPORTANT: load the logged-in user's profile
+  .single()
+  .then(({ data, error }) => {
+    if (error) {
+      console.error('Failed to load profile:', error);
+      return;
+    }
+
+    if (!cancelled && data) {
+      setState((prev) =>
+        prev
+          ? {
+              ...prev,
+              profile: data,
+            }
+          : prev
+      );
+    }
+  });
+
 
     // 3️⃣ Load AI actions (non-blocking)
     fetch('/api/ai/recommended-actions', {

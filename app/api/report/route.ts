@@ -77,35 +77,56 @@ function paragraphText(
 
 export async function GET(req: NextRequest) {
   try {
-    // ======================== LOAD DATA ========================
-    const { data: rows } = await supabase
-      .from('emissions')
-      .select('*')
-      .order('month', { ascending: true });
+    // ======================== LOAD USER ID (REQUIRED) ========================
+const { searchParams } = new URL(req.url);
+const userId = searchParams.get('userId');
 
-    const scope3 = await supabase
-      .from('scope3_activities')
-      .select('*')
-      .order('month', { ascending: true });
+if (!userId) {
+  return new NextResponse('Missing userId', { status: 400 });
+}
 
-    const s3 = (scope3.data || []).sort((a, b) => {
+// ======================== LOAD DATA (USER ONLY) ========================
+const { data: rows, error: emissionsError } = await supabase
+  .from('emissions')
+  .select('*')
+  .eq('user_id', userId)
+  .order('month', { ascending: true });
+
+if (emissionsError) {
+  console.error('Emissions load error:', emissionsError);
+  return new NextResponse('Failed to load emissions', { status: 500 });
+}
+
+const { data: scope3Rows, error: scope3Error } = await supabase
+  .from('scope3_activities')
+  .select('*')
+  .eq('user_id', userId)
+  .order('month', { ascending: true });
+
+if (scope3Error) {
+  console.error('Scope3 load error:', scope3Error);
+  return new NextResponse('Failed to load scope 3', { status: 500 });
+}
+
+// Keep your sorting exactly the same, but use scope3Rows instead of scope3.data
+const s3 = (scope3Rows || []).sort((a, b) => {
   const da = new Date(a.month + ' 1');
   const db = new Date(b.month + ' 1');
   return da.getTime() - db.getTime();
 });
 
-    const list = (rows || []).sort((a, b) => {
+const list = (rows || []).sort((a, b) => {
   const da = new Date(a.month + ' 1');
   const db = new Date(b.month + ' 1');
   return da.getTime() - db.getTime();
 });
+
 
 
     // ======================== LOAD USER PROFILE ========================
 
 // ⬇️ 1. Read userId from request URL
-const { searchParams } = new URL(req.url);
-const userId = searchParams.get('userId');
+
 
 // ⬇️ 2. Load profile explicitly using service role
 let profile: any = {};

@@ -879,9 +879,18 @@ useEffect(() => {
     </>
   )}
 
-  <button type="submit" className="h-[32px] px-4 rounded-full border text-xs font-medium bg-white text-slate-700 border-slate-300 hover:bg-slate-900 hover:text-white">
-    Emission Report
-  </button>
+  <button
+  type="submit"
+  disabled={!userId}
+  className={`h-[32px] px-4 rounded-full border text-xs font-medium ${
+    !userId
+      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-900 hover:text-white'
+  }`}
+>
+  Emission Report
+</button>
+
 </form>
 
                 {/* Leadership Snapshot */}

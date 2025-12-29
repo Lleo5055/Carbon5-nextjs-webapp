@@ -3,17 +3,15 @@
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
-type OnboardingCardProps = {
-  profile: any;
-  refreshDashboard: () => void;
-};
-
 type Props = {
   profile: any;
   refreshDashboard: () => void;
 };
 
 export default function OnboardingCard({ profile, refreshDashboard }: Props) {
+  // Only show the card if onboarding is incomplete
+  if (profile?.onboarding_complete) return null;
+
   // Pre-fill if exists
   const [companyName, setCompanyName] = useState(profile?.company_name || '');
   const [industry, setIndustry] = useState(profile?.industry || '');
@@ -48,7 +46,7 @@ export default function OnboardingCard({ profile, refreshDashboard }: Props) {
       address,
       postcode,
       sustainability_stage: stage,
-      onboarding_complete: true,
+      onboarding_complete: true, // mark onboarding as complete
     };
 
     const { error } = await supabase
@@ -67,7 +65,7 @@ export default function OnboardingCard({ profile, refreshDashboard }: Props) {
   }
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white shadow-sm p-6">
+    <section className="rounded-xl border border-slate-200 bg-white shadow-sm p-6 transition-opacity duration-300">
       <h2 className="text-lg font-semibold text-slate-900">
         Finish setting up your organisation
       </h2>
@@ -77,9 +75,7 @@ export default function OnboardingCard({ profile, refreshDashboard }: Props) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="text-xs font-medium text-slate-700">
-            Company name
-          </label>
+          <label className="text-xs font-medium text-slate-700">Company name</label>
           <input
             className="mt-1 w-full border rounded-lg px-3 py-2 text-xs bg-white"
             value={companyName}
@@ -97,9 +93,7 @@ export default function OnboardingCard({ profile, refreshDashboard }: Props) {
         </div>
 
         <div>
-          <label className="text-xs font-medium text-slate-700">
-            Employees
-          </label>
+          <label className="text-xs font-medium text-slate-700">Employees</label>
           <input
             type="number"
             className="mt-1 w-full border rounded-lg px-3 py-2 text-xs bg-white"
@@ -145,9 +139,7 @@ export default function OnboardingCard({ profile, refreshDashboard }: Props) {
         </div>
 
         <div>
-          <label className="text-xs font-medium text-slate-700">
-            Sustainability stage
-          </label>
+          <label className="text-xs font-medium text-slate-700">Sustainability stage</label>
           <select
             className="mt-1 w-full border rounded-lg px-3 py-2 text-xs bg-white"
             value={stage}

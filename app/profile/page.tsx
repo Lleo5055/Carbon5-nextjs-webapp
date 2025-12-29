@@ -6,6 +6,9 @@ import { supabase } from '../../lib/supabaseClient';
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState<'success' | 'error'>('success');
+  const [bottomMessage, setBottomMessage] = useState('');
 
   const [form, setForm] = useState({
     company_name: '',
@@ -23,7 +26,6 @@ export default function ProfilePage() {
     has_company_vehicles: false,
     renewable_energy_tariff: false,
 
-    // NEW SECR FIELDS
     annual_revenue: '',
     employee_count: '',
     annual_output_units: '',
@@ -61,10 +63,9 @@ export default function ProfilePage() {
           has_company_vehicles: profile.has_company_vehicles || false,
           renewable_energy_tariff: profile.renewable_energy_tariff || false,
 
-          // NEW FIELDS
-          annual_revenue: profile.annual_revenue || '',
-          employee_count: profile.employee_count || '',
-          annual_output_units: profile.annual_output_units || '',
+          annual_revenue: profile.annual_revenue ?? '',
+          employee_count: profile.employee_count ?? '',
+          annual_output_units: profile.annual_output_units ?? '',
           methodology_confirmed: profile.methodology_confirmed || false,
           energy_efficiency_actions: profile.energy_efficiency_actions || '',
         });
@@ -88,20 +89,36 @@ export default function ProfilePage() {
     const userId = auth.user?.id;
     if (!userId) return;
 
+    const cleanedForm = {
+      ...form,
+      annual_revenue: form.annual_revenue ? Number(form.annual_revenue) : null,
+      employee_count: form.employee_count ? Number(form.employee_count) : null,
+      annual_output_units: form.annual_output_units
+        ? Number(form.annual_output_units)
+        : null,
+    };
+
     const { error } = await supabase
       .from('profiles')
-      .update(form)
+      .update(cleanedForm)
       .eq('id', userId);
 
     setSaving(false);
 
     if (error) {
-      console.error(error);
-      alert('Failed to save profile.');
+      console.error('Profile save error:', error);
+      setMessageType('error');
+      setMessage('Failed to save profile. See console for details.');
+      setBottomMessage('');
+      setTimeout(() => setMessage(''), 4000);
       return;
     }
 
-    alert('Profile updated successfully.');
+    setMessageType('success');
+    setMessage('Profile updated successfully.');
+    setBottomMessage('Profile saved');
+    setTimeout(() => setMessage(''), 4000);
+    setTimeout(() => setBottomMessage(''), 4000);
   }
 
   if (loading) return <p className="p-6">Loading profile...</p>;
@@ -117,19 +134,30 @@ export default function ProfilePage() {
         </a>
       </div>
 
-      <div className="mx-auto max-w-2xl">
+      <div className="mx-auto max-w-2xl relative">
         <h1 className="text-2xl font-semibold text-slate-900">Your profile</h1>
         <p className="text-sm text-slate-600 mt-1">
           Update your company information at any time.
         </p>
 
+        {/* Top notification */}
+        {message && (
+          <div
+            className={`absolute top-0 left-1/2 -translate-x-1/2 transform mt-[-2rem] px-4 py-2 rounded text-sm font-medium shadow ${
+              messageType === 'success'
+                ? 'bg-green-100 text-green-800'
+                : 'bg-red-100 text-red-800'
+            } transition-opacity duration-300`}
+          >
+            {message}
+          </div>
+        )}
+
         <form
           onSubmit={saveProfile}
           className="mt-8 space-y-8 rounded-xl bg-white p-6 shadow border border-slate-200"
         >
-          {/* --------------------------------------------- */}
-          {/* COMPANY DETAILS */}
-          {/* --------------------------------------------- */}
+          {/* ------------------ COMPANY DETAILS ------------------ */}
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Company details
@@ -212,9 +240,7 @@ export default function ProfilePage() {
             </div>
           </section>
 
-          {/* --------------------------------------------- */}
-          {/* ORG SIZE */}
-          {/* --------------------------------------------- */}
+          {/* ------------------ ORG SIZE ------------------ */}
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Organisation scale
@@ -233,9 +259,7 @@ export default function ProfilePage() {
             </select>
           </section>
 
-          {/* --------------------------------------------- */}
-          {/* COMPLIANCE */}
-          {/* --------------------------------------------- */}
+          {/* ------------------ COMPLIANCE ------------------ */}
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Compliance
@@ -262,15 +286,12 @@ export default function ProfilePage() {
             </label>
           </section>
 
-          {/* --------------------------------------------- */}
-          {/* SECR REPORTING BLOCK */}
-          {/* --------------------------------------------- */}
+          {/* ------------------ SECR REPORTING ------------------ */}
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
               SECR reporting (optional but required for SECR-compliant reports)
             </h2>
 
-            {/* INTENSITY METRICS */}
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-medium text-slate-600">
@@ -315,7 +336,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* ENERGY EFFICIENCY ACTIONS */}
             <div className="mt-6">
               <label className="text-xs font-medium text-slate-600">
                 Energy efficiency actions taken this reporting year
@@ -330,7 +350,6 @@ export default function ProfilePage() {
               />
             </div>
 
-            {/* METHODOLOGY NOTE */}
             <div className="mt-6 rounded-lg bg-slate-50 border border-slate-200 p-3">
               <p className="text-xs text-slate-600 leading-relaxed">
                 <strong>Methodology used for SECR reporting:</strong>
@@ -343,7 +362,6 @@ export default function ProfilePage() {
               </p>
             </div>
 
-            {/* METHODOLOGY CONFIRMATION */}
             <label className="flex items-center gap-2 text-sm text-slate-700 mt-4">
               <input
                 type="checkbox"
@@ -356,9 +374,7 @@ export default function ProfilePage() {
             </label>
           </section>
 
-          {/* --------------------------------------------- */}
-          {/* SUSTAINABILITY */}
-          {/* --------------------------------------------- */}
+          {/* ------------------ SUSTAINABILITY ------------------ */}
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Sustainability & Operations
@@ -400,9 +416,7 @@ export default function ProfilePage() {
             </label>
           </section>
 
-          {/* --------------------------------------------- */}
-          {/* CONTACT */}
-          {/* --------------------------------------------- */}
+          {/* ------------------ CONTACT ------------------ */}
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Contact details
@@ -438,9 +452,14 @@ export default function ProfilePage() {
           <button
             type="submit"
             disabled={saving}
-            className="w-full rounded-full bg-slate-900 text-white py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-60"
+            className="w-full rounded-full bg-slate-900 text-white py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-60 relative"
           >
             {saving ? 'Saving…' : 'Save changes'}
+            {bottomMessage && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-green-700 font-medium transition-opacity duration-300">
+                {bottomMessage}
+              </span>
+            )}
           </button>
         </form>
       </div>
