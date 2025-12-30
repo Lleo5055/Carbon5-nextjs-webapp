@@ -120,7 +120,9 @@ console.log('[ONBOARDING SAVED PROFILE]', data);
       return;
     }
 
-    router.push('/dashboard');
+    sessionStorage.removeItem('dashboard_state');
+router.push('/dashboard');
+
   }
 
   if (loading) return <p className="p-6">Loading…</p>;

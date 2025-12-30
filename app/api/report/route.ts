@@ -2,12 +2,29 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { createClient } from '@supabase/supabase-js';
 
+import {
+  EF_GRID_ELECTRICITY_KG_PER_KWH,
+  calcFuelCo2eKg,
+  calcRefrigerantCo2e,
+} from '@/lib/emissionFactors';
+
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+
+
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    global: {
+      fetch: (url, options) =>
+        fetch(url, { ...options, cache: 'no-store' }),
+    },
+  }
 );
+
 
 // ---------- HELPERS ----------
 function safe(v: any) {
@@ -75,33 +92,90 @@ function paragraphText(
   yRef.value -= 12;
 }
 
-export async function GET(req: NextRequest) {
+
+  export async function GET(req: NextRequest) {
+  console.log('REPORT URL:', req.url);
+
   try {
     // ======================== LOAD USER ID (REQUIRED) ========================
 const { searchParams } = new URL(req.url);
+
 const userId = searchParams.get('userId');
+const periodType = searchParams.get('periodType'); // 'quick' | 'custom'
+const period = searchParams.get('period');         // '3M' | '6M' | '12M' | 'All'
+
+let startMonth = searchParams.get('start');
+let endMonth = searchParams.get('end');
+// Handle quick periods (3M / 6M / 12M)
+if (periodType === 'quick' && period && period !== 'All' && !startMonth && !endMonth) {
+  const months = Number(period.replace('M', ''));
+
+  if (!isNaN(months)) {
+    const now = new Date();
+    const end = new Date(now.getFullYear(), now.getMonth(), 1);
+    const start = new Date(end);
+    start.setMonth(start.getMonth() - (months - 1));
+
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+    startMonth = fmt(start);
+    endMonth = fmt(end);
+  }
+}
+
+
+
 
 if (!userId) {
   return new NextResponse('Missing userId', { status: 400 });
 }
 
 // ======================== LOAD DATA (USER ONLY) ========================
-const { data: rows, error: emissionsError } = await supabase
+let emissionsQuery = supabase
   .from('emissions')
   .select('*')
   .eq('user_id', userId)
   .order('month', { ascending: true });
+
+
+const { data: rows, error: emissionsError } = await emissionsQuery;                
+
+// ======================== PERIOD FILTERING (ORIGINAL LOGIC) ========================
+
+let filteredRows = rows ?? [];
+
+
+if ((periodType === 'custom' || periodType === 'quick') && startMonth && endMonth) {
+
+  const startDate = new Date(startMonth);
+  const endDate = new Date(endMonth);
+
+
+  filteredRows = filteredRows.filter(r => {
+    const rowDate = new Date(r.month);
+    return rowDate >= startDate && rowDate <= endDate;
+  });
+}
+
+
+
 
 if (emissionsError) {
   console.error('Emissions load error:', emissionsError);
   return new NextResponse('Failed to load emissions', { status: 500 });
 }
 
-const { data: scope3Rows, error: scope3Error } = await supabase
+let scope3Query = supabase
   .from('scope3_activities')
   .select('*')
   .eq('user_id', userId)
   .order('month', { ascending: true });
+
+;
+
+const { data: scope3Rows, error: scope3Error } = await scope3Query;
+
 
 if (scope3Error) {
   console.error('Scope3 load error:', scope3Error);
@@ -115,12 +189,18 @@ const s3 = (scope3Rows || []).sort((a, b) => {
   return da.getTime() - db.getTime();
 });
 
-const list = (rows || []).sort((a, b) => {
+const list = (filteredRows || []).sort((a, b) => {
   const da = new Date(a.month + ' 1');
   const db = new Date(b.month + ' 1');
   return da.getTime() - db.getTime();
 });
 
+// ======================== REPORTING PERIOD ========================
+const reportStartMonth =
+  startMonth ?? (list.length ? list[0].month : 'Not available');
+
+const reportEndMonth =
+  endMonth ?? (list.length ? list[list.length - 1].month : 'Not available');
 
 
     // ======================== LOAD USER PROFILE ========================
@@ -157,16 +237,98 @@ if (userId) {
     const eeActions = profile.energy_efficiency_actions || '';
 
     // ======================== CALCULATIONS ========================
-    const totalElec = list.reduce((s, r) => s + safe(r.electricity_kw), 0);
-    const totalDiesel = list.reduce((s, r) => s + safe(r.diesel_litres), 0);
-    const totalCO2 = list.reduce((s, r) => s + safe(r.total_co2e), 0);
+    // ======================== CALCULATIONS (MATCH DASHBOARD) ========================
 
-    const scope1_t = (totalDiesel * 2.68) / 1000;
-    const scope2_t = totalElec * 0.000233;
-    const scope3_t = s3.reduce((s, r) => s + safe(r.co2e_kg), 0) / 1000;
+// --------------------
+// Totals (activity)
+// --------------------
+const totalElecKwh = list.reduce((s, r) => s + safe(r.electricity_kw), 0);
+const totalDieselLitres = list.reduce((s, r) => s + safe(r.diesel_litres), 0);
+const totalPetrolLitres = list.reduce((s, r) => s + safe(r.petrol_litres), 0);
+const totalGasKwh = list.reduce((s, r) => s + safe(r.gas_kwh), 0);
 
-    const months = list.map((r) => r.month);
-    const values = list.map((r) => safe(r.total_co2e));
+// Refrigerant CO2e must be summed per-row (because code can differ per row)
+const refrigerantCo2eKg = list.reduce(
+  (s, r) =>
+    s +
+    calcRefrigerantCo2e(
+      safe(r.refrigerant_kg),
+      (r.refrigerant_code as string | null) ?? 'GENERIC_HFC'
+    ),
+  0
+);
+
+// --------------------
+// Scope calculations (kg)
+// --------------------
+const scope2_kg = totalElecKwh * EF_GRID_ELECTRICITY_KG_PER_KWH;
+
+const scope1_fuel_kg = calcFuelCo2eKg({
+  dieselLitres: totalDieselLitres,
+  petrolLitres: totalPetrolLitres,
+  gasKwh: totalGasKwh,
+});
+
+// Treat refrigerant as Scope 1 (fugitive)
+const scope1_refrigerant_kg = refrigerantCo2eKg;
+
+const scope1and2_kg = scope1_fuel_kg + scope1_refrigerant_kg + scope2_kg;
+
+// Scope 3 comes from scope3_activities table
+const scope3_kg = s3.reduce((s, r) => s + safe(r.co2e_kg), 0);
+const totalCO2kg = scope1and2_kg + scope3_kg;
+
+// --------------------
+// Final totals
+// --------------------
+
+
+
+// Tonnes for printing
+const scope1_t = (scope1_fuel_kg + scope1_refrigerant_kg) / 1000;
+const scope2_t = scope2_kg / 1000;
+const scope3_t = scope3_kg / 1000;
+
+
+
+    
+    // Scope 3 per month
+const scope3ByMonth = new Map<string, number>();
+for (const r of s3) {
+  const m = r.month ?? 'Unknown month';
+  scope3ByMonth.set(m, (scope3ByMonth.get(m) ?? 0) + safe(r.co2e_kg));
+}
+
+// Combined monthly totals for trend/table (Scope 1+2 from activities + Scope 3)
+const months = list.map((r) => r.month);
+
+const values = list.map((r) => {
+  const elecKg =
+    safe(r.electricity_kw) * EF_GRID_ELECTRICITY_KG_PER_KWH;
+
+  const fuelKg = calcFuelCo2eKg({
+    dieselLitres: safe(r.diesel_litres),
+    petrolLitres: safe(r.petrol_litres),
+    gasKwh: safe(r.gas_kwh),
+  });
+
+  const refrigerantKg = calcRefrigerantCo2e(
+    safe(r.refrigerant_kg),
+    (r.refrigerant_code as string | null) ?? 'GENERIC_HFC'
+  );
+
+  const scope12Kg = elecKg + fuelKg + refrigerantKg;
+
+  const scope3Kg =
+    s3.find((x) => x.month === r.month)?.co2e_kg ?? 0;
+
+  return scope12Kg + scope3Kg;
+});
+
+// Final totals (ALL scopes, kg)
+
+
+
 
     const peak = Math.max(...values, 0);
     const peakIdx = values.indexOf(peak);
@@ -264,12 +426,11 @@ y -= 42;
 // =========================
 // METADATA
 // =========================
-const startMonth = list.length > 0 ? list[0].month : 'N/A';
-const endMonth = list.length > 0 ? list[list.length - 1].month : 'N/A';
+
 
 drawText(
   page,
-  `Reporting period: ${startMonth} to ${endMonth}`,
+  `Reporting period: ${reportStartMonth} to ${reportEndMonth}`,
   50,
   y,
   11,
@@ -303,7 +464,8 @@ y -= 50;
 // =========================
 // HERO METRIC (CENTRED)
 // =========================
-const heroText = `${(totalCO2 / 1000).toFixed(2)} tCO2e`;
+const heroText = `${(totalCO2kg / 1000).toFixed(2)} tCO2e`;
+
 const heroSize = 34;
 const heroWidth = bold.widthOfTextAtSize(heroText, heroSize);
 const heroX = 50 + (495 - heroWidth) / 2;
@@ -382,7 +544,12 @@ drawText(
 
 y -= 18;
 
-const energy_kwh = totalElec + totalDiesel * 10;
+const energy_kwh =
+  totalElecKwh +
+  totalDieselLitres * 10.9 +
+  totalPetrolLitres * 9.4 +
+  totalGasKwh;
+
 
 drawText(page, `Energy use equivalent: ${energy_kwh} kWh`, 50, y, 11, font, BLACK);
 y -= 16;
@@ -449,17 +616,15 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
     y -= 34;
 
     // ---- KEY METRICS SUMMARY ----
-    page.drawText(`Total emissions: ${(totalCO2 / 1000).toFixed(2)} tCO2e`, {
-      x: 50,
-      y,
-      size: 12,
-      font,
-      color: TEXT,
-    });
+    page.drawText(
+  `Total emissions: ${(totalCO2kg / 1000).toFixed(2)} tCO2e`,
+  { x: 50, y, size: 12, font, color: TEXT }
+);
+
 
     y -= 20;
     page.drawText(
-      `Electricity (Scope 2): ${(totalElec * 0.233).toFixed(0)} kg CO2e`,
+      `Electricity (Scope 2): ${(totalElecKwh * 0.233).toFixed(0)} kg CO2e`,
       {
         x: 50,
         y,
@@ -471,7 +636,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
 
     y -= 20;
     page.drawText(
-      `Fuels (Scope 1 – diesel): ${(totalDiesel * 2.68).toFixed(0)} kg CO2e`,
+      `Fuels (Scope 1 – diesel): ${(totalDieselLitres * 2.68).toFixed(0)} kg CO2e`,
       {
         x: 50,
         y,
@@ -888,7 +1053,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
     });
     y -= 22;
 
-    page.drawText(`Electricity: ${totalElec.toFixed(0)} kWh`, {
+    page.drawText(`Electricity: ${totalElecKwh.toFixed(0)} kWh`, {
       x: 50,
       y,
       size: 11,
@@ -898,7 +1063,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
     y -= 16;
 
     page.drawText(
-      `Road fuels (diesel): ${(totalDiesel * 10.9).toFixed(0)} kWh`,
+      `Road fuels (diesel): ${(totalDieselLitres * 10.9).toFixed(0)} kWh`,
       {
         x: 50,
         y,
@@ -910,7 +1075,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
     y -= 16;
 
     page.drawText(
-      `Total energy: ${(totalElec + totalDiesel * 10.9).toFixed(0)} kWh`,
+      `Total energy: ${(totalElecKwh + totalDieselLitres * 10.9).toFixed(0)} kWh`,
       {
         x: 50,
         y,
@@ -983,7 +1148,8 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
 
     page.drawText(
       `tCO2e per employee: ${
-        empCount ? (totalCO2 / 1000 / empCount).toFixed(3) : 'data not provided'
+        empCount ? (totalCO2kg / 1000 / empCount)
+.toFixed(3) : 'data not provided'
       }`,
       { x: 50, y, size: 11, font, color: TEXT }
     );
@@ -992,7 +1158,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
 
     page.drawText(
       `tCO2e per £ revenue: ${
-        revenue ? (totalCO2 / 1000 / revenue).toFixed(6) : 'data not provided'
+        revenue ? (totalCO2kg / 1000 / revenue).toFixed(6) : 'data not provided'
       }`,
       { x: 50, y, size: 11, font, color: TEXT }
     );
@@ -1002,7 +1168,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
     page.drawText(
       `tCO2e per output unit: ${
         outputUnits
-          ? (totalCO2 / 1000 / outputUnits).toFixed(6)
+          ? (totalCO2kg / 1000 / outputUnits).toFixed(6)
           : 'data not provided'
       }`,
       { x: 50, y, size: 11, font, color: TEXT }
