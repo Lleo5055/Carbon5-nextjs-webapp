@@ -5,6 +5,8 @@ import { supabase } from '../../lib/supabaseClient';
 import Link from 'next/link';
 
 export default function SignupPage() {
+  const [fullName, setFullName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,17 +17,31 @@ export default function SignupPage() {
     setLoading(true);
     setMessage(null);
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          full_name: fullName,
+          company_name: companyName,
+        },
+        // IMPORTANT: must be https and correct domain
+        emailRedirectTo: 'https://greenio.co/login',
+      },
     });
 
     if (error) {
       setMessage(error.message);
-    } else {
-      setMessage('Check your email to confirm your account.');
+      setLoading(false);
+      return;
     }
 
+    // IMPORTANT: do not allow auto-login
+    if (data.session) {
+      await supabase.auth.signOut();
+    }
+
+    setMessage('Check your email to confirm your account.');
     setLoading(false);
   };
 
@@ -37,6 +53,28 @@ export default function SignupPage() {
         </h1>
 
         <form onSubmit={handleSignup} className="space-y-4">
+          <div>
+            <label className="block text-sm mb-1">Full name</label>
+            <input
+              type="text"
+              className="w-full border rounded-lg px-3 py-2"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm mb-1">Company name</label>
+            <input
+              type="text"
+              className="w-full border rounded-lg px-3 py-2"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              required
+            />
+          </div>
+
           <div>
             <label className="block text-sm mb-1">Email</label>
             <input

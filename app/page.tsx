@@ -3,6 +3,8 @@ import React from 'react';
 import Link from 'next/link';
 import TestimonialsCarousel from './TestimonialsCarousel';
 
+
+
 export default function HomePage() {
   const year = new Date().getFullYear();
 
@@ -12,13 +14,11 @@ export default function HomePage() {
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100 ring-1 ring-emerald-300 shadow-sm">
-              <span className="text-sm font-semibold text-emerald-700">CC</span>
-            </div>
-            <span className="text-sm font-semibold tracking-tight text-slate-900">
-              Greenio
-            </span>
-          </div>
+  <img src="logogreenio.svg
+  " alt="" className='h-20 w-auto'/>
+
+</div>
+
 
           <nav className="hidden items-center gap-8 text-xs font-medium text-slate-600 sm:flex">
             <a href="#product" className="transition-colors hover:text-slate-900">
