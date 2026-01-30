@@ -1,4 +1,4 @@
-// app/dashboard/HotspotPieChart.tsx
+// Suggestion: Move this file to components folder for better organization
 'use client';
 
 import React from 'react';

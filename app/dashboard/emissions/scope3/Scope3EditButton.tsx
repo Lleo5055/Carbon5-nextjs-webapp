@@ -1,3 +1,5 @@
+// Suggestion: Move this file to components folder for better organization
+// It is also duplicated in view-emissions, but with different styling
 'use client';
 
 import Link from 'next/link';

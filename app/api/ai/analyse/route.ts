@@ -8,6 +8,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
+// Suggestion: Can be moved to a file in lib/ or utils/ for reusability
 function safeNumber(v: any) {
   return typeof v === 'number' && !isNaN(v) ? v : 0;
 }

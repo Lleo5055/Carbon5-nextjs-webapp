@@ -1,3 +1,4 @@
+// Suggestion: Move this file to components folder for better organization
 'use client';
 
 import React, { useEffect, useState } from 'react';
