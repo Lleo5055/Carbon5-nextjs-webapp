@@ -1,4 +1,3 @@
-// app/api/ai/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
 import OpenAI from 'openai';
@@ -85,6 +84,8 @@ RULES:
     let raw = completion.output_text || '{}';
 
     // Clean stray text
+    // Suggestion: Try/catch is not needed here (doesn't do anything).
+    // The Next try/catch should be enough to verify the AI's output.
     try {
       raw = raw.trim();
       if (!raw.startsWith('{')) raw = raw.slice(raw.indexOf('{'));

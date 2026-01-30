@@ -18,8 +18,12 @@ export async function GET(req: NextRequest) {
 
     if (planError) {
       console.error('CSV export: error loading user plan', planError);
+      // Suggestion: We should also return a response here, although the code will most likely hit the return statement on line 25 anyway.
     }
 
+    // Suggestion: Here it might be better/safer to use something like:
+    // if (["growth", "pro", "enterprise"].includes(planRow.plan)
+    // If we add another plan that not have access to CSV export, this breaks
     if (!planRow || planRow.plan === 'free') {
       return new NextResponse(
         'CSV export is only available on Growth, Pro or Enterprise plans.',
@@ -33,8 +37,6 @@ export async function GET(req: NextRequest) {
     // Optional period filter
     const url = new URL(req.url);
     const period = url.searchParams.get('period') ?? 'all';
-    void period;
-
     // Load emissions data
     const { data, error } = await supabase
       .from('emissions')

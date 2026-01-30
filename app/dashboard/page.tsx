@@ -25,14 +25,6 @@ const baseUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
   : 'http://localhost:3000';
 
-
-
-
-console.log(
-  '[DASHBOARD MODULE LOADED]',
-  new Date().toISOString()
-);
-
 type DashboardMonth = {
   monthLabel: string;
   electricityKwh: number;
@@ -90,6 +82,7 @@ const UK_SME_BASELINES: Record<string, number> = {
   other: 1.82, // fallback
 };
 
+// Suggestion: Move these to utils?
 function formatKg(v: number) {
   return `${v.toLocaleString()} kg CO₂e`;
 }
@@ -109,6 +102,7 @@ async function getDashboardData(
 ): Promise<DashboardData> {
 
   // ✅ ADD THIS BLOCK — EXACTLY HERE
+  // Suggestion: We could just redirect to login maybe, or show an error page
   if (!userId) {
     return {
       months: [],

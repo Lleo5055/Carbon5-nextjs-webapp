@@ -1,4 +1,3 @@
-// app/api/ai-insights/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
@@ -8,6 +7,7 @@ const client = new OpenAI({
 
 export async function POST(req: NextRequest) {
   // 1) Safety: API key present?
+  // Suggestion: `client` should be created below this check, to take advantage of it (also in general, it's best to do it per request, so inside the request handler).
   if (!process.env.OPENAI_API_KEY) {
     console.error('OPENAI_API_KEY is not configured');
     return NextResponse.json(
