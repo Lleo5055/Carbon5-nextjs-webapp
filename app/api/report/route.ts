@@ -173,8 +173,6 @@ let scope3Query = supabase
   .eq('user_id', userId)
   .order('month', { ascending: true });
 
-;
-
 const { data: scope3Rows, error: scope3Error } = await scope3Query;
 
 

@@ -37,8 +37,6 @@ export async function GET(req: NextRequest) {
     // Optional period filter
     const url = new URL(req.url);
     const period = url.searchParams.get('period') ?? 'all';
-    void period;
-
     // Load emissions data
     const { data, error } = await supabase
       .from('emissions')
