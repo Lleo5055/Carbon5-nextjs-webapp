@@ -1,4 +1,3 @@
-// lib/aiInsightsCore.ts
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 
@@ -58,7 +57,7 @@ export async function generateAIInsightForUser(
 
   if (error) throw new Error(`Failed to load emissions: ${error.message}`);
 
-  // 🔥 Correct mapping to compact structure
+  // Correct mapping to compact structure
   const compact: CompactMonth[] =
     data?.map((row: any) => {
       const diesel = Number(row.diesel_litres ?? 0);
