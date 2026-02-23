@@ -1,3 +1,4 @@
+// This route doesn't seem to be used
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
 import { loadUKFactors } from '@/lib/factors';
@@ -54,6 +55,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ✅ 4. AI AUTO-REFRESH (background, non-blocking)
+    // This route doesn't exist
     if (user_id) {
       fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/ai/refresh`, {
         method: 'POST',

@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+// TODO Better to create a new client per request
 import { supabase } from '../../../../lib/supabaseClient';
 
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
   try {
-    // ✅ Use the original working Supabase client (anon key)
-    // This will include the apikey & authorization automatically.
-
     // 🔒 Check user plan (Growth/Pro/Enterprise only)
     const { data: planRow, error: planError } = await supabase
       .from('user_plans')
@@ -38,6 +36,7 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const period = url.searchParams.get('period') ?? 'all';
     // Load emissions data
+    // TODO Should we filter by user here?
     const { data, error } = await supabase
       .from('emissions')
       .select(

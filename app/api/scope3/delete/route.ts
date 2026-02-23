@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
 
+// Should be a DELETE request type, not that it matters much I think
 export async function POST(req: NextRequest) {
   try {
     const { id, month } = await req.json();
