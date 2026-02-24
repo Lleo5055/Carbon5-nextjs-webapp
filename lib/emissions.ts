@@ -1,13 +1,12 @@
-// lib/emissions.ts
 import { createClient } from '@supabase/supabase-js';
 
 // Server-side Supabase client
+// Suggestion: Move to inside the getAllEmissions function
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// 🔧 Change if your table name is different
 const TABLE_NAME = 'emissions';
 
 export type EmissionRow = {
@@ -15,6 +14,7 @@ export type EmissionRow = {
   [key: string]: any;
 };
 
+// Suggestion: We could make more functions like this and reuse throughout the code
 export async function getAllEmissions(): Promise<EmissionRow[]> {
   const { data, error } = await supabase
     .from(TABLE_NAME)

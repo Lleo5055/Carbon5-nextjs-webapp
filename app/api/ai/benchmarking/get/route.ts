@@ -1,3 +1,4 @@
+// This is currently not used
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -9,6 +10,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY! // never expose to client
 );
 
+// This request gets data so it should be GET?
+// User ID needs to be retrieved from a path parameter or a token or something
 export async function POST(req: Request) {
   try {
     const { user_id } = await req.json();

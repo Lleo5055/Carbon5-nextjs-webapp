@@ -1,4 +1,3 @@
-// app/report-template/page.tsx
 // PREMIUM CARBON REPORT TEMPLATE (HTML → PDF READY)
 // This file uses SERVER COMPONENTS ONLY (no client-side JS).
 
@@ -9,6 +8,7 @@ import { supabase } from '../../lib/supabaseClient';
 // 🔧 Utility functions
 // ------------------------------
 
+// Suggestion: Move these somewhere central where it can be reused
 function safeNum(v: any, fallback = 0) {
   const n = Number(v);
   return isNaN(n) ? fallback : n;
@@ -569,6 +569,7 @@ export default async function ReportTemplate({
 
           {(() => {
             // Simple cost model assumptions (can be refined later or pulled from user settings)
+            // Suggestion: Move to constants in a separate file, similar to emissionFactors.ts (if not there)
             const electricityTariff = 0.3; // £/kWh
             const dieselPrice = 1.6; // £/litre
             const petrolPrice = 1.55; // £/litre

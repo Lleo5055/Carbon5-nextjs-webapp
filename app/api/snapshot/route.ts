@@ -10,10 +10,15 @@ const supabase = createClient(
 );
 
 export async function GET() {
+  // Suggestion: This function can be better organized by having all data at the top, then
+  // the presentation layer (creating the PDF) below it. It could also be split
+  // into smaller functions. Not everything needs to be inside a try/catch
+  // block.
   try {
     // -------------------------
     // LOAD DATA
     // -------------------------
+    // Suggestion: Do we need to filter by user_id or similar?
     const { data: emissions } = await supabase
       .from("emissions")
       .select("*")

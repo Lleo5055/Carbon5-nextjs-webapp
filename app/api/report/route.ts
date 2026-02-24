@@ -27,6 +27,7 @@ const supabase = createClient(
 
 
 // ---------- HELPERS ----------
+// Suggestion: Move to lib for reusability
 function safe(v: any) {
   const n = Number(v);
   return isNaN(n) ? 0 : n;
@@ -172,8 +173,6 @@ let scope3Query = supabase
   .eq('user_id', userId)
   .order('month', { ascending: true });
 
-;
-
 const { data: scope3Rows, error: scope3Error } = await scope3Query;
 
 
@@ -232,12 +231,14 @@ if (userId) {
     const empCount = Number(profile.employee_count || 0);
     const revenue = Number(profile.annual_revenue || 0);
     const outputUnits = Number(profile.annual_output_units || 0);
+    // TODO Double negation is redundant, this seems very weird. This can just be `profile.methodology_confirmed`
     const methodologyConfirmed = !!profile.methodology_confirmed;
 
     const eeActions = profile.energy_efficiency_actions || '';
 
     // ======================== CALCULATIONS ========================
     // ======================== CALCULATIONS (MATCH DASHBOARD) ========================
+// Suggestion: Some of these can be moved to a shared file to be shared between here and the dahsboard
 
 // --------------------
 // Totals (activity)

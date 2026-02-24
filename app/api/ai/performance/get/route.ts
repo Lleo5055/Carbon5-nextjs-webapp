@@ -9,6 +9,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Same comment as benchmarking route, consider making this a GET
 export async function POST(req: Request) {
   try {
     const { user_id } = await req.json();

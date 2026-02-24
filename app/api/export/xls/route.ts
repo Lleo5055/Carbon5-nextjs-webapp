@@ -1,4 +1,3 @@
-// app/api/export/xls/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import { supabase } from '@/lib/supabaseClient';
@@ -37,6 +36,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Build Excel file
+    // Suggestion/Improvement: Add some formatting, even if basic, to make it worth downloading an .xlsx instead of a .csv file
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Emissions');
 

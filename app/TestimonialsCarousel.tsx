@@ -1,4 +1,4 @@
-// app/TestimonialsCarousel.tsx
+// Suggestion: Move to components folder for better organization
 'use client';
 
 import React, { useState } from 'react';

@@ -1,3 +1,4 @@
+// Duplicated in the scope3/add folder
 'use client';
 
 import Link from 'next/link';

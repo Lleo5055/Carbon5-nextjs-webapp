@@ -20,6 +20,8 @@ const client = new OpenAI({
  *  - compliance
  *  - score
  */
+// TODO Should we consider making this a POST request instead?
+// Maybe not, cause it returns data.
 export async function GET(req: NextRequest) {
   try {
     // Load last 6 months of emissions

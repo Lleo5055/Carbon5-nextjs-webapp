@@ -169,9 +169,11 @@ async function getEmissionsReport(
   customEnd?: string | null
 ): Promise<EmissionsReport> {
   // ✅ FIX: use supabase directly
+  // Suggestion: This is redundant, just use the supabase variable directly
   const db = supabase;
 console.log('[VIEW-EMISSIONS] getEmissionsReport START');
 
+// Unused
 const { data: sessionData } = await supabase.auth.getSession();
 
   const { data, error } = await db
@@ -595,7 +597,7 @@ useEffect(() => {
   
 
 // -----------------------------
-// AUTH USER (CLIENT ONLY)  ✅ EDIT 2 GOES HERE
+// AUTH USER (CLIENT ONLY)
 // -----------------------------
 useEffect(() => {
   supabase.auth.getUser().then(({ data }) => {

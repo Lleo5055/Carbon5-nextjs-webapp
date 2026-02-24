@@ -1,6 +1,4 @@
-// lib/emissions-report.ts
-
-// ✅ FIXED IMPORT — correct server-side supabase client
+// Server-side supabase client
 import { supabase } from '@/lib/supabaseClient';
 
 export type ReportMonth = {
@@ -22,7 +20,7 @@ export type EmissionsReport = {
   suggestions: string[];
 };
 
-// 🔹 Fetch real rows from Supabase
+// Fetch real rows from Supabase
 async function fetchRowsForUser(userId: string) {
   const { data, error } = await supabase
     .from('emissions')
@@ -35,7 +33,7 @@ async function fetchRowsForUser(userId: string) {
       total_co2e
     `
     )
-    .eq('user_id', userId) // IMPORTANT: only get this user’s data
+    .eq('user_id', userId) // IMPORTANT: only get this user's data
     .order('month', { ascending: false });
 
   if (error) {
@@ -47,7 +45,7 @@ async function fetchRowsForUser(userId: string) {
 }
 
 export async function getEmissionsReportForUser(): Promise<EmissionsReport> {
-  // ✔ Get logged-in user
+  // Get logged-in user
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -80,7 +78,7 @@ export async function getEmissionsReportForUser(): Promise<EmissionsReport> {
     };
   }
 
-  // 🔹 Convert rows → ReportMonth[]
+  // Convert rows → ReportMonth[]
   const months: ReportMonth[] = rows.map((r: any) => ({
     monthLabel: r.month,
     electricityKwh: Number(r.electricity_kw || 0),
@@ -89,10 +87,10 @@ export async function getEmissionsReportForUser(): Promise<EmissionsReport> {
     totalCo2eKg: Number(r.total_co2e || 0),
   }));
 
-  // 🔹 Already ordered newest → oldest by SQL
+  // Already ordered newest → oldest by SQL
   const sortedMonths = months;
 
-  // 🔹 Breakdown by source %
+  // Breakdown by source %
   const totalAll = sortedMonths.reduce((sum, m) => sum + m.totalCo2eKg, 0);
 
   const totalElec = sortedMonths.reduce(

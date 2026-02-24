@@ -50,6 +50,9 @@ type ElectricityInsightsData = {
 async function getElectricityInsights(
   period: PeriodKey
 ): Promise<ElectricityInsightsData> {
+  // Suggestion: This code to retrieve and process emission data is duplicated
+  // in many pages in the dashboard. It's worth moving to a separate file in lib
+  // and importing to re-use it.
   const { data, error } = await supabase.from('emissions').select('*');
   if (error || !data) {
     console.error('Error loading emissions for electricity insights', error);
@@ -215,6 +218,13 @@ export default function ElectricityInsightsPage({ searchParams }: { searchParams
         </div>
 
         {/* Header */}
+        {/* Suggestion: Code is duplicated in many page.tsx files.
+            Make this into a reusable component that can be imported and re-used.
+            This ensures consistency and saves time if we want to later change the design
+            of the headers, since we will only have to change one file. It will also be
+            quicker to import the component rather than copying and pasting the code.
+            Apply the same pattern in other page.tsx files with similar reusable components.
+        */}
         <header className="space-y-2">
           <h1 className="text-2xl md:text-3xl font-semibold text-slate-900">Electricity Insights</h1>
           <p className="text-sm text-slate-600 max-w-2xl">Understand how electricity contributes to your footprint in this period. Based on your logged electricity use and grid factors.</p>

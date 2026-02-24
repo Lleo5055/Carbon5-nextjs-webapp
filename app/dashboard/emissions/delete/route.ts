@@ -1,3 +1,4 @@
+// This route doesn't seem to be used
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../../lib/supabaseClient';
 
@@ -13,6 +14,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 1. Get user (for AI refresh)
+    // This is show we should get the user ID probably?
     const {
       data: { user },
     } = await supabase.auth.getUser();
