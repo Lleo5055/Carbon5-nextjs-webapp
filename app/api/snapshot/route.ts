@@ -297,7 +297,7 @@ async function buildPdf(p: PdfInput): Promise<Uint8Array> {
   label(page, p.intEmp !== null ? `${fmt(p.intEmp,2)} t` : "N/A", ML, IT - 16, 14, bold, p.intEmp !== null ? C.ACCENT : C.MUTED);
   label(page, "tCO2e / M revenue", ML + 112, IT, 7.5, font, C.MID);
   label(page, p.intRev !== null ? `${fmt(p.intRev,2)} t` : "N/A", ML + 112, IT - 16, 14, bold, p.intRev !== null ? C.ACCENT : C.MUTED);
-  label(page, "SME average: ~1.82 tCO2e per employee", ML, IT - 36, 6.5, font, C.MUTED);
+  label(page, "SME average: ~1.82 tCO2e per employee", ML, R3_BOT + 6, 6.5, font, C.MID);
   // Scope 3 bars: lblW=72, bar starts at S3X+72; leave 40pt for value text
   const S3X = ML + 268;
   const s3BarW = MR - S3X - 72 - 44; // 131pt bar

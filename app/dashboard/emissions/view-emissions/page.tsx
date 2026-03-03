@@ -1359,8 +1359,8 @@ useEffect(() => {
             {/* SCOPE 3 ACTIVITY LOG  */}
             {/* ============================== */}
 
-            <section className="mt-10">
-              <h2 className="text-sm font-semibold text-slate-800 mb-3">
+            <section className="rounded-xl bg-white border p-6 shadow">
+              <h2 className="text-sm font-semibold mb-3">
                 Scope 3 activity log (optional)
               </h2>
 
@@ -1369,54 +1369,49 @@ useEffect(() => {
                   No Scope 3 activities recorded yet.
                 </p>
               ) : (
-                <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                <div className="overflow-x-auto">
                   <table className="min-w-full text-xs">
                     <thead className="bg-slate-50">
                       <tr>
-                        <th className="p-2 text-left uppercase text-[10px] text-slate-500">
-                          Month
-                        </th>
-                        <th className="p-2 text-left uppercase text-[10px] text-slate-500">
-                          Category
-                        </th>
-                        <th className="p-2 text-left uppercase text-[10px] text-slate-500">
-                          Label
-                        </th>
-                        <th className="p-2 text-left uppercase text-[10px] text-slate-500">
-                          Activity
-                        </th>
-                        <th className="p-2 text-left uppercase text-[10px] text-slate-500">
-                          CO₂e (kg)
-                        </th>
-                        <th className="p-2 text-left uppercase text-[10px] text-slate-500">
-                          Actions
-                        </th>
+                        <th className="p-2 text-left">Month</th>
+                        <th className="p-2 text-left">Category</th>
+                        <th className="p-2 text-left">Label</th>
+                        <th className="p-2 text-left">Activity</th>
+                        <th className="p-2 text-left">CO₂e (kg)</th>
+                        <th className="p-2 text-left">Actions</th>
                       </tr>
                     </thead>
 
                     <tbody>
-                      {(scope3Rows ?? []).map((row) => (
-                        <tr key={row.id} className="border-b last:border-0">
-                          <td className="p-2">{row.month}</td>
-                          <td className="p-2 capitalize">
-                            {row.category.replaceAll('_', ' ')}
-                          </td>
-                          <td className="p-2">{row.label || '—'}</td>
-                          <td className="p-2">
-                            {row.data?.activity_value}{' '}
-                            <span className="text-slate-400">
-                              {row.data?.unit}
-                            </span>
-                          </td>
-                          <td className="p-2 font-medium">
-                            {row.co2e_kg?.toFixed(1)}
-                          </td>
-
-                          <td className="p-2">
-                            <Scope3ActionsCell row={row} />
-                          </td>
-                        </tr>
-                      ))}
+                      {(scope3Rows ?? []).map((row) => {
+                        const now = new Date();
+                        const currentMonth = `${now.toLocaleString('default', { month: 'long' })} ${now.getFullYear()}`;
+                        const isCurrentMonth = row.month === currentMonth;
+                        return (
+                          <tr
+                            key={row.id}
+                            className={`border-b last:border-0 border-[rgb(240,240,240)] ${isCurrentMonth ? 'bg-slate-50' : ''}`}
+                          >
+                            <td className="p-2 font-medium text-slate-900">{row.month}</td>
+                            <td className="p-2 capitalize">
+                              {row.category.replaceAll('_', ' ')}
+                            </td>
+                            <td className="p-2">{row.label || '—'}</td>
+                            <td className="p-2">
+                              {row.data?.activity_value}{' '}
+                              <span className="text-slate-400">
+                                {row.data?.unit}
+                              </span>
+                            </td>
+                            <td className="p-2">
+                              {row.co2e_kg?.toFixed(1)}
+                            </td>
+                            <td className="p-2">
+                              <Scope3ActionsCell row={row} />
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

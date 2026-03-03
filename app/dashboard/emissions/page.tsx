@@ -162,6 +162,22 @@ function EmissionsPageInner() {
   const [refrigerantCode, setRefrigerantCode] =
     useState<string>('GENERIC_HFC');
 
+  // --------------------------------
+  // Bill scan state
+  // --------------------------------
+  const [scanMode, setScanMode] = useState(false);
+  const [billFile, setBillFile] = useState<File | null>(null);
+  const [billDocType, setBillDocType] = useState<'electricity' | 'diesel' | 'petrol' | 'gas' | 'refrigerant'>('electricity');
+  const [billScanning, setBillScanning] = useState(false);
+  const [billError, setBillError] = useState<string | null>(null);
+  const [billSuggestion, setBillSuggestion] = useState<null | {
+    month: string;
+    electricity_kwh: number;
+    fuel_litres: number;
+    gas_kwh: number;
+    refrigerant_kg: number;
+    refrigerant_type: string;
+  }>(null);
 
   // --------------------------------
   // Scope 3 FIXED: guaranteed default
@@ -271,6 +287,46 @@ useEffect(() => {
     scope3Enabled && parsedActivity > 0
       ? parsedActivity * activeScope3Config.factorKgPerUnit
       : 0;
+
+  // -------------------------------------------
+  // BILL SCAN
+  // -------------------------------------------
+  async function handleBillScan() {
+    if (!billFile) return;
+    setBillScanning(true);
+    setBillError(null);
+    setBillSuggestion(null);
+    const fd = new FormData();
+    fd.append('file', billFile);
+    fd.append('docType', billDocType);
+    fd.append('monthHint', buildMonthLabel(monthName, year));
+    const res = await fetch('/api/parse-invoice', { method: 'POST', body: fd });
+    const json = await res.json();
+    if (!res.ok || !json.suggestion) {
+      setBillError(json.error ?? 'Could not read bill. Try a clearer image.');
+    } else {
+      setBillSuggestion(json.suggestion);
+    }
+    setBillScanning(false);
+  }
+
+  function applyBillSuggestion() {
+    if (!billSuggestion) return;
+    const parsed = parseMonthLabel(billSuggestion.month);
+    setMonthName(parsed.monthName);
+    setYear(parsed.year);
+    if (billSuggestion.electricity_kwh > 0) setElectricityKwh(String(billSuggestion.electricity_kwh));
+    if (billSuggestion.fuel_litres > 0) {
+      if (billDocType === 'diesel') setDieselLitres(String(billSuggestion.fuel_litres));
+      if (billDocType === 'petrol') setPetrolLitres(String(billSuggestion.fuel_litres));
+    }
+    if (billSuggestion.gas_kwh > 0) setGasKwh(String(billSuggestion.gas_kwh));
+    if (billSuggestion.refrigerant_kg > 0) setRefrigerantKg(String(billSuggestion.refrigerant_kg));
+    if (billSuggestion.refrigerant_type) setRefrigerantCode(billSuggestion.refrigerant_type);
+    setScanMode(false);
+    setBillSuggestion(null);
+    setBillFile(null);
+  }
 
   // -------------------------------------------
   // FORM SUBMIT
@@ -619,6 +675,124 @@ await supabase.from('edit_history').insert({
 
         {/* FORM SECTION */}
         <section className="rounded-xl bg-white border p-6 shadow">
+          {/* ENTRY MODE TABS */}
+          <div className="flex gap-2 mb-6">
+            <button
+              type="button"
+              onClick={() => setScanMode(false)}
+              className={`px-4 py-1.5 rounded-full text-xs font-medium border ${
+                !scanMode
+                  ? 'bg-slate-900 text-white border-slate-900'
+                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              Enter manually
+            </button>
+            <button
+              type="button"
+              onClick={() => { setScanMode(true); setBillSuggestion(null); setBillError(null); }}
+              className={`px-4 py-1.5 rounded-full text-xs font-medium border ${
+                scanMode
+                  ? 'bg-slate-900 text-white border-slate-900'
+                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              Scan a bill
+            </button>
+          </div>
+
+          {scanMode ? (
+            <div className="space-y-5">
+              <div>
+                <p className="text-sm font-medium text-slate-800">Scan a bill</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Upload a photo or image of your bill and we&apos;ll extract the key numbers for you to review.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Bill type</label>
+                <select
+                  value={billDocType}
+                  onChange={(e) => {
+                    setBillDocType(e.target.value as 'electricity' | 'diesel' | 'petrol' | 'gas' | 'refrigerant');
+                    setBillSuggestion(null);
+                  }}
+                  className="border rounded-lg px-3 py-2 text-xs bg-white w-48"
+                >
+                  <option value="electricity">Electricity</option>
+                  <option value="diesel">Diesel</option>
+                  <option value="petrol">Petrol</option>
+                  <option value="gas">Gas</option>
+                  <option value="refrigerant">Refrigerant</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-2">Bill image</label>
+                <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 cursor-pointer hover:bg-slate-100">
+                  <span className="text-xs text-slate-500">Click to upload image</span>
+                  <span className="mt-1 text-[11px] text-slate-400">JPEG · PNG · WEBP supported (not PDF)</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      setBillFile(e.target.files?.[0] ?? null);
+                      setBillSuggestion(null);
+                      setBillError(null);
+                    }}
+                  />
+                </label>
+                {billFile && (
+                  <p className="mt-1 text-[11px] text-slate-600">{billFile.name}</p>
+                )}
+              </div>
+
+              <button
+                type="button"
+                disabled={!billFile || billScanning}
+                onClick={handleBillScan}
+                className="inline-flex items-center justify-center rounded-full bg-slate-900 text-white text-xs font-medium px-5 py-2 hover:bg-slate-800 disabled:opacity-50"
+              >
+                {billScanning ? 'Reading your bill…' : 'Extract from bill →'}
+              </button>
+
+              {billError && (
+                <p className="text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+                  {billError}
+                </p>
+              )}
+
+              {billSuggestion && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-2">
+                  <p className="text-xs font-semibold text-emerald-800">Extracted values — please review</p>
+                  <div className="text-xs text-slate-700 space-y-1">
+                    <p>Detected period: <span className="font-medium">{billSuggestion.month}</span></p>
+                    {billSuggestion.electricity_kwh > 0 && (
+                      <p>Electricity: <span className="font-medium">{billSuggestion.electricity_kwh.toLocaleString()} kWh</span></p>
+                    )}
+                    {billSuggestion.fuel_litres > 0 && (
+                      <p>{billDocType === 'diesel' ? 'Diesel' : 'Petrol'}: <span className="font-medium">{billSuggestion.fuel_litres.toLocaleString()} L</span></p>
+                    )}
+                    {billSuggestion.gas_kwh > 0 && (
+                      <p>Gas: <span className="font-medium">{billSuggestion.gas_kwh.toLocaleString()} kWh</span></p>
+                    )}
+                    {billSuggestion.refrigerant_kg > 0 && (
+                      <p>Refrigerant: <span className="font-medium">{billSuggestion.refrigerant_kg} kg</span> ({billSuggestion.refrigerant_type})</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={applyBillSuggestion}
+                    className="mt-2 inline-flex items-center justify-center rounded-full bg-emerald-700 text-white text-xs font-medium px-4 py-1.5 hover:bg-emerald-800"
+                  >
+                    Apply to form →
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* MONTH SELECTION */}
             <div>
@@ -916,6 +1090,7 @@ await supabase.from('edit_history').insert({
               </button>
             </div>
           </form>
+          )}
         </section>
       </div>
     </main>

@@ -18,8 +18,9 @@ function safeJsonParse<T>(text: string): T | null {
 // Shape we expect back from the model
 type InvoiceSuggestion = {
   month: string; // e.g. "January 2025"
-  electricity_kwh: number; // total kWh from bill
-  fuel_litres: number; // total litres from invoice (if fuel)
+  electricity_kwh: number; // total kWh from electricity bill
+  fuel_litres: number; // total litres from fuel receipt (diesel or petrol — UI maps to correct field)
+  gas_kwh: number; // total kWh from gas bill
   refrigerant_kg: number; // kg leaked / charged
   refrigerant_type?: string; // e.g. "R410A", "R407C", etc.
 };
@@ -52,11 +53,12 @@ export async function POST(req: NextRequest) {
     };base64,${base64}`;
 
     const systemPrompt = `
-You are an assistant helping UAE SMEs extract activity data from utility invoices for carbon reporting.
+You are an assistant helping SMEs extract activity data from utility invoices for carbon reporting.
 
 The user has uploaded one document. It may be:
-- an electricity bill (e.g. DEWA, ADDC, SEWA, FEWA, etc.),
-- a fuel receipt (diesel / petrol),
+- an electricity bill from any global utility provider,
+- a fuel receipt (diesel or petrol),
+- a gas bill (natural gas / mains gas),
 - or a refrigerant / AC maintenance invoice.
 
 Your job is to read the document carefully and return **only structured data** in JSON, no explanations.
@@ -72,6 +74,7 @@ JSON fields you must always return:
   "month": "Month YYYY",
   "electricity_kwh": number,
   "fuel_litres": number,
+  "gas_kwh": number,
   "refrigerant_kg": number,
   "refrigerant_type": "string"
 }
@@ -80,18 +83,24 @@ Specific guidance by document type:
 - If docType = "electricity":
   - Focus on total kWh for the billing period (NOT demand charges, NOT previous balance).
   - "electricity_kwh" should be the total active energy consumption in kWh.
-  - "fuel_litres" and "refrigerant_kg" should be 0.
+  - All other fields should be 0.
 
-- If docType = "fuel":
-  - Focus on total litres of fuel purchased (petrol/diesel).
+- If docType = "diesel" or docType = "petrol":
+  - Focus on total litres of fuel purchased.
   - Use "fuel_litres" as the sum of all litres on the receipt.
-  - "electricity_kwh" and "refrigerant_kg" should be 0.
+  - All other fields should be 0.
+
+- If docType = "gas":
+  - Focus on total gas consumed for the billing period.
+  - Return the value in kWh as "gas_kwh".
+  - If the bill shows cubic metres (m³), convert to kWh by multiplying by 11.2.
+  - All other fields should be 0.
 
 - If docType = "refrigerant":
   - Focus on kg of refrigerant charged / refilled / leaked.
   - "refrigerant_kg" should be the total kg.
   - "refrigerant_type" should be the gas code, e.g. "R410A", "R134a", "R404A", "R407C" etc.
-  - "electricity_kwh" and "fuel_litres" should be 0.
+  - All other fields should be 0.
 `;
 
     const userPrompt = `
@@ -102,6 +111,7 @@ Return ONLY valid JSON with the exact fields:
 - month (string, "Month YYYY")
 - electricity_kwh (number)
 - fuel_litres (number)
+- gas_kwh (number)
 - refrigerant_kg (number)
 - refrigerant_type (string, can be "GENERIC_HFC" if not specified)
 `;
@@ -157,6 +167,7 @@ Return ONLY valid JSON with the exact fields:
       month: parsed.month || monthHint || '',
       electricity_kwh: Number(parsed.electricity_kwh) || 0,
       fuel_litres: Number(parsed.fuel_litres) || 0,
+      gas_kwh: Number(parsed.gas_kwh) || 0,
       refrigerant_kg: Number(parsed.refrigerant_kg) || 0,
       refrigerant_type: parsed.refrigerant_type || 'GENERIC_HFC',
     };

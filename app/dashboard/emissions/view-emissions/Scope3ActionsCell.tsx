@@ -9,20 +9,14 @@ type Props = {
   row: any;
 };
 
-function isPastMonth(monthLabel: string) {
-  const parsed = new Date(`${monthLabel} 01`);
-  if (isNaN(parsed.getTime())) return false;
-
-  const now = new Date();
-  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  return parsed < currentMonthStart;
-}
-
 export default function Scope3ActionsCell({ row }: Props) {
   const router = useRouter();
   const monthLabel = row.month;
 
-  const [locked, setLocked] = useState(() => isPastMonth(monthLabel));
+  const now = new Date();
+  const currentMonthLabel = `${now.toLocaleString('default', { month: 'long' })} ${now.getFullYear()}`;
+
+  const [locked, setLocked] = useState(monthLabel !== currentMonthLabel);
   const [lockConfirm, setLockConfirm] = useState<'lock' | 'unlock' | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -42,13 +36,17 @@ export default function Scope3ActionsCell({ row }: Props) {
         .maybeSingle();
 
       if (!mounted || data?.locked === undefined) return;
-      setLocked(data.locked);
+
+      // Enforce rule: only current month can ever be unlocked
+      if (monthLabel !== currentMonthLabel) {
+        setLocked(true);
+      } else {
+        setLocked(data.locked);
+      }
     }
 
     loadLockOverride();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [monthLabel]);
 
   async function confirmDelete() {
@@ -109,19 +107,19 @@ export default function Scope3ActionsCell({ row }: Props) {
 
   return (
     <>
-      <div className="flex items-center gap-3 text-sm">
+      <div className="flex gap-2 text-[11px]">
         {!locked && (
           <>
             <Link
               href={`/dashboard/emissions?edit=scope3&id=${row.id}`}
-              className="text-slate-600 hover:text-slate-900"
+              className="px-2 py-1 rounded-full border hover:bg-slate-900 hover:text-white"
             >
               Edit
             </Link>
 
             <button
               onClick={() => setDeleteConfirm(true)}
-              className="text-rose-600 hover:text-rose-800"
+              className="px-2 py-1 rounded-full border border-red-200 text-red-700 hover:bg-red-600 hover:text-white"
             >
               Delete
             </button>
@@ -130,7 +128,7 @@ export default function Scope3ActionsCell({ row }: Props) {
 
         <button
           onClick={() => setLockConfirm(locked ? 'unlock' : 'lock')}
-          className="text-slate-500 hover:text-slate-900"
+          className="px-2 py-1 rounded-full border text-slate-600 hover:bg-slate-100"
         >
           {locked ? 'Unlock' : 'Lock'}
         </button>
@@ -140,13 +138,10 @@ export default function Scope3ActionsCell({ row }: Props) {
       {deleteConfirm && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-sm rounded-xl bg-white p-4 shadow-lg">
-            <p className="text-sm font-semibold">
-              Delete Scope 3 activity?
-            </p>
+            <p className="text-sm font-semibold">Delete Scope 3 activity?</p>
             <p className="mt-1 text-xs text-slate-600">
               This will permanently delete the entry for <b>{monthLabel}</b>.
             </p>
-
             <div className="mt-4 flex justify-end gap-2 text-xs">
               <button
                 onClick={() => setDeleteConfirm(false)}
@@ -171,16 +166,13 @@ export default function Scope3ActionsCell({ row }: Props) {
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-sm rounded-xl bg-white p-4 shadow-lg">
             <p className="text-sm font-semibold">
-              {lockConfirm === 'lock'
-                ? 'Lock this month?'
-                : 'Unlock this month?'}
+              {lockConfirm === 'lock' ? 'Lock this month?' : 'Unlock this month?'}
             </p>
             <p className="mt-1 text-xs text-slate-600">
               {lockConfirm === 'lock'
                 ? 'Edits and deletions will be disabled.'
                 : 'Edits and deletions will be allowed again.'}
             </p>
-
             <div className="mt-4 flex justify-end gap-2 text-xs">
               <button
                 onClick={() => setLockConfirm(null)}

@@ -73,7 +73,7 @@ export default function LocaleHomePage({ locale }: Props) {
             {/* Globe icon */}
             <button
               onClick={() => setSwitcherOpen(true)}
-              className="hidden rounded-full p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 sm:flex"
+              className="flex rounded-full p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
               aria-label="Change country"
               title="Change country"
             >
@@ -85,7 +85,7 @@ export default function LocaleHomePage({ locale }: Props) {
 
             <Link
               href="/login"
-              className="hidden text-xs font-medium text-slate-600 transition-colors hover:text-slate-900 sm:inline-block"
+              className="text-xs font-medium text-slate-600 transition-colors hover:text-slate-900"
             >
               {t.nav.login}
             </Link>
