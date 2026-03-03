@@ -252,6 +252,8 @@ const { data: sessionData } = await supabase.auth.getSession();
     };
   });
 
+  allMonths.sort((a, b) => new Date(a.monthLabel).getTime() - new Date(b.monthLabel).getTime());
+
   const months =
     period === 'custom'
       ? applyCustomRange(allMonths, customStart, customEnd)
@@ -573,6 +575,9 @@ useEffect(() => {
     const cached = sessionStorage.getItem(EMISSIONS_CACHE_KEY);
     if (cached) {
       const parsed: EmissionsReport = JSON.parse(cached);
+      if (parsed.months) {
+        parsed.months.sort((a, b) => new Date(a.monthLabel).getTime() - new Date(b.monthLabel).getTime());
+      }
       setReport(parsed);
     }
   } catch (e) {
@@ -784,6 +789,46 @@ useEffect(() => {
       const insights: string[] = Array.isArray(bench?.insights) ? bench.insights : [];
       const aiSummary: string = bench?.summary ?? '';
 
+      // ── Performance metrics (mirrors dashboard page logic) ──
+      const perfMonths = [...report.months].sort(
+        (a, b) => new Date(a.monthLabel).getTime() - new Date(b.monthLabel).getTime()
+      );
+      const lastCo2 = perfMonths[perfMonths.length - 1]?.totalCo2eKg ?? 0;
+      const prevCo2 = perfMonths[perfMonths.length - 2]?.totalCo2eKg ?? 0;
+      const hasPrevMo = prevCo2 > 0;
+      const moPct = hasPrevMo ? ((lastCo2 - prevCo2) / prevCo2) * 100 : 0;
+      const perfStatus: string | null = !hasPrevMo ? null : moPct <= -5 ? 'Falling' : moPct <= 5 ? 'Flat' : 'Rising';
+      const perfDesc: string | null = !hasPrevMo ? null
+        : moPct <= -5 ? 'On track - emissions falling vs previous month.'
+        : moPct <= 5  ? 'Flat - little month-on-month movement.'
+        : 'Scope for improvement - emissions rising vs previous month.';
+      const totalTonnesSnap = report.totals.totalCo2eKg / 1000;
+      const indRaw = (profile?.industry ?? '').toLowerCase().replace(/\s+/g, '_');
+      const indKey = indRaw.includes('logistic') || indRaw.includes('transport') ? 'logistics'
+        : indRaw.includes('supply') ? 'supply_chain'
+        : indRaw.includes('manufact') || indRaw.includes('product') ? 'manufacturing'
+        : indRaw.includes('retail') || indRaw.includes('shop') ? 'retail'
+        : indRaw.includes('hospit') || indRaw.includes('hotel') || indRaw.includes('restaur') ? 'hospitality'
+        : indRaw.includes('tech') || indRaw.includes('software') ? 'technology'
+        : indRaw.includes('health') || indRaw.includes('pharma') ? 'healthcare'
+        : indRaw.includes('educ') || indRaw.includes('school') ? 'education'
+        : indRaw.includes('office') || indRaw.includes('consult') || indRaw.includes('finance') ? 'office'
+        : 'other';
+      const SME_BL: Record<string, number> = {
+        logistics: 3.5, supply_chain: 3.0, manufacturing: 4.0, retail: 2.2,
+        hospitality: 2.5, office: 1.6, education: 1.5, healthcare: 2.0, technology: 1.4, other: 1.82,
+      };
+      const indBaseline = SME_BL[indKey] ?? 1.82;
+      const indRatio = totalTonnesSnap / (indBaseline || 1);
+      const indScore = indRatio <= 0.8 ? 40 : indRatio <= 1.0 ? 35 : indRatio <= 1.5 ? 25 : indRatio <= 2.0 ? 15 : 5;
+      const trScore = perfStatus === 'Falling' ? 30 : perfStatus === 'Flat' ? 20 : perfStatus === 'Rising' ? 10 : 15;
+      const refrigPctSnap = report.breakdownBySource.refrigerantSharePercent;
+      const riskScoreSnap = 30 - Math.min(30, refrigPctSnap);
+      const perfScore = Math.min(100, Math.max(15, indScore + trScore + riskScoreSnap));
+      const perfStars = perfScore >= 80 ? 5 : perfScore >= 60 ? 4 : perfScore >= 40 ? 3 : perfScore >= 20 ? 2 : 1;
+      const perfRisk = refrigPctSnap >= 60 ? 'High' : refrigPctSnap >= 20 ? 'Medium' : 'Low';
+      const perfCompliance = report.months.length > 0 ? 'On track' : 'Not started';
+
       // POST to snapshot endpoint (no server-side DB calls needed)
       const res = await fetch('/api/snapshot', {
         method: 'POST',
@@ -803,6 +848,15 @@ useEffect(() => {
           insights,
           aiSummary,
           scope3ByCat,
+          performanceData: {
+            score: perfScore,
+            stars: perfStars,
+            statusLabel: perfStatus,
+            statusDescription: perfDesc,
+            riskLevel: perfRisk,
+            trendStability: perfStatus ?? 'n/a',
+            monthlyCompliance: perfCompliance,
+          },
         }),
       });
       if (!res.ok) throw new Error('Snapshot generation failed');

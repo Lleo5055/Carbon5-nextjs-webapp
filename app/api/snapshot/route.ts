@@ -87,18 +87,24 @@ function horizBar(
   label(p, valStr, bX + trackW + 4, y + 1, 7, f, C.MID);
 }
 
-// Convert "YYYY-MM" → "Jan '25"; passes through already-formatted strings
+// Convert month label to "Jan '25" format.
+// Handles both "YYYY-MM" (e.g. "2025-04") and "Month YYYY" (e.g. "April 2025").
 function fmtMonthLbl(raw: string): string {
   const MNAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const parts = raw.split('-');
-  if (parts.length >= 2) {
-    const yr = parts[0] ?? '';
-    const moIdx = parseInt(parts[1] ?? '', 10) - 1;
-    if (moIdx >= 0 && moIdx <= 11 && yr.length >= 4) {
-      return `${MNAMES[moIdx]} '${yr.slice(2)}`;
-    }
+  const FULL   = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  // YYYY-MM
+  const ymMatch = raw.match(/^(\d{4})-(\d{2})/);
+  if (ymMatch) {
+    const moIdx = parseInt(ymMatch[2], 10) - 1;
+    if (moIdx >= 0 && moIdx <= 11) return `${MNAMES[moIdx]} '${ymMatch[1].slice(2)}`;
   }
-  return raw.slice(0, 7); // safe fallback
+  // "Month YYYY" (full name, e.g. "April 2025")
+  const nameMatch = raw.match(/^([A-Za-z]+)\s+(\d{4})$/);
+  if (nameMatch) {
+    const moIdx = FULL.findIndex(m => m.toLowerCase() === nameMatch[1].toLowerCase());
+    if (moIdx !== -1) return `${MNAMES[moIdx]} '${nameMatch[2].slice(2)}`;
+  }
+  return raw.slice(0, 7);
 }
 
 function miniChart(
@@ -150,10 +156,9 @@ function miniChart(
     p.drawCircle({ x: px(i), y: py(vals[i]), size: 2.5, color: c });
   }
 
-  // X labels — format YYYY-MM to "Jan '25", skip to avoid overlap
-  const skip = vals.length > 12 ? 3 : vals.length > 6 ? 2 : 1;
+  // X labels — show every 3rd month (quarterly: Jan, Apr, Jul, Oct …)
   lbls.forEach((l, i) => {
-    if (i % skip !== 0) return;
+    if (i % 3 !== 0) return;
     const formatted = fmtMonthLbl(l);
     const lw = f.widthOfTextAtSize(formatted, 6);
     label(p, formatted, px(i) - lw / 2, y + 2, 6, f, C.MUTED);
@@ -198,6 +203,15 @@ interface PdfInput {
   s3Entries: [string, number][];
   intEmp: number | null; intRev: number | null;
   insights: string[]; aiSummary: string;
+  performance?: {
+    score: number;
+    stars: number;
+    statusLabel: string | null;
+    statusDescription: string | null;
+    riskLevel: string;
+    trendStability: string;
+    monthlyCompliance: string;
+  } | null;
 }
 
 async function buildPdf(p: PdfInput): Promise<Uint8Array> {
@@ -283,7 +297,7 @@ async function buildPdf(p: PdfInput): Promise<Uint8Array> {
   label(page, p.intEmp !== null ? `${fmt(p.intEmp,2)} t` : "N/A", ML, IT - 16, 14, bold, p.intEmp !== null ? C.ACCENT : C.MUTED);
   label(page, "tCO2e / M revenue", ML + 112, IT, 7.5, font, C.MID);
   label(page, p.intRev !== null ? `${fmt(p.intRev,2)} t` : "N/A", ML + 112, IT - 16, 14, bold, p.intRev !== null ? C.ACCENT : C.MUTED);
-  label(page, "SME average: ~1.82 tCO2e per employee", ML, R3_BOT + 6, 6.5, font, C.MUTED);
+  label(page, "SME average: ~1.82 tCO2e per employee", ML, IT - 36, 6.5, font, C.MUTED);
   // Scope 3 bars: lblW=72, bar starts at S3X+72; leave 40pt for value text
   const S3X = ML + 268;
   const s3BarW = MR - S3X - 72 - 44; // 131pt bar
@@ -295,8 +309,64 @@ async function buildPdf(p: PdfInput): Promise<Uint8Array> {
       horizBar(page, font, S3X, IT - 8 - i*22, s3BarW, (val/s3Total)*100, CATL[cat]??cat, `${fmt(val/1000,2)} t`, C.SCOPE3, 72));
   }
 
-  // ── BENCHMARKING — two labelled rows, no overlapping labels ──
-  const BH_TOP = 432; const BH_BOT = 358;
+  // ── PERFORMANCE ──
+  const PERF_TOP = 432; const PERF_BOT = 360;
+  if (p.performance) {
+    const perf = p.performance;
+    const scoreStr = `Score: ${perf.score} / 100`;
+    const sw = bold.widthOfTextAtSize(scoreStr, 7.5);
+    sectionHead(page, bold, ML, PERF_TOP, "Performance", MR - sw - 10);
+    label(page, scoreStr, MR - sw, PERF_TOP, 7.5, bold, C.ACCENT);
+
+    // Status pill + stars + description
+    const ROW_Y = PERF_TOP - 18;
+    if (perf.statusLabel) {
+      const pillC = perf.statusLabel === 'Falling' ? C.GREEN : perf.statusLabel === 'Rising' ? C.RED : C.AMBER;
+      const pillBg = perf.statusLabel === 'Falling' ? rgb(236/255,253/255,245/255)
+        : perf.statusLabel === 'Rising' ? rgb(254/255,242/255,242/255) : rgb(255/255,251/255,235/255);
+      const pillW = bold.widthOfTextAtSize(perf.statusLabel, 7) + 8;
+      fillRect(page, ML, ROW_Y - 1, pillW, 11, pillBg);
+      label(page, perf.statusLabel, ML + 4, ROW_Y + 1, 7, bold, pillC);
+      // Stars as filled/empty squares
+      const starX0 = ML + pillW + 8;
+      for (let i = 0; i < 5; i++) {
+        if (i < perf.stars) fillRect(page, starX0 + i * 9, ROW_Y, 7, 7, C.AMBER);
+        else border(page, starX0 + i * 9, ROW_Y, 7, 7, C.RULE, 0.8);
+      }
+      if (perf.statusDescription) {
+        const descX = starX0 + 5 * 9 + 8;
+        label(page, sanitize(perf.statusDescription), descX, ROW_Y + 1, 7, font, C.MID, MR - descX);
+      }
+    } else {
+      label(page, 'Insufficient data for month-over-month comparison.', ML, ROW_Y + 1, 7, font, C.MUTED);
+    }
+
+    // Stat cards: Risk Signals | Trend Stability | Monthly Compliance
+    const cardY = PERF_BOT + 4;
+    const cardH = 28;
+    const CARD_W = (CW - 8) / 3;
+    const riskC = perf.riskLevel === 'High' ? C.RED : perf.riskLevel === 'Medium' ? C.AMBER : C.GREEN;
+    const trendC = perf.trendStability === 'Falling' ? C.GREEN : perf.trendStability === 'Rising' ? C.RED : C.AMBER;
+    const compC = perf.monthlyCompliance === 'On track' ? C.GREEN : C.MUTED;
+    ([
+      { title: 'RISK SIGNALS',       value: perf.riskLevel,         col: riskC  },
+      { title: 'TREND STABILITY',    value: perf.trendStability,    col: trendC },
+      { title: 'MONTHLY COMPLIANCE', value: perf.monthlyCompliance, col: compC  },
+    ] as { title: string; value: string; col: RGB }[]).forEach((card, i) => {
+      const cx = ML + i * (CARD_W + 4);
+      fillRect(page, cx, cardY, CARD_W, cardH, C.BGCARD);
+      border(page, cx, cardY, CARD_W, cardH, C.RULE, 0.5);
+      fillRect(page, cx, cardY, 3, cardH, card.col);
+      label(page, card.title, cx + 8, cardY + cardH - 11, 5.5, font, C.MUTED);
+      label(page, card.value, cx + 8, cardY + 7, 9, bold, card.col);
+    });
+  } else {
+    sectionHead(page, bold, ML, PERF_TOP, "Performance", MR);
+    label(page, 'Performance data not available.', ML, PERF_TOP - 18, 7.5, font, C.MUTED);
+  }
+
+  // ── BENCHMARKING — two labelled rows (shifted down 82pt) ──
+  const BH_TOP = 350; const BH_BOT = 276;
   sectionHead(page, bold, ML, BH_TOP, "Benchmarking vs Industry Average", MR);
   const BENCH_LBL_W = 108; // left column: label + value
   const BENCH_BAR_W = CW - BENCH_LBL_W; // 407pt
@@ -327,9 +397,9 @@ async function buildPdf(p: PdfInput): Promise<Uint8Array> {
       : `You are ${fmt(p.total_t-IND_AVG,2)} tCO2e above the SME average. Focus on Scope 1 and 2 to close the gap.`;
   label(page, p.aiSummary || ctxMsg, ML, BH_BOT + 8, 7.5, font, C.MID, CW);
 
-  // ── INSIGHTS ──
-  sectionHead(page, bold, ML, 348, "Key Insights & Recommendations", MR);
-  bullets(page, font, bold, ML, 330, p.insights, CW);
+  // ── INSIGHTS (shifted down 82pt) ──
+  sectionHead(page, bold, ML, 266, "Key Insights & Recommendations", MR);
+  bullets(page, font, bold, ML, 248, p.insights, CW);
 
   // ── FOOTER ──
   fillRect(page, 0, 28, PW, 28, rgb(242/255,245/255,252/255));
@@ -356,7 +426,8 @@ export async function POST(req: NextRequest) {
     const total_kg     = elecCo2eKg + fuelCo2eKg + refrigCo2eKg + scope3_kg;
     const total_t      = total_kg / 1000;
 
-    const trendMonths  = (b.trendMonths ?? []) as { label: string; totalKg: number }[];
+    const trendMonths  = ((b.trendMonths ?? []) as { label: string; totalKg: number }[])
+      .sort((a, b) => new Date(a.label).getTime() - new Date(b.label).getTime());
     let trendPct: number | null = null;
     let trendUp = false;
     if (trendMonths.length >= 4) {
@@ -398,6 +469,12 @@ export async function POST(req: NextRequest) {
     const scope3ByCat = (b.scope3ByCat ?? {}) as Record<string, number>;
     const s3Entries = Object.entries(scope3ByCat).sort((a,b)=>b[1]-a[1]).slice(0,4) as [string, number][];
 
+    const perf = b.performanceData as {
+      score: number; stars: number; statusLabel: string | null;
+      statusDescription: string | null; riskLevel: string;
+      trendStability: string; monthlyCompliance: string;
+    } | null ?? null;
+
     const pdfBytes = await buildPdf({
       companyName:  String(b.companyName ?? "Your Organisation"),
       industry:     String(b.industry ?? ""),
@@ -414,6 +491,7 @@ export async function POST(req: NextRequest) {
       intEmp: employeeCount > 0 ? total_t / employeeCount : null,
       intRev: annualRevenue > 0 ? total_t / (annualRevenue / 1_000_000) : null,
       insights, aiSummary: sanitize(String(b.aiSummary ?? "")),
+      performance: perf,
     });
 
     return new NextResponse(pdfBytes.buffer as ArrayBuffer, {
