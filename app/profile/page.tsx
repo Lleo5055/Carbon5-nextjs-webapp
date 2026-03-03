@@ -3,12 +3,27 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 
+// ─── Supported countries (ISO 3166-1 alpha-2) ────────────────────────────────
+const SUPPORTED_COUNTRIES = [
+  { code: 'AT', label: 'Austria' },
+  { code: 'BE', label: 'Belgium' },
+  { code: 'DK', label: 'Denmark' },
+  { code: 'FR', label: 'France' },
+  { code: 'DE', label: 'Germany' },
+  { code: 'IN', label: 'India' },
+  { code: 'IE', label: 'Ireland' },
+  { code: 'IT', label: 'Italy' },
+  { code: 'NL', label: 'Netherlands' },
+  { code: 'PL', label: 'Poland' },
+  { code: 'PT', label: 'Portugal' },
+  { code: 'ES', label: 'Spain' },
+  { code: 'SE', label: 'Sweden' },
+  { code: 'GB', label: 'United Kingdom' },
+];
+
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-  const [messageType, setMessageType] = useState<'success' | 'error'>('success');
-  const [bottomMessage, setBottomMessage] = useState('');
 
   const [form, setForm] = useState({
     company_name: '',
@@ -25,7 +40,6 @@ export default function ProfilePage() {
     contact_email: '',
     has_company_vehicles: false,
     renewable_energy_tariff: false,
-
     annual_revenue: '',
     employee_count: '',
     annual_output_units: '',
@@ -33,7 +47,6 @@ export default function ProfilePage() {
     energy_efficiency_actions: '',
   });
 
-  // Load profile
   useEffect(() => {
     async function load() {
       const { data: auth } = await supabase.auth.getUser();
@@ -48,26 +61,25 @@ export default function ProfilePage() {
 
       if (profile) {
         setForm({
-          company_name: profile.company_name || '',
-          industry: profile.industry || '',
-          country: profile.country || '',
-          city: profile.city || '',
-          address: profile.address || '',
-          postcode: profile.postcode || '',
-          company_size: profile.company_size || '',
-          secr_required: profile.secr_required || false,
-          data_confirmed_by_user: profile.data_confirmed_by_user || false,
-          sustainability_stage: profile.sustainability_stage || '',
-          contact_name: profile.contact_name || '',
-          contact_email: profile.contact_email || '',
-          has_company_vehicles: profile.has_company_vehicles || false,
-          renewable_energy_tariff: profile.renewable_energy_tariff || false,
-
-          annual_revenue: profile.annual_revenue ?? '',
-          employee_count: profile.employee_count ?? '',
-          annual_output_units: profile.annual_output_units ?? '',
-          methodology_confirmed: profile.methodology_confirmed || false,
-          energy_efficiency_actions: profile.energy_efficiency_actions || '',
+          company_name:             profile.company_name             || '',
+          industry:                 profile.industry                 || '',
+          country:                  profile.country                  || '',
+          city:                     profile.city                     || '',
+          address:                  profile.address                  || '',
+          postcode:                 profile.postcode                 || '',
+          company_size:             profile.company_size             || '',
+          secr_required:            profile.secr_required            || false,
+          data_confirmed_by_user:   profile.data_confirmed_by_user   || false,
+          sustainability_stage:     profile.sustainability_stage     || '',
+          contact_name:             profile.contact_name             || '',
+          contact_email:            profile.contact_email            || '',
+          has_company_vehicles:     profile.has_company_vehicles     || false,
+          renewable_energy_tariff:  profile.renewable_energy_tariff  || false,
+          annual_revenue:           profile.annual_revenue           || '',
+          employee_count:           profile.employee_count           || '',
+          annual_output_units:      profile.annual_output_units      || '',
+          methodology_confirmed:    profile.methodology_confirmed    || false,
+          energy_efficiency_actions:profile.energy_efficiency_actions|| '',
         });
       }
 
@@ -82,44 +94,36 @@ export default function ProfilePage() {
   }
 
   async function saveProfile(e: any) {
-    e.preventDefault();
-    setSaving(true);
+  e.preventDefault();
+  setSaving(true);
 
-    const { data: auth } = await supabase.auth.getUser();
-    const userId = auth.user?.id;
-    if (!userId) return;
+  const { data: auth } = await supabase.auth.getUser();
+  const userId = auth.user?.id;
+  if (!userId) return;
 
-    const cleanedForm = {
-      ...form,
-      annual_revenue: form.annual_revenue ? Number(form.annual_revenue) : null,
-      employee_count: form.employee_count ? Number(form.employee_count) : null,
-      annual_output_units: form.annual_output_units
-        ? Number(form.annual_output_units)
-        : null,
-    };
+  // ── Parse numeric fields — send null if empty, not "" ──
+  const payload = {
+    ...form,
+    annual_revenue:      form.annual_revenue      ? Number(form.annual_revenue)      : null,
+    employee_count:      form.employee_count      ? Number(form.employee_count)      : null,
+    annual_output_units: form.annual_output_units ? Number(form.annual_output_units) : null,
+  };
 
-    const { error } = await supabase
-      .from('profiles')
-      .update(cleanedForm)
-      .eq('id', userId);
+  const { error } = await supabase
+    .from('profiles')
+    .update(payload)        // ← payload instead of form
+    .eq('id', userId);
 
-    setSaving(false);
+  setSaving(false);
 
-    if (error) {
-      console.error('Profile save error:', error);
-      setMessageType('error');
-      setMessage('Failed to save profile. See console for details.');
-      setBottomMessage('');
-      setTimeout(() => setMessage(''), 4000);
-      return;
-    }
-
-    setMessageType('success');
-    setMessage('Profile updated successfully.');
-    setBottomMessage('Profile saved');
-    setTimeout(() => setMessage(''), 4000);
-    setTimeout(() => setBottomMessage(''), 4000);
+  if (error) {
+    console.error(error);
+    alert('Failed to save profile.');
+    return;
   }
+
+  alert('Profile updated successfully.');
+}
 
   if (loading) return <p className="p-6">Loading profile...</p>;
 
@@ -134,30 +138,17 @@ export default function ProfilePage() {
         </a>
       </div>
 
-      <div className="mx-auto max-w-2xl relative">
+      <div className="mx-auto max-w-2xl">
         <h1 className="text-2xl font-semibold text-slate-900">Your profile</h1>
         <p className="text-sm text-slate-600 mt-1">
           Update your company information at any time.
         </p>
 
-        {/* Top notification */}
-        {message && (
-          <div
-            className={`absolute top-0 left-1/2 -translate-x-1/2 transform mt-[-2rem] px-4 py-2 rounded text-sm font-medium shadow ${
-              messageType === 'success'
-                ? 'bg-green-100 text-green-800'
-                : 'bg-red-100 text-red-800'
-            } transition-opacity duration-300`}
-          >
-            {message}
-          </div>
-        )}
-
         <form
           onSubmit={saveProfile}
           className="mt-8 space-y-8 rounded-xl bg-white p-6 shadow border border-slate-200"
         >
-          {/* ------------------ COMPANY DETAILS ------------------ */}
+          {/* COMPANY DETAILS */}
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Company details
@@ -165,9 +156,7 @@ export default function ProfilePage() {
 
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-slate-600">
-                  Company name
-                </label>
+                <label className="text-xs font-medium text-slate-600">Company name</label>
                 <input
                   type="text"
                   className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
@@ -177,9 +166,7 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-600">
-                  Industry
-                </label>
+                <label className="text-xs font-medium text-slate-600">Industry</label>
                 <input
                   type="text"
                   className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
@@ -190,21 +177,27 @@ export default function ProfilePage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-medium text-slate-600">
-                    Country
-                  </label>
-                  <input
-                    type="text"
+                  <label className="text-xs font-medium text-slate-600">Country</label>
+                  <select
                     className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
                     value={form.country}
                     onChange={(e) => updateField('country', e.target.value)}
-                  />
+                    required
+                  >
+                    <option value="">Select country…</option>
+                    {SUPPORTED_COUNTRIES.map(({ code, label }) => (
+                      <option key={code} value={code}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Used to apply the correct emission factors to your data.
+                  </p>
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-slate-600">
-                    City
-                  </label>
+                  <label className="text-xs font-medium text-slate-600">City</label>
                   <input
                     type="text"
                     className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
@@ -215,9 +208,7 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-600">
-                  Address
-                </label>
+                <label className="text-xs font-medium text-slate-600">Address</label>
                 <input
                   type="text"
                   className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
@@ -227,9 +218,7 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-600">
-                  Postcode
-                </label>
+                <label className="text-xs font-medium text-slate-600">Postcode</label>
                 <input
                   type="text"
                   className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
@@ -240,12 +229,11 @@ export default function ProfilePage() {
             </div>
           </section>
 
-          {/* ------------------ ORG SIZE ------------------ */}
+          {/* ORG SIZE */}
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Organisation scale
             </h2>
-
             <select
               className="w-full rounded-lg border px-3 py-2 text-sm"
               value={form.company_size}
@@ -259,12 +247,9 @@ export default function ProfilePage() {
             </select>
           </section>
 
-          {/* ------------------ COMPLIANCE ------------------ */}
+          {/* COMPLIANCE */}
           <section>
-            <h2 className="text-sm font-semibold text-slate-700 mb-3">
-              Compliance
-            </h2>
-
+            <h2 className="text-sm font-semibold text-slate-700 mb-3">Compliance</h2>
             <label className="flex items-center gap-2 text-sm text-slate-700">
               <input
                 type="checkbox"
@@ -273,20 +258,17 @@ export default function ProfilePage() {
               />
               My company is required to comply with SECR.
             </label>
-
             <label className="flex items-center gap-2 text-sm text-slate-700 mt-2">
               <input
                 type="checkbox"
                 checked={form.data_confirmed_by_user}
-                onChange={(e) =>
-                  updateField('data_confirmed_by_user', e.target.checked)
-                }
+                onChange={(e) => updateField('data_confirmed_by_user', e.target.checked)}
               />
               I confirm the provided information is accurate.
             </label>
           </section>
 
-          {/* ------------------ SECR REPORTING ------------------ */}
+          {/* SECR REPORTING */}
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
               SECR reporting (optional but required for SECR-compliant reports)
@@ -294,44 +276,30 @@ export default function ProfilePage() {
 
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-slate-600">
-                  Annual revenue (£)
-                </label>
+                <label className="text-xs font-medium text-slate-600">Annual revenue (£)</label>
                 <input
                   type="number"
                   className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
                   value={form.annual_revenue}
-                  onChange={(e) =>
-                    updateField('annual_revenue', e.target.value)
-                  }
+                  onChange={(e) => updateField('annual_revenue', e.target.value)}
                 />
               </div>
-
               <div>
-                <label className="text-xs font-medium text-slate-600">
-                  Number of employees
-                </label>
+                <label className="text-xs font-medium text-slate-600">Number of employees</label>
                 <input
                   type="number"
                   className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
                   value={form.employee_count}
-                  onChange={(e) =>
-                    updateField('employee_count', e.target.value)
-                  }
+                  onChange={(e) => updateField('employee_count', e.target.value)}
                 />
               </div>
-
               <div>
-                <label className="text-xs font-medium text-slate-600">
-                  Annual output units (optional)
-                </label>
+                <label className="text-xs font-medium text-slate-600">Annual output units (optional)</label>
                 <input
                   type="number"
                   className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
                   value={form.annual_output_units}
-                  onChange={(e) =>
-                    updateField('annual_output_units', e.target.value)
-                  }
+                  onChange={(e) => updateField('annual_output_units', e.target.value)}
                 />
               </div>
             </div>
@@ -343,22 +311,20 @@ export default function ProfilePage() {
               <textarea
                 className="mt-1 w-full rounded-lg border px-3 py-2 text-sm h-24"
                 value={form.energy_efficiency_actions}
-                onChange={(e) =>
-                  updateField('energy_efficiency_actions', e.target.value)
-                }
+                onChange={(e) => updateField('energy_efficiency_actions', e.target.value)}
                 placeholder="Describe any actions taken to reduce energy use (required for SECR)."
               />
             </div>
 
             <div className="mt-6 rounded-lg bg-slate-50 border border-slate-200 p-3">
               <p className="text-xs text-slate-600 leading-relaxed">
-                <strong>Methodology used for SECR reporting:</strong>
+                <strong>Methodology used for reporting:</strong>
                 <br />
-                Carbon Central uses the official UK Government GHG Conversion
-                Factors (DEFRA BEIS). Electricity uses location-based grid
-                factors, fuel emissions use standard kg CO₂e per litre, and
-                Scope 3 categories use DEFRA category-specific conversion
-                factors. This aligns with SECR reporting guidance.
+                Greenio uses geo-optimised emission factors aligned to official
+                sources per country (Eurostat, BEIS/DEFRA, CEA/IEA). Electricity
+                uses location-based grid factors; fuel emissions use DEFRA 2025
+                kg CO₂e per litre values. UK accounts additionally align with
+                SECR reporting guidance.
               </p>
             </div>
 
@@ -366,67 +332,51 @@ export default function ProfilePage() {
               <input
                 type="checkbox"
                 checked={form.methodology_confirmed}
-                onChange={(e) =>
-                  updateField('methodology_confirmed', e.target.checked)
-                }
+                onChange={(e) => updateField('methodology_confirmed', e.target.checked)}
               />
-              I confirm that the SECR calculation methodology used is correct.
+              I confirm that the calculation methodology used is correct.
             </label>
           </section>
 
-          {/* ------------------ SUSTAINABILITY ------------------ */}
+          {/* SUSTAINABILITY */}
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Sustainability & Operations
             </h2>
-
             <select
               className="w-full rounded-lg border px-3 py-2 text-sm"
               value={form.sustainability_stage}
-              onChange={(e) =>
-                updateField('sustainability_stage', e.target.value)
-              }
+              onChange={(e) => updateField('sustainability_stage', e.target.value)}
             >
               <option value="">Select stage…</option>
               <option value="early">Early</option>
               <option value="progressing">Progressing</option>
               <option value="advanced">Advanced</option>
             </select>
-
             <label className="flex items-center gap-2 text-sm text-slate-700 mt-3">
               <input
                 type="checkbox"
                 checked={form.has_company_vehicles}
-                onChange={(e) =>
-                  updateField('has_company_vehicles', e.target.checked)
-                }
+                onChange={(e) => updateField('has_company_vehicles', e.target.checked)}
               />
               We operate company-owned vehicles.
             </label>
-
             <label className="flex items-center gap-2 text-sm text-slate-700 mt-2">
               <input
                 type="checkbox"
                 checked={form.renewable_energy_tariff}
-                onChange={(e) =>
-                  updateField('renewable_energy_tariff', e.target.checked)
-                }
+                onChange={(e) => updateField('renewable_energy_tariff', e.target.checked)}
               />
               We use a renewable electricity tariff.
             </label>
           </section>
 
-          {/* ------------------ CONTACT ------------------ */}
+          {/* CONTACT */}
           <section>
-            <h2 className="text-sm font-semibold text-slate-700 mb-3">
-              Contact details
-            </h2>
-
+            <h2 className="text-sm font-semibold text-slate-700 mb-3">Contact details</h2>
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-slate-600">
-                  Contact name
-                </label>
+                <label className="text-xs font-medium text-slate-600">Contact name</label>
                 <input
                   type="text"
                   className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
@@ -434,11 +384,8 @@ export default function ProfilePage() {
                   onChange={(e) => updateField('contact_name', e.target.value)}
                 />
               </div>
-
               <div>
-                <label className="text-xs font-medium text-slate-600">
-                  Contact email
-                </label>
+                <label className="text-xs font-medium text-slate-600">Contact email</label>
                 <input
                   type="email"
                   className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
@@ -452,14 +399,9 @@ export default function ProfilePage() {
           <button
             type="submit"
             disabled={saving}
-            className="w-full rounded-full bg-slate-900 text-white py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-60 relative"
+            className="w-full rounded-full bg-slate-900 text-white py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-60"
           >
             {saving ? 'Saving…' : 'Save changes'}
-            {bottomMessage && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-green-700 font-medium transition-opacity duration-300">
-                {bottomMessage}
-              </span>
-            )}
           </button>
         </form>
       </div>

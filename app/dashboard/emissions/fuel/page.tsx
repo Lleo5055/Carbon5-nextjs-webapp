@@ -3,11 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../../../lib/supabaseClient';
-import {
-  calcFuelCo2eKg,
-  EF_GRID_ELECTRICITY_KG_PER_KWH,
-  calcRefrigerantCo2e,
-} from '../../../../lib/emissionFactors';
+import { calcRefrigerantCo2e } from '../../../../lib/emissionFactors';
+import { getFactorsForCountry } from '@/lib/factors';
 import { normaliseSharesTo100 } from '@/lib/normalisePercentages';
 
 export const dynamic = 'force-dynamic';
@@ -122,6 +119,9 @@ export default function FuelInsightsPage({ searchParams }: { searchParams?: { pe
         return;
       }
 
+      const countryCode = rows[0]?.country_code ?? 'GB';
+      const ef = getFactorsForCountry(countryCode);
+
       let baseMonths: DashboardMonth[] = rows.map((row: any) => {
         const electricityKwh = Number(row.electricity_kw ?? 0);
         const dieselFromNew = Number(row.diesel_litres ?? 0);
@@ -160,7 +160,10 @@ export default function FuelInsightsPage({ searchParams }: { searchParams?: { pe
         const dieselLitres = m.dieselLitres ?? 0;
         const petrolLitres = m.petrolLitres ?? 0;
         const gasKwh = m.gasKwh ?? 0;
-        const co2eKg = calcFuelCo2eKg({ dieselLitres, petrolLitres, gasKwh });
+        const co2eKg =
+          dieselLitres * ef.diesel +
+          petrolLitres * ef.petrol +
+          gasKwh * ef.gas;
         return {
           monthLabel: m.monthLabel,
           dieselLitres,
@@ -177,15 +180,13 @@ export default function FuelInsightsPage({ searchParams }: { searchParams?: { pe
       const lastMonth = insightsMonths.length > 0 ? insightsMonths[0] : null;
       const prevMonth = insightsMonths.length > 1 ? insightsMonths[1] : null;
 
-      const totalElec = periodMonths.reduce((s, m) => s + m.electricityKwh * EF_GRID_ELECTRICITY_KG_PER_KWH, 0);
+      const totalElec = periodMonths.reduce((s, m) => s + m.electricityKwh * ef.electricity, 0);
       const totalFuel = periodMonths.reduce(
         (s, m) =>
           s +
-          calcFuelCo2eKg({
-            dieselLitres: m.dieselLitres ?? 0,
-            petrolLitres: m.petrolLitres ?? 0,
-            gasKwh: m.gasKwh ?? 0,
-          }),
+          (m.dieselLitres ?? 0) * ef.diesel +
+          (m.petrolLitres ?? 0) * ef.petrol +
+          (m.gasKwh ?? 0) * ef.gas,
         0
       );
       const totalRef = periodMonths.reduce(

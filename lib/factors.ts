@@ -1,4 +1,17 @@
-import { supabase } from './supabaseClient';
+// lib/factors.ts
+//
+// Builds a FactorSet for any supported country directly from the
+// in-memory COUNTRY_EMISSION_FACTORS table in emissionFactors.ts.
+//
+// This replaces the old loadUKFactors() which hit the emission_factors
+// Supabase table. That table is no longer needed for factor lookups.
+
+import {
+  getCountryFactors,
+  type SupportedCountryCode,
+} from './emissionFactors';
+
+// ─── Type ─────────────────────────────────────────────────────────────────────
 
 export type FactorSet = {
   version: string;
@@ -9,39 +22,44 @@ export type FactorSet = {
   refrigerants: Record<string, number>;
 };
 
-export async function loadUKFactors(): Promise<FactorSet> {
-  const { data, error } = await supabase
-    .from('emission_factors')
-    .select('*')
-    .eq('version', 'DEFRA-2024-v1')
-    .eq('region', 'UK');
+// ─── Main export ──────────────────────────────────────────────────────────────
 
-  if (error || !data) {
-    console.error('Factor load error:', error);
-    throw new Error('Could not load emission factors from database');
-  }
-
-  // Extract categories
-  const electricity = data.find((x) => x.category === 'electricity')?.factor;
-
-  const diesel = data.find((x) => x.subcategory === 'Diesel')?.factor;
-
-  const petrol = data.find((x) => x.subcategory === 'Petrol')?.factor;
-
-  const gas = data.find((x) => x.subcategory === 'Natural Gas')?.factor;
-
-  // Refrigerants → map them
-  const refrigerants: Record<string, number> = {};
-  data
-    .filter((x) => x.category === 'refrigerant')
-    .forEach((x) => (refrigerants[x.subcategory] = x.factor));
+/**
+ * Returns a FactorSet for the given ISO country code.
+ *
+ * Synchronous — no DB call needed. Falls back to GB if the country
+ * code is unrecognised (getCountryFactors handles the warning).
+ *
+ * @example
+ *   const factors = getFactorsForCountry('DE');
+ *   const result  = calculateCo2e(input, factors);
+ */
+export function getFactorsForCountry(countryCode: string): FactorSet {
+  const ef = getCountryFactors(countryCode);
 
   return {
-    version: 'DEFRA-2024-v1',
-    electricity: electricity ?? 0,
-    diesel: diesel ?? 0,
-    petrol: petrol ?? 0,
-    gas: gas ?? 0,
-    refrigerants,
+    version:      ef.factorVersion,
+    electricity:  ef.electricityKgPerKwh,
+    diesel:       ef.dieselKgPerLitre,
+    petrol:       ef.petrolKgPerLitre,
+    // gas is stored as kgCO2e/m³ in emissionFactors.ts.
+    // calculateCo2e() receives gasKwh, so we convert here:
+    // 1 kWh of natural gas ≈ 0.0344 m³ → factor per kWh = factor per m³ × 0.0344
+    gas:          ef.naturalGasKgPerM3 * 0.0344,
+    refrigerants: { ...ef.refrigerants },
   };
+}
+
+// ─── Backwards compatibility ──────────────────────────────────────────────────
+
+/**
+ * @deprecated Use getFactorsForCountry('GB') instead.
+ * Kept so any existing call-sites don't break immediately.
+ * Returns a resolved Promise to match the old async signature.
+ */
+export async function loadUKFactors(): Promise<FactorSet> {
+  console.warn(
+    '[factors] loadUKFactors() is deprecated. Use getFactorsForCountry(countryCode) instead.'
+  );
+  return getFactorsForCountry('GB');
 }

@@ -5,11 +5,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
-import {
-  EF_GRID_ELECTRICITY_KG_PER_KWH,
-  calcFuelCo2eKg,
-  calcRefrigerantCo2e,
-} from '../../../lib/emissionFactors';
+import { calcRefrigerantCo2e } from '../../../lib/emissionFactors';
+import { getFactorsForCountry } from '@/lib/factors';
 import { Suspense } from 'react';
 // --------------------------------
 // FIX 1: Safe default Scope 3 key
@@ -309,6 +306,15 @@ useEffect(() => {
       setLoading(false);
       return;
     }
+
+    // Load country-aware factors from user profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('country')
+      .eq('id', user.id)
+      .single();
+    const ef = getFactorsForCountry(profile?.country ?? 'GB');
+
 // ----------------------------------
 // BLOCK SAVE IF MONTH IS LOCKED
 // ----------------------------------
@@ -325,13 +331,12 @@ if (lock?.locked) {
   return;
 }
 
-    const fuelCo2 = calcFuelCo2eKg({
-      dieselLitres: diesel,
-      petrolLitres: petrol,
-      gasKwh: gas,
-    });
+    const fuelCo2 =
+      diesel * ef.diesel +
+      petrol * ef.petrol +
+      gas * ef.gas;
 
-    const elecCo2 = elec * EF_GRID_ELECTRICITY_KG_PER_KWH;
+    const elecCo2 = elec * ef.electricity;
     const refCo2 = calcRefrigerantCo2e(ref, refCode);
     const totalCo2e = elecCo2 + fuelCo2 + refCo2;
 
@@ -372,14 +377,13 @@ const updatedGas = isEditMode
 const updatedRefrigerant = isEditMode
   ? ref
   : (existing.refrigerant_kg ?? 0) + ref;
-const updatedFuelCo2 = calcFuelCo2eKg({
-  dieselLitres: updatedDiesel,
-  petrolLitres: updatedPetrol,
-  gasKwh: updatedGas,
-});
 
-const updatedElecCo2 =
-  updatedElectricity * EF_GRID_ELECTRICITY_KG_PER_KWH;
+const updatedFuelCo2 =
+  updatedDiesel * ef.diesel +
+  updatedPetrol * ef.petrol +
+  updatedGas * ef.gas;
+
+const updatedElecCo2 = updatedElectricity * ef.electricity;
 
 const updatedRefCo2 = calcRefrigerantCo2e(
   updatedRefrigerant,
@@ -564,11 +568,11 @@ await supabase.from('edit_history').insert({
               </p>
 
               <p className="mt-2 text-[11px] text-slate-500">
-                We store emissions as a single record per month (e.g. “
+                We store emissions as a single record per month (e.g. "
                 <span className="font-medium">
                   {buildMonthLabel(monthName, year)}
                 </span>
-                ”) and automatically combine multiple entries when you add more
+                ") and automatically combine multiple entries when you add more
                 data for the same month.
               </p>
 
@@ -777,7 +781,7 @@ await supabase.from('edit_history').insert({
                   </select>
 
                   <p className="mt-1 text-[11px] text-slate-500">
-                    If unsure, leave as “Not sure / generic HFC”.
+                    If unsure, leave as "Not sure / generic HFC".
                   </p>
                 </div>
               </div>

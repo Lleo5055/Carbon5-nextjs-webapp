@@ -4,11 +4,8 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import {
-  EF_GRID_ELECTRICITY_KG_PER_KWH,
-  calcFuelCo2eKg,
-  calcRefrigerantCo2e,
-} from '@/lib/emissionFactors';
+import { getFactorsForCountry } from '@/lib/factors';
+import { calcRefrigerantCo2e } from '@/lib/emissionFactors';
 
 type EmissionRow = {
   id: string;
@@ -21,6 +18,7 @@ type EmissionRow = {
   refrigerant_kg: number | null;
   refrigerant_code: string | null;
   total_co2e: number | null;
+  country_code: string | null;
 };
 
 const REFRIGERANT_OPTIONS = [
@@ -47,6 +45,7 @@ export default function EditEmissionPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   const [monthLabel, setMonthLabel] = useState<string>('');
+  const [countryCode, setCountryCode] = useState<string>('GB');
 
   const [electricityKwh, setElectricityKwh] = useState<string>('');
   const [dieselLitres, setDieselLitres] = useState<string>('');
@@ -107,6 +106,7 @@ export default function EditEmissionPage() {
         data.refrigerant_kg != null ? String(data.refrigerant_kg) : ''
       );
       setRefrigerantCode(data.refrigerant_code || 'GENERIC_HFC');
+      setCountryCode(data.country_code ?? 'GB');
 
       setLoading(false);
     }
@@ -141,13 +141,13 @@ export default function EditEmissionPage() {
     // Combined fuel_liters for backwards compatibility
     const legacyFuelLitres = diesel + petrol;
 
-    // Recalculate total CO2e (UK logic)
-    const elecCo2 = elec * EF_GRID_ELECTRICITY_KG_PER_KWH;
-    const fuelCo2 = calcFuelCo2eKg({
-      dieselLitres: diesel,
-      petrolLitres: petrol,
-      gasKwh: gas,
-    });
+    // Recalculate total CO2e using country-specific factors
+    const ef = getFactorsForCountry(countryCode);
+    const elecCo2 = elec * ef.electricity;
+    const fuelCo2 =
+      diesel * ef.diesel +
+      petrol * ef.petrol +
+      gas * ef.gas; // ef.gas is already per kWh (converted in factors.ts)
     const refCo2 = calcRefrigerantCo2e(ref, refCode);
     const totalCo2e = elecCo2 + fuelCo2 + refCo2;
 
@@ -205,7 +205,7 @@ export default function EditEmissionPage() {
               Edit monthly emissions
             </h1>
             <p className="text-sm text-slate-600 mt-1">
-              Adjust the values for this month. We’ll recalculate the CO₂e
+              Adjust the values for this month. We'll recalculate the CO₂e
               footprint using your latest inputs.
             </p>
             {monthLabel && (
@@ -371,7 +371,7 @@ export default function EditEmissionPage() {
                       ))}
                     </select>
                     <p className="mt-1 text-[11px] text-slate-500">
-                      If unsure, leave as “Not sure / generic HFC” – we’ll use a
+                      If unsure, leave as "Not sure / generic HFC" – we'll use a
                       conservative default factor.
                     </p>
                   </div>

@@ -6,11 +6,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../../lib/supabaseClient';
 import {
-  EF_GRID_ELECTRICITY_KG_PER_KWH,
-  EF_GENERIC_ROAD_FUEL_KG_PER_LITRE,
   calcRefrigerantCo2e,
   normaliseRefrigerantCode,
 } from '../../../lib/emissionFactors';
+import { getFactorsForCountry } from '@/lib/factors';
 
 type ParsedSuggestion = {
   docType: 'electricity' | 'fuel';
@@ -114,14 +113,23 @@ export default function ImportInvoicesPage() {
         return;
       }
 
+      // Load country-aware factors from user profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('country')
+        .eq('id', user.id)
+        .single();
+      const ef = getFactorsForCountry(profile?.country ?? 'GB');
+
       const electricityNum = Number(electricity) || 0;
       const fuelNum = Number(fuel) || 0;
       const refrigerantNum = Number(refrigerant) || 0;
       const refCode = normaliseRefrigerantCode(refrigerantType);
 
+      // Use ef.diesel as the generic road fuel factor (same as before)
       const total_co2e =
-        electricityNum * EF_GRID_ELECTRICITY_KG_PER_KWH +
-        fuelNum * EF_GENERIC_ROAD_FUEL_KG_PER_LITRE +
+        electricityNum * ef.electricity +
+        fuelNum * ef.diesel +
         calcRefrigerantCo2e(refrigerantNum, refCode);
 
       const { error: insertError } = await supabase.from('emissions').insert([

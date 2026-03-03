@@ -2,11 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { createClient } from '@supabase/supabase-js';
 
-import {
-  EF_GRID_ELECTRICITY_KG_PER_KWH,
-  calcFuelCo2eKg,
-  calcRefrigerantCo2e,
-} from '@/lib/emissionFactors';
+import { getFactorsForCountry } from '@/lib/factors';
+import { calcRefrigerantCo2e } from '@/lib/emissionFactors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -131,6 +128,7 @@ if (!userId) {
   return new NextResponse('Missing userId', { status: 400 });
 }
 
+
 // ======================== LOAD DATA (USER ONLY) ========================
 let emissionsQuery = supabase
   .from('emissions')
@@ -225,6 +223,19 @@ if (userId) {
   profile = p || {};
 }
 
+// Country-aware factors
+const countryCode = list[0]?.country_code ?? profile?.country ?? 'GB';
+const ef = getFactorsForCountry(countryCode);
+
+const isGB = countryCode === 'GB';
+const COUNTRY_NAMES: Record<string, string> = {
+  GB: 'United Kingdom', DE: 'Germany', FR: 'France', IT: 'Italy',
+  ES: 'Spain', NL: 'Netherlands', PL: 'Poland', SE: 'Sweden',
+  BE: 'Belgium', AT: 'Austria', IE: 'Ireland', DK: 'Denmark',
+  PT: 'Portugal', IN: 'India',
+};
+const countryName = COUNTRY_NAMES[countryCode] ?? countryCode;
+const reportLabel = isGB ? 'SECR-ready emissions report' : 'Carbon Footprint Report';
 
     // Extract profile fields (Organisation Card)
     const companyName = profile.company_name || 'Not provided';
@@ -261,13 +272,12 @@ const refrigerantCo2eKg = list.reduce(
 // --------------------
 // Scope calculations (kg)
 // --------------------
-const scope2_kg = totalElecKwh * EF_GRID_ELECTRICITY_KG_PER_KWH;
+const scope2_kg = totalElecKwh * ef.electricity;
 
-const scope1_fuel_kg = calcFuelCo2eKg({
-  dieselLitres: totalDieselLitres,
-  petrolLitres: totalPetrolLitres,
-  gasKwh: totalGasKwh,
-});
+const scope1_fuel_kg =
+  totalDieselLitres * ef.diesel +
+  totalPetrolLitres * ef.petrol +
+  totalGasKwh * ef.gas;
 
 // Treat refrigerant as Scope 1 (fugitive)
 const scope1_refrigerant_kg = refrigerantCo2eKg;
@@ -303,14 +313,12 @@ for (const r of s3) {
 const months = list.map((r) => r.month);
 
 const values = list.map((r) => {
-  const elecKg =
-    safe(r.electricity_kw) * EF_GRID_ELECTRICITY_KG_PER_KWH;
+  const elecKg = safe(r.electricity_kw) * ef.electricity;
 
-  const fuelKg = calcFuelCo2eKg({
-    dieselLitres: safe(r.diesel_litres),
-    petrolLitres: safe(r.petrol_litres),
-    gasKwh: safe(r.gas_kwh),
-  });
+  const fuelKg =
+    safe(r.diesel_litres) * ef.diesel +
+    safe(r.petrol_litres) * ef.petrol +
+    safe(r.gas_kwh) * ef.gas;
 
   const refrigerantKg = calcRefrigerantCo2e(
     safe(r.refrigerant_kg),
@@ -440,6 +448,9 @@ drawText(
 y -= 16;
 
 drawText(page, `Organisation: ${companyName}`, 50, y, 11, font, BLACK);
+y -= 16;
+
+drawText(page, `Country: ${countryName}`, 50, y, 11, font, BLACK);
 y -= 16;
 
 const d = new Date();
@@ -585,7 +596,7 @@ drawText(page, `Output units: ${outputUnits}`, 50, y, 11, font, BLACK);
 // =========================
 // FOOTER
 // =========================
-page.drawText('Greenio · SECR-ready emissions report · Page 1', {
+page.drawText(`Greenio · ${reportLabel} · Page 1`, {
   x: 180,
   y: 20,
   size: 9,
@@ -624,7 +635,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
 
     y -= 20;
     page.drawText(
-      `Electricity (Scope 2): ${(totalElecKwh * 0.233).toFixed(0)} kg CO2e`,
+      `Electricity (Scope 2): ${scope2_kg.toFixed(0)} kg CO2e`,
       {
         x: 50,
         y,
@@ -636,7 +647,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
 
     y -= 20;
     page.drawText(
-      `Fuels (Scope 1 – diesel): ${(totalDieselLitres * 2.68).toFixed(0)} kg CO2e`,
+      `Fuels (Scope 1): ${scope1_fuel_kg.toFixed(0)} kg CO2e`,
       {
         x: 50,
         y,
@@ -851,7 +862,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
     }
 
     // ---- FOOTER PAGE 2 ----
-    page.drawText('Greenio · SECR-ready emissions report · Page 2', {
+    page.drawText(`Greenio · ${reportLabel} · Page 2`, {
       x: 180,
       y: 20,
       size: 9,
@@ -864,7 +875,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
     y = 780;
 
     // Page header
-    page.drawText('3. Scope breakdown and SECR summary', {
+    page.drawText(`3. Scope breakdown and ${isGB ? 'SECR' : 'emissions'} summary`, {
       x: 50,
       y,
       size: 18,
@@ -907,7 +918,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
 
     paragraph(
       page,
-      'Calculated using UK location-based grid factors issued by DEFRA BEIS.',
+      `Calculated using national grid emission factors for ${countryName} (${ef.electricity} kg CO2e per kWh).`,
       50,
       480,
       11,
@@ -982,6 +993,21 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
     const s3_total_t = s3.reduce((s, r) => s + safe(r.co2e_kg), 0) / 1000;
 
     for (const r of s3) {
+      // Page overflow — start a continuation page before this row falls off
+      if (y < 80) {
+        page.drawText(`Greenio · ${reportLabel} · Page 3 (cont.)`, {
+          x: 180, y: 20, size: 9, font, color: TEXT,
+        });
+        page = pdf.addPage([595, 842]);
+        y = 780;
+        // Repeat table header on the new page
+        page.drawRectangle({ x: 45, y: y - 18, width: 510, height: 22, color: rgb(0, 0, 0) });
+        page.drawText('Category',           { x: 55,  y: y - 6, size: 11, font: bold, color: rgb(1, 1, 1) });
+        page.drawText('Emissions (tCO2e)',  { x: 210, y: y - 6, size: 11, font: bold, color: rgb(1, 1, 1) });
+        page.drawText('Share (%)',          { x: 380, y: y - 6, size: 11, font: bold, color: rgb(1, 1, 1) });
+        y -= 26;
+      }
+
       const t = safe(r.co2e_kg) / 1000;
       const pct = s3_total_t ? ((t / s3_total_t) * 100).toFixed(1) : '0';
 
@@ -1044,7 +1070,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
     y -= 40;
 
     // ---- SECR ----
-    page.drawText('SECR summary', {
+    page.drawText(isGB ? 'SECR summary' : 'Energy and emissions summary', {
       x: 50,
       y,
       size: 12,
@@ -1063,7 +1089,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
     y -= 16;
 
     page.drawText(
-      `Road fuels (diesel): ${(totalDieselLitres * 10.9).toFixed(0)} kWh`,
+      `Road fuels: ${(totalDieselLitres * 10.9 + totalPetrolLitres * 9.4 + totalGasKwh).toFixed(0)} kWh`,
       {
         x: 50,
         y,
@@ -1075,7 +1101,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
     y -= 16;
 
     page.drawText(
-      `Total energy: ${(totalElecKwh + totalDieselLitres * 10.9).toFixed(0)} kWh`,
+      `Total energy: ${(totalElecKwh + totalDieselLitres * 10.9 + totalPetrolLitres * 9.4 + totalGasKwh).toFixed(0)} kWh`,
       {
         x: 50,
         y,
@@ -1174,7 +1200,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
       { x: 50, y, size: 11, font, color: TEXT }
     );
     // ---- FOOTER ----
-    page.drawText('Greenio · SECR-ready emissions report · Page 3', {
+    page.drawText(`Greenio · ${reportLabel} · Page 3`, {
       x: 180,
       y: 20,
       size: 9,
@@ -1410,7 +1436,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 1', {
     }
 
     // ---- FOOTER ----
-    page.drawText('Greenio · SECR-ready emissions report · Page 4', {
+    page.drawText(`Greenio · ${reportLabel} · Page 4`, {
       x: 180,
       y: 20,
       size: 9,
@@ -1457,7 +1483,7 @@ paragraphText(
   page,
   font,
   TEXT,
-  'Emission calculations use the UK Government GHG Conversion Factors (DEFRA/BEIS, 2024). Electricity emissions use location-based grid factors and do not include market-based supplier factors. Fuel emissions use standard CO2e per-litre values, and Scope 3 emissions use category-specific DEFRA factors.',
+  `Emission calculations use national GHG conversion factors applicable to ${countryName} (${ef.version}). Electricity emissions use location-based grid factors and do not include market-based supplier factors. Fuel emissions use standard CO2e per-litre values, and Scope 3 emissions use category-specific activity factors.`,
   yRef
 );
 
@@ -1475,7 +1501,7 @@ paragraphText(
   page,
   font,
   TEXT,
-  'Boundary: This report applies an operational-control boundary and covers UK operations only. Non-UK sites are excluded. As this is the organisation’s first SECR reporting period, no prior-year comparison is presented.',
+  `Boundary: This report applies an operational-control boundary and covers operations in ${countryName}. Activities outside this boundary are excluded. Where no prior-year data exists, no year-on-year comparison is presented.`,
   yRef
 );
 
@@ -1484,14 +1510,14 @@ paragraphText(
   page,
   font,
   TEXT,
-  'The primary SECR intensity ratio is tCO2e per employee, as it reflects organisational activity. Supplementary ratios—tCO2e per £ revenue and tCO2e per output unit—are included for transparency.',
+  'The primary intensity ratio is tCO2e per employee, as it reflects organisational activity. Supplementary ratios—tCO2e per revenue unit and tCO2e per output unit—are included for transparency.',
   yRef
 );
 
 y = yRef.value;
 
 // ---------------- SECR METHODOLOGY CONFIRMATION ----------------
-page.drawText('SECR methodology confirmation', {
+page.drawText(isGB ? 'SECR methodology confirmation' : 'Methodology confirmation', {
   x: 50,
   y,
   size: 12,
@@ -1507,7 +1533,7 @@ if (methodologyConfirmed) {
     page,
     font,
     TEXT,
-    'The organisation has confirmed the SECR calculation methodology used in this report.',
+    `The organisation has confirmed the calculation methodology used in this report${isGB ? ' for SECR compliance' : ''}.`,
     yRef
   );
 } else {
@@ -1515,7 +1541,7 @@ if (methodologyConfirmed) {
     page,
     font,
     TEXT,
-    'The organisation has not yet confirmed the SECR calculation methodology. A fully compliant SECR disclosure cannot be issued until confirmation is provided.',
+    `The organisation has not yet confirmed the calculation methodology used in this report. ${isGB ? 'A fully compliant SECR disclosure cannot be issued until confirmation is provided.' : 'Please confirm the methodology before using this report for regulatory purposes.'}`,
     yRef
   );
 }
@@ -1538,7 +1564,7 @@ paragraphText(
   page,
   font,
   TEXT,
-  'This report covers UK operations under operational control. Additional sites, subsidiaries or non-UK activities may be incorporated in future reporting cycles.',
+  `This report covers operations in ${countryName} under operational control. Additional sites, subsidiaries or cross-border activities may be incorporated in future reporting cycles.`,
   yRef
 );
 
@@ -1615,7 +1641,7 @@ paragraphText(
 y = yRef.value;
 
 // ---- FOOTER ----
-page.drawText('Greenio · SECR-ready emissions report · Page 5', {
+page.drawText(`Greenio · ${reportLabel} · Page 5`, {
   x: 180,
   y: 20,
   size: 9,
@@ -1651,7 +1677,7 @@ y -= 40;
     page,
     font,
     TEXT,
-    'All calculations use the UK Government GHG Conversion Factors for Company Reporting (DEFRA/BEIS 2024). These factors cover Scope 1, Scope 2 and Scope 3 (selected categories).',
+    `All calculations use the national GHG conversion factors for ${countryName}. Source: ${ef.version}. These factors cover Scope 1, Scope 2 and Scope 3 (selected categories).`,
     yRef
   );
   y = yRef.value;
@@ -1669,10 +1695,10 @@ page.drawText('Scope 1 — Direct emissions factors (fuel combustion)', {
 });
 y -= 22;
 
-page.drawText('Diesel (average blend): 2.687 kg CO2e per litre', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText('Petrol: 2.174 kg CO2e per litre', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText('LPG: 1.527 kg CO2e per litre', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText('Natural gas: 0.182 kg CO2e per kWh', { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
+page.drawText(`Diesel: ${ef.diesel} kg CO2e per litre`, { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
+page.drawText(`Petrol: ${ef.petrol} kg CO2e per litre`, { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
+page.drawText(`LPG: ${ef.gas > 0 ? (ef.gas * 29).toFixed(3) : '1.500'} kg CO2e per litre`, { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
+page.drawText(`Natural gas: ${ef.gas.toFixed(4)} kg CO2e per kWh`, { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
 
 // --------------------------- SCOPE 2 ---------------------------
 page.drawText('Scope 2 — Purchased electricity (location-based)', {
@@ -1684,7 +1710,7 @@ page.drawText('Scope 2 — Purchased electricity (location-based)', {
 });
 y -= 22;
 
-page.drawText('UK grid electricity: 0.233 kg CO2e per kWh', {
+page.drawText(`${countryName} grid electricity: ${ef.electricity} kg CO2e per kWh`, {
   x: 60,
   y,
   size: 11,
@@ -1693,7 +1719,7 @@ page.drawText('UK grid electricity: 0.233 kg CO2e per kWh', {
 });
 y -= 15;
 
-page.drawText('Market-based factors are not used for SECR.', {
+page.drawText(isGB ? 'Market-based factors are not used for SECR.' : 'Market-based factors are not used.', {
   x: 60,
   y,
   size: 11,
@@ -1744,7 +1770,7 @@ page.drawText('Water supply: 0.344 kg CO2e per m3', { x: 60, y, size: 11, font, 
 page.drawText('Water treatment: 0.708 kg CO2e per m3', { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
 
 // --------------------------- ENERGY CONVERSION ---------------------------
-page.drawText('Energy conversion (SECR requirement)', {
+page.drawText(`Energy conversion factors${isGB ? ' (SECR requirement)' : ''}`, {
   x: 50,
   y,
   size: 12,
@@ -1764,14 +1790,14 @@ page.drawText('LPG: 7.1 kWh per litre', { x: 60, y, size: 11, font, color: TEXT 
     page,
     font,
     TEXT,
-    'Emission factors are updated annually following publication of new DEFRA GHG Conversion Factors. Greenio automatically uses the latest factors for the reporting year.',
+    `Emission factors are updated annually following publication of new national GHG conversion factors. Greenio automatically applies the latest factors for ${countryName} for each reporting period.`,
     yRef
   );
   y = yRef.value;  
 }
 
 // Footer
-page.drawText('Greenio · SECR-ready emissions report · Page 6', {
+page.drawText(`Greenio · ${reportLabel} · Page 6`, {
   x: 180,
   y: 20,
   size: 9,
@@ -1783,7 +1809,7 @@ page.drawText('Greenio · SECR-ready emissions report · Page 6', {
     // ========================= RETURN PDF =========================
     const pdfBytes = await pdf.save();
 
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(pdfBytes.buffer as ArrayBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

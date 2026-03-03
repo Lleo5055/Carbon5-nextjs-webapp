@@ -4,11 +4,8 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../../../lib/supabaseClient';
-import {
-  calcRefrigerantCo2e,
-  EF_GRID_ELECTRICITY_KG_PER_KWH,
-  calcFuelCo2eKg,
-} from '../../../../lib/emissionFactors';
+import { calcRefrigerantCo2e } from '../../../../lib/emissionFactors';
+import { getFactorsForCountry } from '@/lib/factors';
 import { normaliseSharesTo100 } from '@/lib/normalisePercentages';
 
 type PeriodKey = '3m' | '6m' | '12m' | 'all';
@@ -78,6 +75,9 @@ export default function RefrigerantInsightsPage({
         return;
       }
 
+      const countryCode = rawData[0]?.country_code ?? 'GB';
+      const ef = getFactorsForCountry(countryCode);
+
       let baseMonths: DashboardMonth[] = rawData.map((row: any) => {
         const electricityKwh = Number(row.electricity_kw ?? 0);
         const dieselFromNew = Number(row.diesel_litres ?? 0);
@@ -123,15 +123,13 @@ export default function RefrigerantInsightsPage({
       const lastMonth = insightsMonths.length > 0 ? insightsMonths[0] : null;
       const prevMonth = insightsMonths.length > 1 ? insightsMonths[1] : null;
 
-      const totalElec = periodMonths.reduce((s, m) => s + m.electricityKwh * EF_GRID_ELECTRICITY_KG_PER_KWH, 0);
+      const totalElec = periodMonths.reduce((s, m) => s + m.electricityKwh * ef.electricity, 0);
       const totalFuel = periodMonths.reduce(
         (s, m) =>
           s +
-          calcFuelCo2eKg({
-            dieselLitres: m.dieselLitres ?? 0,
-            petrolLitres: m.petrolLitres ?? 0,
-            gasKwh: m.gasKwh ?? 0,
-          }),
+          (m.dieselLitres ?? 0) * ef.diesel +
+          (m.petrolLitres ?? 0) * ef.petrol +
+          (m.gasKwh ?? 0) * ef.gas,
         0
       );
       const totalRef = periodMonths.reduce(

@@ -9,15 +9,27 @@ export async function POST(req: Request) {
 
   const { userId, month, locked } = await req.json();
 
-  if (!userId || !month) {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  // strict validation
+  if (!userId || !month || typeof locked !== 'boolean') {
+    return NextResponse.json(
+      { error: 'Invalid request payload' },
+      { status: 400 }
+    );
   }
 
-  await supabase.from('report_locks').upsert({
-    user_id: userId,
-    month,
-    locked,
-  });
+  // ONLY update an existing row
+  const { error } = await supabase
+    .from('report_locks')
+    .update({ locked })
+    .eq('user_id', userId)
+    .eq('month', month);
+
+  if (error) {
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

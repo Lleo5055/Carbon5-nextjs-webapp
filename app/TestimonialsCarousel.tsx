@@ -17,7 +17,7 @@ const testimonials: Testimonial[] = [
     role: 'Operations Director',
     company: 'Northvale Logistics',
     quote:
-      'We pulled together a credible footprint in a single afternoon. No one on my team is a sustainability expert, and that’s the point — the product isn’t built for experts.',
+      'We pulled together a credible footprint in a single afternoon. No one on my team is a sustainability expert, and that\u2019s the point \u2014 the product isn\u2019t built for experts.',
     avatarUrl:
       'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg?auto=compress&cs=tinysrgb&w=200',
   },
@@ -26,7 +26,7 @@ const testimonials: Testimonial[] = [
     role: 'Finance Manager',
     company: 'BrightPath Services',
     quote:
-      'The board just wants a clear number, a simple trend and what we should do next. Carbon Central gives me all three without adding a new project to my week.',
+      'The board just wants a clear number, a simple trend and what we should do next. Greenio gives me all three without adding a new project to my week.',
     avatarUrl:
       'https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg?auto=compress&cs=tinysrgb&w=200',
   },
@@ -35,7 +35,7 @@ const testimonials: Testimonial[] = [
     role: 'Managing Director',
     company: 'HarrisTech',
     quote:
-      'We used our first report in a tender the same week. It’s now part of the pack we share with larger customers asking about emissions and net-zero plans.',
+      'We used our first report in a tender the same week. It\u2019s now part of the pack we share with larger customers asking about emissions and net-zero plans.',
     avatarUrl:
       'https://images.pexels.com/photos/2380794/pexels-photo-2380794.jpeg?auto=compress&cs=tinysrgb&w=200',
   },
@@ -53,13 +53,23 @@ const testimonials: Testimonial[] = [
     role: 'CFO',
     company: 'Oakwood Retail Group',
     quote:
-      'For a mid-sized UK business, Carbon Central hits the sweet spot — serious enough for investors, simple enough that we don’t need consultants to run it.',
+      'For a mid-sized business, Greenio hits the sweet spot \u2014 serious enough for investors, simple enough that we don\u2019t need consultants to run it.',
     avatarUrl:
       'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200',
   },
 ];
 
-export default function TestimonialsCarousel() {
+interface Props {
+  heading?: string;
+  subtext?: string;
+  tag?: string;
+}
+
+export default function TestimonialsCarousel({
+  heading = 'Trusted by UK operations and finance teams.',
+  subtext = "Greenio fits into the real world of busy teams, not climate consultants. Here\u2019s how customers are using it today.",
+  tag = 'Early customers from logistics, professional services and tech.',
+}: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const total = testimonials.length;
 
@@ -81,16 +91,13 @@ export default function TestimonialsCarousel() {
         <div className="mb-6 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
             <h2 className="text-sm font-semibold tracking-tight text-slate-900">
-              Trusted by UK operations and finance teams.
+              {heading}
             </h2>
             <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-700">
-              Carbon Central fits into the real world of busy teams, not climate
-              consultants. Here’s how customers are using it today.
+              {subtext}
             </p>
           </div>
-          <p className="text-[11px] text-slate-500">
-            Early customers from logistics, professional services and tech.
-          </p>
+          <p className="text-[11px] text-slate-500">{tag}</p>
         </div>
 
         <div className="relative mx-auto max-w-3xl">
@@ -115,7 +122,7 @@ export default function TestimonialsCarousel() {
             </div>
 
             <p className="mt-4 text-sm leading-relaxed text-slate-800">
-              “{active.quote}”
+              &ldquo;{active.quote}&rdquo;
             </p>
           </div>
 

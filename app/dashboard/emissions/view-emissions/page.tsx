@@ -10,13 +10,8 @@ import Link from 'next/link';
 import { supabase } from '../../../../lib/supabaseClient';
 import Scope3ActionsCell from './Scope3ActionsCell';
 
-import {
-  EF_GRID_ELECTRICITY_KG_PER_KWH,
-  EF_DIESEL_KG_PER_LITRE,
-  EF_PETROL_KG_PER_LITRE,
-  EF_NATURAL_GAS_KG_PER_KWH,
-  calcRefrigerantCo2e,
-} from '../../../../lib/emissionFactors';
+import { calcRefrigerantCo2e } from '../../../../lib/emissionFactors';
+import { getFactorsForCountry } from '@/lib/factors';
 
 import RowActionsClient from './RowActionsClient';
 const EMISSIONS_CACHE_KEY = 'view_emissions_report_v1';
@@ -216,6 +211,10 @@ const { data: sessionData } = await supabase.auth.getSession();
     console.error('Error loading scope 3 activities for report', scope3Error);
   }
 
+  // Get country-aware factors from the first row's country_code
+  const countryCode = data[0]?.country_code ?? 'GB';
+  const ef = getFactorsForCountry(countryCode);
+
   const allMonths: ReportMonth[] = data.map((row: any) => {
     const electricityKwh = Number(row.electricity_kw ?? 0);
     const dieselLitres = Number(row.diesel_litres ?? 0);
@@ -240,7 +239,12 @@ const { data: sessionData } = await supabase.auth.getSession();
       electricityKwh,
       fuelLitres: computedFuelLitres,
       refrigerantKg,
-      totalCo2eKg: Number(row.total_co2e ?? 0),
+      totalCo2eKg:
+        electricityKwh * ef.electricity +
+        dieselLitres * ef.diesel +
+        petrolLitres * ef.petrol +
+        gasKwh * ef.gas +
+        calcRefrigerantCo2e(refrigerantKg, refrigerantCode),
       dieselLitres,
       petrolLitres,
       gasKwh,
@@ -278,19 +282,19 @@ const { data: sessionData } = await supabase.auth.getSession();
   }
 
   const totalElecCo2 = months.reduce(
-    (s, m) => s + m.electricityKwh * EF_GRID_ELECTRICITY_KG_PER_KWH,
+    (s, m) => s + m.electricityKwh * ef.electricity,
     0
   );
   const totalDieselCo2 = months.reduce(
-    (s, m) => s + (m.dieselLitres ?? 0) * EF_DIESEL_KG_PER_LITRE,
+    (s, m) => s + (m.dieselLitres ?? 0) * ef.diesel,
     0
   );
   const totalPetrolCo2 = months.reduce(
-    (s, m) => s + (m.petrolLitres ?? 0) * EF_PETROL_KG_PER_LITRE,
+    (s, m) => s + (m.petrolLitres ?? 0) * ef.petrol,
     0
   );
   const totalGasCo2 = months.reduce(
-    (s, m) => s + (m.gasKwh ?? 0) * EF_NATURAL_GAS_KG_PER_KWH,
+    (s, m) => s + (m.gasKwh ?? 0) * ef.gas,
     0
   );
   const totalRefCo2 = months.reduce(
@@ -560,6 +564,7 @@ const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
 
 const [userId, setUserId] = useState<string | null>(null);
+const [snapshotLoading, setSnapshotLoading] = useState(false);
 // -----------------------------
 // RESTORE CACHED REPORT (INSTANT PAINT)
 // -----------------------------
@@ -595,7 +600,7 @@ useEffect(() => {
   
 
 // -----------------------------
-// AUTH USER (CLIENT ONLY)  ✅ EDIT 2 GOES HERE
+// AUTH USER (CLIENT ONLY)
 // -----------------------------
 useEffect(() => {
   supabase.auth.getUser().then(({ data }) => {
@@ -730,6 +735,92 @@ useEffect(() => {
       ? customEnd
       : availableMonths[availableMonths.length - 1] ?? '';
 
+  // ── Leadership Snapshot ──
+  async function handleSnapshot() {
+    if (!userId || !report) return;
+    setSnapshotLoading(true);
+    try {
+      // Fetch profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('company_name, industry, country, employee_count, annual_revenue')
+        .eq('id', userId)
+        .maybeSingle();
+
+      // Fetch AI benchmarking (optional)
+      const { data: aiBench } = await supabase
+        .from('ai_benchmarking')
+        .select('benchmarking')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      // Compute CO2e per source from months using country-aware factors
+      const countryCode = profile?.country ?? 'GB';
+      const ef = getFactorsForCountry(countryCode);
+      let elecCo2eKg = 0, fuelCo2eKg = 0, refrigCo2eKg = 0;
+      for (const m of report.months) {
+        elecCo2eKg += (m.electricityKwh ?? 0) * ef.electricity;
+        fuelCo2eKg += ((m.dieselLitres ?? 0) * ef.diesel)
+                    + ((m.petrolLitres ?? 0) * ef.petrol)
+                    + ((m.gasKwh ?? 0) * ef.gas);
+        refrigCo2eKg += calcRefrigerantCo2e(m.refrigerantKg ?? 0, m.refrigerantCode ?? 'GENERIC_HFC');
+      }
+
+      // Build trend months — send raw YYYY-MM, PDF engine formats labels
+      const trendMonths = report.months.map(m => ({
+        label: m.monthLabel,
+        totalKg: m.totalCo2eKg,
+      }));
+
+      // Scope 3 by category
+      const scope3ByCat: Record<string, number> = {};
+      for (const row of (report.scope3Rows ?? [])) {
+        const cat = String(row.category ?? 'other');
+        scope3ByCat[cat] = (scope3ByCat[cat] ?? 0) + Number(row.co2e_kg ?? 0);
+      }
+
+      // AI insights
+      const bench = (aiBench?.benchmarking as any);
+      const insights: string[] = Array.isArray(bench?.insights) ? bench.insights : [];
+      const aiSummary: string = bench?.summary ?? '';
+
+      // POST to snapshot endpoint (no server-side DB calls needed)
+      const res = await fetch('/api/snapshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyName:   profile?.company_name ?? '',
+          industry:      profile?.industry ?? '',
+          countryCode,
+          periodLabel:   report.periodLabel,
+          elecCo2eKg,
+          fuelCo2eKg,
+          refrigCo2eKg,
+          scope3Kg:      report.totals.totalScope3Co2eKg,
+          trendMonths,
+          employeeCount: profile?.employee_count ?? 0,
+          annualRevenue: profile?.annual_revenue ?? 0,
+          insights,
+          aiSummary,
+          scope3ByCat,
+        }),
+      });
+      if (!res.ok) throw new Error('Snapshot generation failed');
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'leadership-snapshot.pdf';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Snapshot error:', err);
+    } finally {
+      setSnapshotLoading(false);
+    }
+  }
+
   // -----------------------------
   // JSX RETURN (your existing JSX continues here)
   // -----------------------------
@@ -749,9 +840,6 @@ useEffect(() => {
           </div>
         </div>
       )}
-
-      {/* ⬇️ REST OF YOUR JSX STAYS EXACTLY THE SAME ⬇️ */}
-
 
       <div className="mx-auto max-w-6xl px-4 py-10 space-y-6">
         {/* Top Header */}
@@ -893,14 +981,19 @@ useEffect(() => {
 
 </form>
 
-                {/* Leadership Snapshot */}
-                <a
-                  href="/api/snapshot"
-                  target="_blank"
-                  className="h-[32px] px-4 rounded-full border text-xs font-medium bg-white text-slate-700 border-slate-300 hover:bg-slate-900 hover:text-white flex items-center justify-center"
+                {/* Leadership Snapshot — POSTs pre-fetched data (browser Supabase works, server-side fetch is blocked) */}
+                <button
+                  type="button"
+                  onClick={handleSnapshot}
+                  disabled={!userId || snapshotLoading}
+                  className={`h-[32px] px-4 rounded-full border text-xs font-medium flex items-center justify-center ${
+                    !userId
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-900 hover:text-white'
+                  }`}
                 >
-                  Leadership Snapshot
-                </a>
+                  {snapshotLoading ? 'Generating...' : 'Leadership Snapshot'}
+                </button>
 
                 {/* CSV / Excel */}
                 {isFreePlan ? (
@@ -1103,7 +1196,7 @@ useEffect(() => {
 
                 {/* Fuel detail */}
                 <article className="rounded-xl bg-white border p-6 shadow">
-                  <h2 className="text-sm font-semibold">Fuel detail (UK)</h2>
+                  <h2 className="text-sm font-semibold">Fuel detail</h2>
                   <p className="mt-1 text-[11px] text-slate-500">
                     Volumes for selected period.
                   </p>

@@ -7,19 +7,13 @@ import React from 'react';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabaseClient';
 
-
-
-
-
 import { normaliseSharesTo100 } from '@/lib/normalisePercentages';
 
 import OnboardingCard from './OnboardingCard';
 
-import {
-  EF_GRID_ELECTRICITY_KG_PER_KWH,
-  calcFuelCo2eKg,
-  calcRefrigerantCo2e,
-} from '../../lib/emissionFactors';
+import { calcRefrigerantCo2e } from '../../lib/emissionFactors';
+import { getFactorsForCountry } from '@/lib/factors';
+
 // Safe absolute base URL for server-side fetch (Vercel SSR fix)
 const baseUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
@@ -64,6 +58,8 @@ type DashboardData = {
     scope1and2Co2eKg: number;
     scope3Co2eKg: number;
   };
+  countryCode: string;
+  efVersion: string;
 };
 
 
@@ -125,6 +121,8 @@ async function getDashboardData(
         scope1and2Co2eKg: 0,
         scope3Co2eKg: 0,
       },
+      countryCode: 'GB',
+      efVersion: '',
     };
   }
 
@@ -174,6 +172,9 @@ console.log(
   const hasEmissions = emissionsData && emissionsData.length > 0;
   const hasScope3 = scope3Data && scope3Data.length > 0;
 
+  const countryCode = (emissionsData?.[0] as any)?.country_code ?? 'GB';
+  const ef = getFactorsForCountry(countryCode);
+
   if (!hasEmissions && !hasScope3) {
     return {
       months: [],
@@ -190,6 +191,8 @@ console.log(
         scope1and2Co2eKg: 0,
         scope3Co2eKg: 0,
       },
+      countryCode,
+      efVersion: ef.version,
     };
   }
 
@@ -218,7 +221,12 @@ console.log(
         (row.refrigerant_code as string | null) ?? 'GENERIC_HFC';
 
       const monthLabel = row.month ?? 'Unknown month';
-      const baseTotalCo2e = Number(row.total_co2e ?? 0); // Scope 1+2 only
+      const baseTotalCo2e =
+        electricityKwh * ef.electricity +
+        dieselLitres * ef.diesel +
+        petrolLitres * ef.petrol +
+        gasKwh * ef.gas +
+        calcRefrigerantCo2e(refrigerantKg, refrigerantCode);
 
       monthMap.set(monthLabel, {
         monthLabel,
@@ -304,20 +312,14 @@ console.log(
   const lastMonth = periodMonths.length > 0 ? periodMonths[0] : null;
   const prevMonth = periodMonths.length > 1 ? periodMonths[1] : null;
 
-  // UK-aligned breakdown using helpers (Scopes 1+2 only)
+  // Country-aware breakdown (Scopes 1+2 only)
   const totalElec = periodMonths.reduce(
-    (s, m) => s + m.electricityKwh * EF_GRID_ELECTRICITY_KG_PER_KWH,
+    (s, m) => s + m.electricityKwh * ef.electricity,
     0
   );
 
   const totalFuel = periodMonths.reduce(
-    (s, m) =>
-      s +
-      calcFuelCo2eKg({
-        dieselLitres: m.dieselLitres ?? 0,
-        petrolLitres: m.petrolLitres ?? 0,
-        gasKwh: m.gasKwh ?? 0,
-      }),
+    (s, m) => s + (m.dieselLitres ?? 0) * ef.diesel + (m.petrolLitres ?? 0) * ef.petrol + (m.gasKwh ?? 0) * ef.gas,
     0
   );
 
@@ -384,6 +386,8 @@ const breakdownBySource = {
       scope1and2Co2eKg: totalCo2eKg - scope3TotalCo2eKg,
       scope3Co2eKg: scope3TotalCo2eKg,
     },
+    countryCode,
+    efVersion: ef.version,
   };
 }
 
@@ -1108,9 +1112,20 @@ const youTonnes = dashData.totalCo2eKg / 1000;
                 );
               })}
             </div>
+
+            {/* EF transparency — hover for full source attribution */}
+            <p
+              className="mt-3 ml-4 inline-flex items-center gap-1 text-[10px] text-slate-400"
+              title={dashData.efVersion}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3 flex-shrink-0">
+                <path fillRule="evenodd" d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm-.75 4.75a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0v-3.5ZM8 10.5a.875.875 0 1 1 0 1.75.875.875 0 0 1 0-1.75Z" clipRule="evenodd" />
+              </svg>
+              Using {dashData.countryCode} emission factors
+            </p>
           </div>
 
-          
+
         </section>
 
         {/* MAIN LAYOUT: LEFT SIDEBAR + RIGHT CONTENT */}
@@ -1416,7 +1431,7 @@ const youTonnes = dashData.totalCo2eKg / 1000;
                         </p>
                         <p className="mt-1 text-xs text-slate-700">
                           {yoyChange === null
-                            ? 'Once you’ve logged 12+ months, we’ll show year-on-year movement here.'
+                            ? "Once you've logged 12+ months, we'll show year-on-year movement here."
                             : `${yoyChange >= 0 ? '+' : ''}${yoyChange.toFixed(
                                 1
                               )}% vs the same month last year.`}
