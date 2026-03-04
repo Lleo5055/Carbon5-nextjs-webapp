@@ -251,8 +251,8 @@ export function calcFuelCo2eKg(
   const petrol  = params.petrolLitres ?? 0;
 
   // Support both gas units: m³ is preferred; kWh is kept for backwards compat.
-  // Conversion: 1 kWh ≈ 0.0344 m³ at typical UK/EU calorific values.
-  const gasM3   = params.gasM3 ?? (params.gasKwh ?? 0) * 0.0344;
+  // Conversion: 1 kWh ≈ 0.0924 m³ (natural gas gross CV ≈ 10.83 kWh/m³, UK/EU average).
+  const gasM3   = params.gasM3 ?? (params.gasKwh ?? 0) * 0.0924;
 
   return (
     diesel * ef.dieselKgPerLitre +
