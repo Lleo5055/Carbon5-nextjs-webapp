@@ -557,6 +557,8 @@ export default function DashboardPage() {
     if (cached && !state) {
       setState(JSON.parse(cached));
     }
+    // Seed isPro from cache so nav link renders correctly on first paint
+    if (sessionStorage.getItem('greenio_is_pro') === '1') setIsPro(true);
   }, [mounted]);
 
   // STEP 6.2 — READ PERIOD (CLIENT-SAFE)
@@ -612,7 +614,9 @@ React.useEffect(() => {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (['pro', 'enterprise'].includes(planRow?.plan ?? '')) setIsPro(true);
+    const proUser = ['pro', 'enterprise'].includes(planRow?.plan ?? '');
+    if (proUser) setIsPro(true);
+    try { sessionStorage.setItem('greenio_is_pro', proUser ? '1' : '0'); } catch {}
 
     // 1️⃣ Load dashboard data first (fast path)
     const dashData = await getDashboardData(
