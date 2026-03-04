@@ -578,6 +578,8 @@ const [state, setState] = React.useState<{
   finalActions: { title: string; description: string }[];
 } | null>(null);
 
+const [isTeamMember, setIsTeamMember] = React.useState(false);
+
 
 
 
@@ -590,6 +592,15 @@ React.useEffect(() => {
     } = await supabase.auth.getUser();
 
     if (!user || cancelled) return;
+
+    // Check if this user is a team member (not an owner)
+    const { data: memberRow } = await supabase
+      .from('team_members')
+      .select('id')
+      .eq('member_user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+    if (memberRow) setIsTeamMember(true);
 
     // 1️⃣ Load dashboard data first (fast path)
     const dashData = await getDashboardData(
@@ -1015,8 +1026,8 @@ const youTonnes = dashData.totalCo2eKg / 1000;
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-10 space-y-6">
-        {/* ONBOARDING CARD */}
-        {profile && !profile.onboarding_complete && (
+        {/* ONBOARDING CARD — hidden for team members who don't own the account */}
+        {!isTeamMember && profile && !profile.onboarding_complete && (
           <section className="rounded-xl bg-pink-50 border border-amber-200 px-4 py-4 shadow">
             <p className="text-xs font-semibold text-black-800">
               Complete your setup

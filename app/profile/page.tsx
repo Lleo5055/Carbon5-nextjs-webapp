@@ -99,6 +99,7 @@ function getComplianceConfig(country: string): ComplianceConfig {
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isTeamMember, setIsTeamMember] = useState(false);
 
   const [form, setForm] = useState({
     company_name: '',
@@ -128,11 +129,39 @@ export default function ProfilePage() {
       const userId = auth.user?.id;
       if (!userId) return;
 
+      // Check if this user is a team member
+      const { data: memberRow } = await supabase
+        .from('team_members')
+        .select('owner_id')
+        .eq('member_user_id', userId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      const profileOwnerId = memberRow ? memberRow.owner_id : userId;
+      if (memberRow) setIsTeamMember(true);
+
+      // Load the owner's profile (or own profile if owner)
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('id', profileOwnerId)
         .single();
+
+      // For team members, also load their own contact details if they exist
+      let memberContact = { contact_name: '', contact_email: '' };
+      if (memberRow) {
+        const { data: ownProfile } = await supabase
+          .from('profiles')
+          .select('contact_name, contact_email')
+          .eq('id', userId)
+          .maybeSingle();
+        if (ownProfile) {
+          memberContact = {
+            contact_name:  ownProfile.contact_name  || '',
+            contact_email: ownProfile.contact_email || '',
+          };
+        }
+      }
 
       if (profile) {
         setForm({
@@ -146,8 +175,8 @@ export default function ProfilePage() {
           secr_required:             profile.secr_required             || false,
           data_confirmed_by_user:    profile.data_confirmed_by_user    || false,
           sustainability_stage:      profile.sustainability_stage      || '',
-          contact_name:              profile.contact_name              || '',
-          contact_email:             profile.contact_email             || '',
+          contact_name:              memberRow ? memberContact.contact_name  : (profile.contact_name  || ''),
+          contact_email:             memberRow ? memberContact.contact_email : (profile.contact_email || ''),
           has_company_vehicles:      profile.has_company_vehicles      || false,
           renewable_energy_tariff:   profile.renewable_energy_tariff   || false,
           annual_revenue:            profile.annual_revenue            || '',
@@ -176,17 +205,27 @@ export default function ProfilePage() {
     const userId = auth.user?.id;
     if (!userId) return;
 
-    const payload = {
-      ...form,
-      annual_revenue:      form.annual_revenue      ? Number(form.annual_revenue)      : null,
-      employee_count:      form.employee_count      ? Number(form.employee_count)      : null,
-      annual_output_units: form.annual_output_units ? Number(form.annual_output_units) : null,
-    };
+    let error: any = null;
 
-    const { error } = await supabase
-      .from('profiles')
-      .update(payload)
-      .eq('id', userId);
+    if (isTeamMember) {
+      // Team members can only update their own contact details
+      const { error: e } = await supabase
+        .from('profiles')
+        .upsert({ id: userId, contact_name: form.contact_name, contact_email: form.contact_email });
+      error = e;
+    } else {
+      const payload = {
+        ...form,
+        annual_revenue:      form.annual_revenue      ? Number(form.annual_revenue)      : null,
+        employee_count:      form.employee_count      ? Number(form.employee_count)      : null,
+        annual_output_units: form.annual_output_units ? Number(form.annual_output_units) : null,
+      };
+      const { error: e } = await supabase
+        .from('profiles')
+        .update(payload)
+        .eq('id', userId);
+      error = e;
+    }
 
     setSaving(false);
 
@@ -200,6 +239,8 @@ export default function ProfilePage() {
   }
 
   const compliance = getComplianceConfig(form.country);
+  // Shorthand: apply to all company-detail inputs when user is a team member
+  const roClass = isTeamMember ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : '';
 
   if (loading) return <p className="p-6">Loading profile...</p>;
 
@@ -217,8 +258,15 @@ export default function ProfilePage() {
       <div className="mx-auto max-w-2xl">
         <h1 className="text-2xl font-semibold text-slate-900">Your profile</h1>
         <p className="text-sm text-slate-600 mt-1">
-          Update your company information at any time.
+          {isTeamMember ? 'Viewing your organisation profile.' : 'Update your company information at any time.'}
         </p>
+
+        {isTeamMember && (
+          <div className="mt-4 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-xs text-blue-700">
+            You are viewing your organisation's profile. Company details are managed by the account owner.
+            Only your personal contact details can be edited.
+          </div>
+        )}
 
         <form
           onSubmit={saveProfile}
@@ -235,8 +283,9 @@ export default function ProfilePage() {
                 <label className="text-xs font-medium text-slate-600">Company name</label>
                 <input
                   type="text"
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm ${roClass}`}
                   value={form.company_name}
+                  readOnly={isTeamMember}
                   onChange={(e) => updateField('company_name', e.target.value)}
                 />
               </div>
@@ -244,8 +293,9 @@ export default function ProfilePage() {
               <div>
                 <label className="text-xs font-medium text-slate-600">Industry</label>
                 <select
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm ${roClass}`}
                   value={form.industry}
+                  disabled={isTeamMember}
                   onChange={(e) => updateField('industry', e.target.value)}
                 >
                   <option value="">Select industry…</option>
@@ -259,10 +309,11 @@ export default function ProfilePage() {
                 <div>
                   <label className="text-xs font-medium text-slate-600">Country</label>
                   <select
-                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                    className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm ${roClass}`}
                     value={form.country}
+                    disabled={isTeamMember}
                     onChange={(e) => updateField('country', e.target.value)}
-                    required
+                    required={!isTeamMember}
                   >
                     <option value="">Select country…</option>
                     {SUPPORTED_COUNTRIES.map(({ code, label }) => (
@@ -280,8 +331,9 @@ export default function ProfilePage() {
                   <label className="text-xs font-medium text-slate-600">City</label>
                   <input
                     type="text"
-                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                    className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm ${roClass}`}
                     value={form.city}
+                    readOnly={isTeamMember}
                     onChange={(e) => updateField('city', e.target.value)}
                   />
                 </div>
@@ -291,8 +343,9 @@ export default function ProfilePage() {
                 <label className="text-xs font-medium text-slate-600">Address</label>
                 <input
                   type="text"
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm ${roClass}`}
                   value={form.address}
+                  readOnly={isTeamMember}
                   onChange={(e) => updateField('address', e.target.value)}
                 />
               </div>
@@ -303,8 +356,9 @@ export default function ProfilePage() {
                 </label>
                 <input
                   type="text"
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm ${roClass}`}
                   value={form.postcode}
+                  readOnly={isTeamMember}
                   onChange={(e) => updateField('postcode', e.target.value)}
                 />
               </div>
@@ -317,8 +371,9 @@ export default function ProfilePage() {
               Organisation scale
             </h2>
             <select
-              className="w-full rounded-lg border px-3 py-2 text-sm"
+              className={`w-full rounded-lg border px-3 py-2 text-sm ${roClass}`}
               value={form.company_size}
+              disabled={isTeamMember}
               onChange={(e) => updateField('company_size', e.target.value)}
             >
               <option value="">Select size…</option>
@@ -339,6 +394,7 @@ export default function ProfilePage() {
                     type="checkbox"
                     className="mt-0.5"
                     checked={form.secr_required}
+                    disabled={isTeamMember}
                     onChange={(e) => updateField('secr_required', e.target.checked)}
                   />
                   <span>
@@ -356,6 +412,7 @@ export default function ProfilePage() {
                 <input
                   type="checkbox"
                   checked={form.data_confirmed_by_user}
+                  disabled={isTeamMember}
                   onChange={(e) => updateField('data_confirmed_by_user', e.target.checked)}
                 />
                 I confirm the provided information is accurate.
@@ -381,8 +438,9 @@ export default function ProfilePage() {
                 </label>
                 <input
                   type="number"
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm ${roClass}`}
                   value={form.annual_revenue}
+                  readOnly={isTeamMember}
                   onChange={(e) => updateField('annual_revenue', e.target.value)}
                 />
               </div>
@@ -390,8 +448,9 @@ export default function ProfilePage() {
                 <label className="text-xs font-medium text-slate-600">Number of employees</label>
                 <input
                   type="number"
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm ${roClass}`}
                   value={form.employee_count}
+                  readOnly={isTeamMember}
                   onChange={(e) => updateField('employee_count', e.target.value)}
                 />
               </div>
@@ -399,8 +458,9 @@ export default function ProfilePage() {
                 <label className="text-xs font-medium text-slate-600">Annual output units (optional)</label>
                 <input
                   type="number"
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm ${roClass}`}
                   value={form.annual_output_units}
+                  readOnly={isTeamMember}
                   onChange={(e) => updateField('annual_output_units', e.target.value)}
                 />
               </div>
@@ -412,8 +472,9 @@ export default function ProfilePage() {
                   {compliance.energyActionsLabel}
                 </label>
                 <textarea
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm h-24"
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm h-24 ${roClass}`}
                   value={form.energy_efficiency_actions}
+                  readOnly={isTeamMember}
                   onChange={(e) => updateField('energy_efficiency_actions', e.target.value)}
                   placeholder="Describe any actions taken to reduce energy use (required for SECR)."
                 />
@@ -432,6 +493,7 @@ export default function ProfilePage() {
               <input
                 type="checkbox"
                 checked={form.methodology_confirmed}
+                disabled={isTeamMember}
                 onChange={(e) => updateField('methodology_confirmed', e.target.checked)}
               />
               I confirm that the calculation methodology used is correct.
@@ -444,8 +506,9 @@ export default function ProfilePage() {
               Sustainability & Operations
             </h2>
             <select
-              className="w-full rounded-lg border px-3 py-2 text-sm"
+              className={`w-full rounded-lg border px-3 py-2 text-sm ${roClass}`}
               value={form.sustainability_stage}
+              disabled={isTeamMember}
               onChange={(e) => updateField('sustainability_stage', e.target.value)}
             >
               <option value="">Select stage…</option>
@@ -457,6 +520,7 @@ export default function ProfilePage() {
               <input
                 type="checkbox"
                 checked={form.has_company_vehicles}
+                disabled={isTeamMember}
                 onChange={(e) => updateField('has_company_vehicles', e.target.checked)}
               />
               We operate company-owned vehicles.
@@ -465,6 +529,7 @@ export default function ProfilePage() {
               <input
                 type="checkbox"
                 checked={form.renewable_energy_tariff}
+                disabled={isTeamMember}
                 onChange={(e) => updateField('renewable_energy_tariff', e.target.checked)}
               />
               We use a renewable electricity tariff.
@@ -501,7 +566,7 @@ export default function ProfilePage() {
             disabled={saving}
             className="w-full rounded-full bg-slate-900 text-white py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-60"
           >
-            {saving ? 'Saving…' : 'Save changes'}
+            {saving ? 'Saving…' : isTeamMember ? 'Save contact details' : 'Save changes'}
           </button>
         </form>
       </div>

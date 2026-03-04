@@ -3,13 +3,21 @@ import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
-// Admin client — uses service role key, server-side only
 function adminClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
+}
+
+function generateTempPassword(): string {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let pwd = 'Greenio-';
+  for (let i = 0; i < 8; i++) {
+    pwd += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return pwd;
 }
 
 export async function POST(req: NextRequest) {
@@ -49,7 +57,6 @@ export async function POST(req: NextRequest) {
 
     if (!email) return NextResponse.json({ error: 'Email is required.' }, { status: 400 });
 
-    // Prevent inviting yourself
     if (email === user.email?.toLowerCase()) {
       return NextResponse.json({ error: 'You cannot invite yourself.' }, { status: 400 });
     }
@@ -66,18 +73,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'This email has already been invited.' }, { status: 409 });
     }
 
-    // Upsert invite record
+    // Try to create the Supabase user account with a temp password
+    const tempPassword = generateTempPassword();
+    const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: tempPassword,
+      email_confirm: true, // skip email verification — owner shares credentials directly
+    });
+
+    // Determine member_user_id: newly created, or already existed
+    let memberUserId: string | null = newUser?.user?.id ?? null;
+    let alreadyExists = false;
+
+    if (createErr) {
+      if (createErr.message?.toLowerCase().includes('already been registered') ||
+          createErr.message?.toLowerCase().includes('already exists')) {
+        // User already has a Supabase account — link by email lookup
+        alreadyExists = true;
+        const { data: existingAuthUsers } = await supabaseAdmin.auth.admin.listUsers();
+        const found = existingAuthUsers?.users?.find(
+          (u) => u.email?.toLowerCase() === email
+        );
+        memberUserId = found?.id ?? null;
+      } else {
+        console.error('createUser error:', createErr);
+        return NextResponse.json({ error: 'Failed to create user account.' }, { status: 500 });
+      }
+    }
+
+    // Upsert team_members row
     const { error: insertErr } = await supabaseAdmin
       .from('team_members')
       .upsert({
         ...(existing ? { id: existing.id } : {}),
         owner_id: ownerId,
         member_email: email,
-        member_user_id: null,
+        member_user_id: memberUserId,
         role,
-        status: 'pending',
+        status: memberUserId ? 'active' : 'pending',
         invited_at: new Date().toISOString(),
-        joined_at: null,
+        joined_at: memberUserId ? new Date().toISOString() : null,
       });
 
     if (insertErr) {
@@ -85,19 +120,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to create invite record.' }, { status: 500 });
     }
 
-    // Send Supabase invite email (creates account if user doesn't exist)
-    const { error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-      data: { invited_by: ownerId },
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/dashboard`,
-    });
-
-    if (inviteErr) {
-      console.error('supabase invite error:', inviteErr);
-      // If user already exists, the invite email may not send — that's OK
-      // The team_members row is still created; they'll link on next login
+    if (alreadyExists) {
+      // Can't reset their password without their consent — just tell the owner
+      return NextResponse.json({
+        success: true,
+        alreadyExists: true,
+        message: 'This email already has a Greenio account. They have been added to your team and can log in with their existing password.',
+      });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      credentials: { email, password: tempPassword },
+    });
   } catch (err) {
     console.error('team invite unexpected error:', err);
     return NextResponse.json({ error: 'Unexpected error.' }, { status: 500 });
