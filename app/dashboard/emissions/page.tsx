@@ -7,6 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import { calcRefrigerantCo2e } from '../../../lib/emissionFactors';
 import { getFactorsForCountry } from '@/lib/factors';
+import { logActivity } from '../../../lib/logActivity';
 import { Suspense } from 'react';
 // --------------------------------
 // FIX 1: Safe default Scope 3 key
@@ -472,6 +473,20 @@ await supabase.from('edit_history').insert({
   action: 'edit',
 });
 
+// Build field-level diff for activity log (only changed fields)
+const changes: Record<string, { from: number; to: number }> = {};
+const oldElec = existing.electricity_kw ?? existing.electricity_kwh ?? 0;
+if (oldElec !== updatedElectricity) changes.electricity_kwh = { from: oldElec, to: updatedElectricity };
+if ((existing.diesel_litres ?? 0) !== updatedDiesel) changes.diesel_l = { from: existing.diesel_litres ?? 0, to: updatedDiesel };
+if ((existing.petrol_litres ?? 0) !== updatedPetrol) changes.petrol_l = { from: existing.petrol_litres ?? 0, to: updatedPetrol };
+if ((existing.gas_kwh ?? 0) !== updatedGas) changes.gas_kwh = { from: existing.gas_kwh ?? 0, to: updatedGas };
+if ((existing.refrigerant_kg ?? 0) !== updatedRefrigerant) changes.refrigerant_kg = { from: existing.refrigerant_kg ?? 0, to: updatedRefrigerant };
+const oldCo2 = existing.total_co2e ?? 0;
+if (Math.abs(oldCo2 - updatedTotalCo2e) > 0.01) changes.co2e_kg = { from: oldCo2, to: updatedTotalCo2e };
+if (Object.keys(changes).length > 0) {
+  logActivity('update', 'emission', { month: monthLabel, changes });
+}
+
           scope12MessagePart = `Scope 1 & 2 updated for ${monthLabel}. `;
         } else {
           // ADD MODE → INSERT NEW ROW
@@ -496,6 +511,15 @@ await supabase.from('edit_history').insert({
   entity: 'emissions',
   entity_id: null, // insert
   action: 'add',
+});
+logActivity('create', 'emission', {
+  month: monthLabel,
+  electricity_kwh: elec || undefined,
+  diesel_l: diesel || undefined,
+  petrol_l: petrol || undefined,
+  gas_kwh: gas || undefined,
+  refrigerant_kg: ref || undefined,
+  co2e_kg: totalCo2e,
 });
 
       

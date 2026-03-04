@@ -579,6 +579,7 @@ const [state, setState] = React.useState<{
 } | null>(null);
 
 const [isTeamMember, setIsTeamMember] = React.useState(false);
+const [isPro, setIsPro] = React.useState(false);
 
 
 
@@ -596,11 +597,22 @@ React.useEffect(() => {
     // Check if this user is a team member (not an owner)
     const { data: memberRow } = await supabase
       .from('team_members')
-      .select('id')
+      .select('id, owner_id')
       .eq('member_user_id', user.id)
       .eq('status', 'active')
       .maybeSingle();
     if (memberRow) setIsTeamMember(true);
+
+    // Resolve plan — team members inherit owner's plan
+    const planUserId = (memberRow as any)?.owner_id ?? user.id;
+    const { data: planRow } = await supabase
+      .from('user_plans')
+      .select('plan')
+      .eq('user_id', planUserId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (['pro', 'enterprise'].includes(planRow?.plan ?? '')) setIsPro(true);
 
     // 1️⃣ Load dashboard data first (fast path)
     const dashData = await getDashboardData(
@@ -1071,9 +1083,15 @@ const youTonnes = dashData.totalCo2eKg / 1000;
     <div className="absolute right-0 mt-2 w-40 bg-white border border-slate-200 
         rounded-lg shadow-lg py-1 text-sm">
 
-      <Link href="/profile" className="block px-4 py-2 hover:bg-slate-100">
-        Profile
-      </Link>
+      {isPro ? (
+        <Link href="/organisation" className="block px-4 py-2 hover:bg-slate-100">
+          Organisation
+        </Link>
+      ) : (
+        <Link href="/profile" className="block px-4 py-2 hover:bg-slate-100">
+          Profile
+        </Link>
+      )}
 
       <Link href="/dashboard/team" className="block px-4 py-2 hover:bg-slate-100">
         Team

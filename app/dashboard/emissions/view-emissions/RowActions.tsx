@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
+import { logActivity } from '@/lib/logActivity';
 
 type Props = {
   id: number | string;
@@ -88,11 +89,23 @@ if (monthLabel !== currentMonthLabel) {
   async function handleDelete() {
     setLoading(true);
 
+    // Capture row data before deletion for activity log
+    const { data: row } = await supabase
+      .from('emissions')
+      .select('total_co2e')
+      .eq('id', id)
+      .maybeSingle();
+
     const { error } = await supabase.from('emissions').delete().eq('id', id);
 
     if (error) {
       alert('Failed to delete emission.');
       console.error(error);
+    } else {
+      logActivity('delete', 'emission', {
+        month: monthLabel,
+        co2e_kg: row?.total_co2e ?? 0,
+      });
     }
 
     setConfirm(null);

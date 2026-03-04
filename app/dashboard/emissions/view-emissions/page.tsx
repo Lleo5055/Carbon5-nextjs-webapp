@@ -12,6 +12,7 @@ import Scope3ActionsCell from './Scope3ActionsCell';
 
 import { calcRefrigerantCo2e } from '../../../../lib/emissionFactors';
 import { getFactorsForCountry } from '@/lib/factors';
+import { logActivity } from '../../../../lib/logActivity';
 
 import RowActionsClient from './RowActionsClient';
 const EMISSIONS_CACHE_KEY = 'view_emissions_report_v1';
@@ -808,6 +809,7 @@ useEffect(() => {
     a.download = 'emissions-export.csv';
     a.click();
     URL.revokeObjectURL(url);
+    logActivity('export_csv', 'report', { period: report.periodLabel });
   }
 
   // ── XLS export (POST pre-fetched data) ──
@@ -837,6 +839,7 @@ useEffect(() => {
     a.download = 'emissions-export.xlsx';
     a.click();
     URL.revokeObjectURL(url);
+    logActivity('export_xls', 'report', { period: report.periodLabel });
   }
 
   // ── Leadership Snapshot ──
@@ -967,6 +970,7 @@ useEffect(() => {
       a.download = 'leadership-snapshot.pdf';
       a.click();
       URL.revokeObjectURL(url);
+      logActivity('snapshot', 'report', { period: report.periodLabel });
     } catch (err) {
       console.error('Snapshot error:', err);
     } finally {
