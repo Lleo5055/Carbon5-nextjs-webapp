@@ -21,6 +21,81 @@ const SUPPORTED_COUNTRIES = [
   { code: 'GB', label: 'United Kingdom' },
 ];
 
+const INDUSTRIES = [
+  'Agriculture & Farming', 'Construction', 'Education', 'Financial Services',
+  'Food & Beverage', 'Healthcare', 'Hospitality & Tourism', 'IT & Technology',
+  'Logistics & Transport', 'Manufacturing', 'Professional Services', 'Real Estate',
+  'Retail', 'Utilities & Energy', 'Waste Management', 'Other',
+];
+
+// ─── Country-aware compliance config ─────────────────────────────────────────
+const EU_COUNTRIES = new Set(['AT','BE','DK','FR','DE','IE','IT','NL','PL','PT','ES','SE']);
+
+type ComplianceConfig = {
+  framework: string;
+  checkboxLabel: string;
+  description: string;
+  sectionTitle: string;
+  currency: string;
+  revenueLabel: string;
+  postcodeLabel: string;
+  showEnergyActions: boolean;
+  energyActionsLabel: string;
+  methodologyNote: string;
+};
+
+function getComplianceConfig(country: string): ComplianceConfig {
+  if (country === 'GB') return {
+    framework: 'SECR',
+    checkboxLabel: 'My company is required to comply with SECR (Streamlined Energy and Carbon Reporting).',
+    description: 'Required for large UK companies (250+ employees or £36M+ turnover).',
+    sectionTitle: 'SECR reporting',
+    currency: '£',
+    revenueLabel: 'Annual revenue (£)',
+    postcodeLabel: 'Postcode',
+    showEnergyActions: true,
+    energyActionsLabel: 'Energy efficiency actions taken this reporting year',
+    methodologyNote: 'Greenio uses geo-optimised emission factors aligned to BEIS/DEFRA official sources. Electricity uses location-based grid factors; fuel emissions use DEFRA 2025 kg CO₂e per litre values. UK accounts align with SECR reporting guidance.',
+  };
+  if (EU_COUNTRIES.has(country)) return {
+    framework: 'CSRD',
+    checkboxLabel: 'My company is required to comply with CSRD (Corporate Sustainability Reporting Directive).',
+    description: 'Applies to large EU companies (250+ employees or €40M+ net turnover).',
+    sectionTitle: 'CSRD reporting',
+    currency: '€',
+    revenueLabel: 'Annual revenue (€)',
+    postcodeLabel: 'Postal code',
+    showEnergyActions: false,
+    energyActionsLabel: 'Sustainability actions taken this reporting year',
+    methodologyNote: 'Greenio uses geo-optimised emission factors aligned to Eurostat and IEA official sources. Electricity uses location-based grid factors per country; fuel emissions use standard 2025 kg CO₂e per litre values.',
+  };
+  if (country === 'IN') return {
+    framework: 'BRSR',
+    checkboxLabel: 'My company is required to comply with BRSR (Business Responsibility and Sustainability Report).',
+    description: 'Mandatory for top 1,000 listed Indian companies under SEBI regulations.',
+    sectionTitle: 'BRSR reporting',
+    currency: '₹',
+    revenueLabel: 'Annual revenue (₹)',
+    postcodeLabel: 'PIN code',
+    showEnergyActions: false,
+    energyActionsLabel: 'Sustainability actions taken this reporting year',
+    methodologyNote: "Greenio uses geo-optimised emission factors aligned to CEA/IEA official sources. Electricity uses India's national grid factor (CEA 2025); fuel emissions use standard kg CO₂e per litre values.",
+  };
+  // Default — no country selected
+  return {
+    framework: '',
+    checkboxLabel: 'My company is subject to mandatory sustainability reporting.',
+    description: 'Select a country above to see applicable compliance frameworks.',
+    sectionTitle: 'Regulatory reporting',
+    currency: '',
+    revenueLabel: 'Annual revenue',
+    postcodeLabel: 'Postcode / ZIP / PIN',
+    showEnergyActions: false,
+    energyActionsLabel: 'Sustainability actions taken this reporting year',
+    methodologyNote: 'Greenio uses geo-optimised emission factors aligned to official sources per country (Eurostat, BEIS/DEFRA, CEA/IEA). Electricity uses location-based grid factors; fuel emissions use standard kg CO₂e per litre values.',
+  };
+}
+
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -61,25 +136,25 @@ export default function ProfilePage() {
 
       if (profile) {
         setForm({
-          company_name:             profile.company_name             || '',
-          industry:                 profile.industry                 || '',
-          country:                  profile.country                  || '',
-          city:                     profile.city                     || '',
-          address:                  profile.address                  || '',
-          postcode:                 profile.postcode                 || '',
-          company_size:             profile.company_size             || '',
-          secr_required:            profile.secr_required            || false,
-          data_confirmed_by_user:   profile.data_confirmed_by_user   || false,
-          sustainability_stage:     profile.sustainability_stage     || '',
-          contact_name:             profile.contact_name             || '',
-          contact_email:            profile.contact_email            || '',
-          has_company_vehicles:     profile.has_company_vehicles     || false,
-          renewable_energy_tariff:  profile.renewable_energy_tariff  || false,
-          annual_revenue:           profile.annual_revenue           || '',
-          employee_count:           profile.employee_count           || '',
-          annual_output_units:      profile.annual_output_units      || '',
-          methodology_confirmed:    profile.methodology_confirmed    || false,
-          energy_efficiency_actions:profile.energy_efficiency_actions|| '',
+          company_name:              profile.company_name              || '',
+          industry:                  profile.industry                  || '',
+          country:                   profile.country                   || '',
+          city:                      profile.city                      || '',
+          address:                   profile.address                   || '',
+          postcode:                  profile.postcode                  || '',
+          company_size:              profile.company_size              || '',
+          secr_required:             profile.secr_required             || false,
+          data_confirmed_by_user:    profile.data_confirmed_by_user    || false,
+          sustainability_stage:      profile.sustainability_stage      || '',
+          contact_name:              profile.contact_name              || '',
+          contact_email:             profile.contact_email             || '',
+          has_company_vehicles:      profile.has_company_vehicles      || false,
+          renewable_energy_tariff:   profile.renewable_energy_tariff   || false,
+          annual_revenue:            profile.annual_revenue            || '',
+          employee_count:            profile.employee_count            || '',
+          annual_output_units:       profile.annual_output_units       || '',
+          methodology_confirmed:     profile.methodology_confirmed     || false,
+          energy_efficiency_actions: profile.energy_efficiency_actions || '',
         });
       }
 
@@ -94,36 +169,37 @@ export default function ProfilePage() {
   }
 
   async function saveProfile(e: any) {
-  e.preventDefault();
-  setSaving(true);
+    e.preventDefault();
+    setSaving(true);
 
-  const { data: auth } = await supabase.auth.getUser();
-  const userId = auth.user?.id;
-  if (!userId) return;
+    const { data: auth } = await supabase.auth.getUser();
+    const userId = auth.user?.id;
+    if (!userId) return;
 
-  // ── Parse numeric fields — send null if empty, not "" ──
-  const payload = {
-    ...form,
-    annual_revenue:      form.annual_revenue      ? Number(form.annual_revenue)      : null,
-    employee_count:      form.employee_count      ? Number(form.employee_count)      : null,
-    annual_output_units: form.annual_output_units ? Number(form.annual_output_units) : null,
-  };
+    const payload = {
+      ...form,
+      annual_revenue:      form.annual_revenue      ? Number(form.annual_revenue)      : null,
+      employee_count:      form.employee_count      ? Number(form.employee_count)      : null,
+      annual_output_units: form.annual_output_units ? Number(form.annual_output_units) : null,
+    };
 
-  const { error } = await supabase
-    .from('profiles')
-    .update(payload)        // ← payload instead of form
-    .eq('id', userId);
+    const { error } = await supabase
+      .from('profiles')
+      .update(payload)
+      .eq('id', userId);
 
-  setSaving(false);
+    setSaving(false);
 
-  if (error) {
-    console.error(error);
-    alert('Failed to save profile.');
-    return;
+    if (error) {
+      console.error(error);
+      alert('Failed to save profile.');
+      return;
+    }
+
+    alert('Profile updated successfully.');
   }
 
-  alert('Profile updated successfully.');
-}
+  const compliance = getComplianceConfig(form.country);
 
   if (loading) return <p className="p-6">Loading profile...</p>;
 
@@ -167,12 +243,16 @@ export default function ProfilePage() {
 
               <div>
                 <label className="text-xs font-medium text-slate-600">Industry</label>
-                <input
-                  type="text"
+                <select
                   className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
                   value={form.industry}
                   onChange={(e) => updateField('industry', e.target.value)}
-                />
+                >
+                  <option value="">Select industry…</option>
+                  {INDUSTRIES.map((ind) => (
+                    <option key={ind} value={ind}>{ind}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -218,7 +298,9 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-600">Postcode</label>
+                <label className="text-xs font-medium text-slate-600">
+                  {compliance.postcodeLabel}
+                </label>
                 <input
                   type="text"
                   className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
@@ -250,33 +332,53 @@ export default function ProfilePage() {
           {/* COMPLIANCE */}
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">Compliance</h2>
-            <label className="flex items-center gap-2 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                checked={form.secr_required}
-                onChange={(e) => updateField('secr_required', e.target.checked)}
-              />
-              My company is required to comply with SECR.
-            </label>
-            <label className="flex items-center gap-2 text-sm text-slate-700 mt-2">
-              <input
-                type="checkbox"
-                checked={form.data_confirmed_by_user}
-                onChange={(e) => updateField('data_confirmed_by_user', e.target.checked)}
-              />
-              I confirm the provided information is accurate.
-            </label>
+            <div className="space-y-3">
+              {compliance.framework ? (
+                <label className="flex items-start gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={form.secr_required}
+                    onChange={(e) => updateField('secr_required', e.target.checked)}
+                  />
+                  <span>
+                    {compliance.checkboxLabel}
+                    <span className="block text-xs text-slate-400 mt-0.5">
+                      {compliance.description}
+                    </span>
+                  </span>
+                </label>
+              ) : (
+                <p className="text-xs text-slate-400">{compliance.description}</p>
+              )}
+
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={form.data_confirmed_by_user}
+                  onChange={(e) => updateField('data_confirmed_by_user', e.target.checked)}
+                />
+                I confirm the provided information is accurate.
+              </label>
+            </div>
           </section>
 
-          {/* SECR REPORTING */}
+          {/* REGULATORY REPORTING — title + fields adapt per country */}
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
-              SECR reporting (optional but required for SECR-compliant reports)
+              {compliance.sectionTitle}
+              {compliance.framework && (
+                <span className="ml-2 text-xs font-normal text-slate-400">
+                  (optional but required for {compliance.framework}-compliant reports)
+                </span>
+              )}
             </h2>
 
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-slate-600">Annual revenue (£)</label>
+                <label className="text-xs font-medium text-slate-600">
+                  {compliance.revenueLabel}
+                </label>
                 <input
                   type="number"
                   className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
@@ -304,27 +406,25 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="mt-6">
-              <label className="text-xs font-medium text-slate-600">
-                Energy efficiency actions taken this reporting year
-              </label>
-              <textarea
-                className="mt-1 w-full rounded-lg border px-3 py-2 text-sm h-24"
-                value={form.energy_efficiency_actions}
-                onChange={(e) => updateField('energy_efficiency_actions', e.target.value)}
-                placeholder="Describe any actions taken to reduce energy use (required for SECR)."
-              />
-            </div>
+            {compliance.showEnergyActions && (
+              <div className="mt-4">
+                <label className="text-xs font-medium text-slate-600">
+                  {compliance.energyActionsLabel}
+                </label>
+                <textarea
+                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm h-24"
+                  value={form.energy_efficiency_actions}
+                  onChange={(e) => updateField('energy_efficiency_actions', e.target.value)}
+                  placeholder="Describe any actions taken to reduce energy use (required for SECR)."
+                />
+              </div>
+            )}
 
             <div className="mt-6 rounded-lg bg-slate-50 border border-slate-200 p-3">
               <p className="text-xs text-slate-600 leading-relaxed">
                 <strong>Methodology used for reporting:</strong>
                 <br />
-                Greenio uses geo-optimised emission factors aligned to official
-                sources per country (Eurostat, BEIS/DEFRA, CEA/IEA). Electricity
-                uses location-based grid factors; fuel emissions use DEFRA 2025
-                kg CO₂e per litre values. UK accounts additionally align with
-                SECR reporting guidance.
+                {compliance.methodologyNote}
               </p>
             </div>
 

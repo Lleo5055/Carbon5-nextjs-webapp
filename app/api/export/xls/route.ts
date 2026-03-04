@@ -1,60 +1,40 @@
 // app/api/export/xls/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
-import { supabase } from '@/lib/supabaseClient';
 
-// Required to avoid static rendering errors in Vercel
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(req: NextRequest) {
+// Client POSTs pre-fetched emissions rows (same pattern as /api/snapshot).
+// Plan gating is enforced client-side; this route just builds the file.
+export async function POST(req: NextRequest) {
   try {
-    // Get logged-in user
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const body = await req.json();
+    const rows: any[] = Array.isArray(body.rows) ? body.rows : [];
 
-    if (userError) {
-      console.error('Auth error:', userError);
-      return new NextResponse('Auth error', { status: 401 });
-    }
-
-    if (!user) {
-      return new NextResponse('Not authenticated', { status: 401 });
-    }
-
-    // Fetch emissions for this user
-    const { data, error } = await supabase
-      .from('emissions')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('month', { ascending: true });
-
-    if (error) {
-      console.error('Supabase error:', error);
-      return new NextResponse('Failed loading emissions', { status: 500 });
-    }
-
-    // Build Excel file
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Emissions');
 
+    // Header row
     sheet.addRow([
       'Month',
       'Electricity (kWh)',
-      'Fuel (L)',
+      'Diesel (L)',
+      'Petrol (L)',
+      'Gas (kWh)',
       'Refrigerant (kg)',
       'Total CO₂e (kg)',
     ]);
 
-    data.forEach((r: any) => {
+    rows.forEach((r: any) => {
       sheet.addRow([
-        r.month,
+        r.month ?? '',
         r.electricity_kw ?? 0,
-        r.fuel_liters ?? 0,
+        r.diesel_litres ?? 0,
+        r.petrol_litres ?? 0,
+        r.gas_kwh ?? 0,
         r.refrigerant_kg ?? 0,
-        r.total_co2e ?? 0,
+        Number(r.total_co2e ?? 0).toFixed(2),
       ]);
     });
 
@@ -65,7 +45,8 @@ export async function GET(req: NextRequest) {
       headers: {
         'Content-Type':
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': 'attachment; filename=emissions.xlsx',
+        'Content-Disposition': 'attachment; filename="emissions-export.xlsx"',
+        'Cache-Control': 'no-store',
       },
     });
   } catch (err: any) {

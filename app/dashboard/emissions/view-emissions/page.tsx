@@ -142,6 +142,8 @@ function applyCustomRange(
   return allMonths.slice(startIdx, endIdx + 1);
 }
 
+const PLAN_CACHE_KEY = 'greenio_plan_v1';
+
 /* ---------- FIXED: Safe Supabase ---------- */
 async function getCurrentPlan(): Promise<Plan> {
   const { data, error } = await supabase
@@ -153,7 +155,9 @@ async function getCurrentPlan(): Promise<Plan> {
 
   if (error) console.error('View-emissions: error loading user plan', error);
 
-  return (data?.plan as Plan | null) ?? 'free';
+  const plan = (data?.plan as Plan | null) ?? 'free';
+  try { sessionStorage.setItem(PLAN_CACHE_KEY, plan); } catch {}
+  return plan;
 }
 
 /* ---------- MAIN REPORT BUILDER ---------- */
@@ -606,11 +610,22 @@ useEffect(() => {
 
 // -----------------------------
 // AUTH USER (CLIENT ONLY)
+// getSession() reads from localStorage — no network round-trip, instant
 // -----------------------------
 useEffect(() => {
-  supabase.auth.getUser().then(({ data }) => {
-    setUserId(data.user?.id ?? null);
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    setUserId(session?.user?.id ?? null);
   });
+}, []);
+
+// Seed plan from sessionStorage cache for instant button unlock on revisit
+useEffect(() => {
+  try {
+    const cached = sessionStorage.getItem(PLAN_CACHE_KEY) as Plan | null;
+    if (cached && ['free', 'growth', 'pro', 'enterprise'].includes(cached)) {
+      setPlan(cached);
+    }
+  } catch {}
 }, []);
 
 // -----------------------------
@@ -620,12 +635,17 @@ useEffect(() => {
   let mounted = true;
 
   async function load() {
-    const p = await getCurrentPlan();
-    const r = await getEmissionsReport(period, customStart, customEnd);
+    // Kick off both fetches concurrently
+    const planPromise = getCurrentPlan();
+    const reportPromise = getEmissionsReport(period, customStart, customEnd);
 
+    // Set plan as soon as it resolves — don't wait for the slow report fetch
+    const p = await planPromise;
     if (!mounted) return;
-
     setPlan(p);
+
+    const r = await reportPromise;
+    if (!mounted) return;
     setReport(r);
     setHasLoadedOnce(true);
     sessionStorage.setItem(EMISSIONS_CACHE_KEY, JSON.stringify(r));
@@ -739,6 +759,59 @@ useEffect(() => {
     customEnd && availableMonths.includes(customEnd)
       ? customEnd
       : availableMonths[availableMonths.length - 1] ?? '';
+
+  // ── CSV export (client-side) ──
+  function handleExportCsv() {
+    const header = ['Month', 'Electricity_kWh', 'Diesel_L', 'Petrol_L', 'Gas_kWh', 'Refrigerant_kg', 'Total_CO2e_kg'];
+    const lines = report.months.map((r) =>
+      [
+        r.monthLabel,
+        String(r.electricityKwh ?? 0),
+        String(r.dieselLitres ?? 0),
+        String(r.petrolLitres ?? 0),
+        String(r.gasKwh ?? 0),
+        String(r.refrigerantKg ?? 0),
+        (r.totalCo2eKg ?? 0).toFixed(2),
+      ].join(',')
+    );
+    const csv = [header.join(','), ...lines].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'emissions-export.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── XLS export (POST pre-fetched data) ──
+  async function handleExportXls() {
+    const rows = report.months.map((r) => ({
+      month: r.monthLabel,
+      electricity_kw: r.electricityKwh ?? 0,
+      diesel_litres: r.dieselLitres ?? 0,
+      petrol_litres: r.petrolLitres ?? 0,
+      gas_kwh: r.gasKwh ?? 0,
+      refrigerant_kg: r.refrigerantKg ?? 0,
+      total_co2e: r.totalCo2eKg ?? 0,
+    }));
+    const res = await fetch('/api/export/xls', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows }),
+    });
+    if (!res.ok) {
+      alert('Failed to generate Excel export. Please try again.');
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'emissions-export.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   // ── Leadership Snapshot ──
   async function handleSnapshot() {
@@ -1069,18 +1142,22 @@ useEffect(() => {
                   </>
                 ) : (
                   <>
-                    <a
-                      href="/api/export/csv?period=all"
-                      className="h-[32px] px-4 rounded-full border text-xs font-medium bg-white text-slate-700 border-slate-300 hover:bg-slate-900 hover:text-white flex items-center justify-center"
+                    <button
+                      type="button"
+                      onClick={handleExportCsv}
+                      disabled={!hasData}
+                      className="h-[32px] px-4 rounded-full border text-xs font-medium bg-white text-slate-700 border-slate-300 hover:bg-slate-900 hover:text-white flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Export CSV
-                    </a>
-                    <a
-                      href="/api/export/xls?period=all"
-                      className="h-[32px] px-4 rounded-full border text-xs font-medium bg-white text-slate-700 border-slate-300 hover:bg-slate-900 hover:text-white flex items-center justify-center"
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportXls}
+                      disabled={!hasData}
+                      className="h-[32px] px-4 rounded-full border text-xs font-medium bg-white text-slate-700 border-slate-300 hover:bg-slate-900 hover:text-white flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Export Excel
-                    </a>
+                    </button>
                   </>
                 )}
 

@@ -4,6 +4,49 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
 
+const INDUSTRIES = [
+  'Agriculture & Farming',
+  'Construction',
+  'Education',
+  'Financial Services',
+  'Food & Beverage',
+  'Healthcare',
+  'Hospitality & Tourism',
+  'IT & Technology',
+  'Logistics & Transport',
+  'Manufacturing',
+  'Professional Services',
+  'Real Estate',
+  'Retail',
+  'Utilities & Energy',
+  'Waste Management',
+  'Other',
+];
+
+// ─── Country-specific compliance frameworks ───────────────────────────────────
+const COMPLIANCE_BY_COUNTRY: Record<string, { label: string; description: string }> = {
+  GB: {
+    label: 'SECR (Streamlined Energy and Carbon Reporting)',
+    description: 'Required for large UK companies under the Companies Act.',
+  },
+  AT: { label: 'CSRD (Corporate Sustainability Reporting Directive)', description: 'EU mandatory sustainability disclosure for qualifying companies.' },
+  BE: { label: 'CSRD (Corporate Sustainability Reporting Directive)', description: 'EU mandatory sustainability disclosure for qualifying companies.' },
+  DK: { label: 'CSRD (Corporate Sustainability Reporting Directive)', description: 'EU mandatory sustainability disclosure for qualifying companies.' },
+  FR: { label: 'CSRD (Corporate Sustainability Reporting Directive)', description: 'EU mandatory sustainability disclosure for qualifying companies.' },
+  DE: { label: 'CSRD (Corporate Sustainability Reporting Directive)', description: 'EU mandatory sustainability disclosure for qualifying companies.' },
+  IE: { label: 'CSRD (Corporate Sustainability Reporting Directive)', description: 'EU mandatory sustainability disclosure for qualifying companies.' },
+  IT: { label: 'CSRD (Corporate Sustainability Reporting Directive)', description: 'EU mandatory sustainability disclosure for qualifying companies.' },
+  NL: { label: 'CSRD (Corporate Sustainability Reporting Directive)', description: 'EU mandatory sustainability disclosure for qualifying companies.' },
+  PL: { label: 'CSRD (Corporate Sustainability Reporting Directive)', description: 'EU mandatory sustainability disclosure for qualifying companies.' },
+  PT: { label: 'CSRD (Corporate Sustainability Reporting Directive)', description: 'EU mandatory sustainability disclosure for qualifying companies.' },
+  ES: { label: 'CSRD (Corporate Sustainability Reporting Directive)', description: 'EU mandatory sustainability disclosure for qualifying companies.' },
+  SE: { label: 'CSRD (Corporate Sustainability Reporting Directive)', description: 'EU mandatory sustainability disclosure for qualifying companies.' },
+  IN: {
+    label: 'BRSR (Business Responsibility and Sustainability Report)',
+    description: 'Mandatory for top listed Indian companies under SEBI regulations.',
+  },
+};
+
 // ─── Supported countries (ISO 3166-1 alpha-2) ────────────────────────────────
 const SUPPORTED_COUNTRIES = [
   { code: 'AT', label: 'Austria' },
@@ -82,7 +125,8 @@ export default function OnboardingPage() {
 
     const { error } = await supabase
       .from('profiles')
-      .update({
+      .upsert({
+        id: userId,
         company_name,
         industry,
         country,
@@ -98,8 +142,7 @@ export default function OnboardingPage() {
         has_company_vehicles,
         renewable_energy_tariff,
         onboarding_complete: true,
-      })
-      .eq('id', userId);
+      });
 
     if (error) {
       console.error(error);
@@ -150,14 +193,17 @@ export default function OnboardingPage() {
                 <label className="text-xs font-medium text-slate-600">
                   Industry
                 </label>
-                <input
-                  type="text"
+                <select
                   className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
-                  placeholder="e.g. Transport"
                   value={form.industry}
                   onChange={(e) => updateField('industry', e.target.value)}
                   required
-                />
+                >
+                  <option value="">Select industry…</option>
+                  {INDUSTRIES.map((ind) => (
+                    <option key={ind} value={ind}>{ind}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -253,16 +299,31 @@ export default function OnboardingPage() {
             </h2>
 
             <div className="space-y-3">
-              <label className="flex items-center gap-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={form.secr_required}
-                  onChange={(e) =>
-                    updateField('secr_required', e.target.checked)
-                  }
-                />
-                My company is required to comply with SECR reporting.
-              </label>
+              {form.country && COMPLIANCE_BY_COUNTRY[form.country] ? (
+                <div>
+                  <label className="flex items-start gap-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={form.secr_required}
+                      onChange={(e) =>
+                        updateField('secr_required', e.target.checked)
+                      }
+                    />
+                    <span>
+                      My company is required to comply with{' '}
+                      <strong>{COMPLIANCE_BY_COUNTRY[form.country].label}</strong>.
+                      <span className="block text-xs text-slate-400 mt-0.5">
+                        {COMPLIANCE_BY_COUNTRY[form.country].description}
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400">
+                  Select a country above to see applicable compliance frameworks.
+                </p>
+              )}
 
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input

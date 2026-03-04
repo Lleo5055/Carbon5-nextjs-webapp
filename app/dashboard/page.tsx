@@ -1064,6 +1064,10 @@ const youTonnes = dashData.totalCo2eKg / 1000;
         Profile
       </Link>
 
+      <Link href="/dashboard/team" className="block px-4 py-2 hover:bg-slate-100">
+        Team
+      </Link>
+
       <Link href="/billing" className="block px-4 py-2 hover:bg-slate-100">
         Billing
       </Link>
