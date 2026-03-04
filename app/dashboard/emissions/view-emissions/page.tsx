@@ -1107,7 +1107,8 @@ useEffect(() => {
             <div className="flex flex-col items-stretch gap-1 lg:items-end">
               <div className="flex flex-wrap items-center justify-start lg:justify-end gap-2">
                 {/* PDF */}
-                <form method="GET" action="/api/report" target="_blank">
+                <form method="GET" action="/api/report" target="_blank"
+                  onSubmit={() => logActivity('export_pdf', 'report', { period: report.periodLabel })}>
   <input type="hidden" name="userId" value={userId ?? ''} />
 
   <input

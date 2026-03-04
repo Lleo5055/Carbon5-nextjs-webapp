@@ -146,6 +146,9 @@ function fmtDetail(action: string, detail: Record<string, any>): string {
   if (action === 'delete') {
     return detail.co2e_kg ? `${Number(detail.co2e_kg).toLocaleString()} kg CO₂e` : '';
   }
+  if (action === 'export_pdf') {
+    return detail.period ? String(detail.period) : '';
+  }
   if (action === 'export_csv' || action === 'export_xls' || action === 'snapshot') {
     return detail.period ? String(detail.period) : '';
   }
@@ -160,6 +163,7 @@ function actionLabel(action: string): { label: string; color: string } {
     case 'export_csv': return { label: 'Exported CSV',         color: 'bg-blue-100 text-blue-700' };
     case 'export_xls': return { label: 'Exported Excel',       color: 'bg-blue-100 text-blue-700' };
     case 'snapshot':   return { label: 'Downloaded Snapshot',  color: 'bg-purple-100 text-purple-700' };
+    case 'export_pdf': return { label: 'Downloaded Report',    color: 'bg-indigo-100 text-indigo-700' };
     default:           return { label: action,                 color: 'bg-slate-100 text-slate-600' };
   }
 }
@@ -317,7 +321,7 @@ export default function OrganisationPage() {
   const filteredActivity = activityRows.filter((r) => {
     if (memberFilter && r.actor_id !== memberFilter) return false;
     if (actionFilter === 'emissions' && !['create','update','delete'].includes(r.action)) return false;
-    if (actionFilter === 'exports' && !['export_csv','export_xls','snapshot'].includes(r.action)) return false;
+    if (actionFilter === 'exports' && !['export_csv','export_xls','snapshot','export_pdf'].includes(r.action)) return false;
     return true;
   });
 
