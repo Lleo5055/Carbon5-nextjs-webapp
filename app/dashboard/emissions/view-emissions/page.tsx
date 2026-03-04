@@ -146,6 +146,32 @@ const PLAN_CACHE_KEY = 'greenio_plan_v1';
 
 /* ---------- FIXED: Safe Supabase ---------- */
 async function getCurrentPlan(): Promise<Plan> {
+  // If user is an active team member, the owner must be on Growth+ (required
+  // to add team members), so inherit at least 'growth'.
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    const { data: membership } = await supabase
+      .from('team_members')
+      .select('owner_id')
+      .eq('member_user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (membership?.owner_id) {
+      // Owner is guaranteed Growth+; try to read their exact plan, fall back to 'growth'
+      const { data: ownerProfile } = await supabase
+        .from('user_plans')
+        .select('plan')
+        .eq('user_id', membership.owner_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const plan = (ownerProfile?.plan as Plan | null) ?? 'growth';
+      try { sessionStorage.setItem(PLAN_CACHE_KEY, plan); } catch {}
+      return plan;
+    }
+  }
+
   const { data, error } = await supabase
     .from('user_plans')
     .select('plan')
