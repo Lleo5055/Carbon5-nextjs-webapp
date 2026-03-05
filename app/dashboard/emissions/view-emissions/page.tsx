@@ -764,7 +764,7 @@ useEffect(() => {
   const isFreePlan = plan === 'free';
   const isProPlus  = plan === 'pro' || plan === 'enterprise';
 
-  const hasData = months.length > 0 || scope3Rows.length > 0;
+  const hasData = months.length > 0 || (scope3Rows?.length ?? 0) > 0;
   const totalCo2e = totals.totalCo2eKg;
   const totalScope3 = totals.totalScope3Co2eKg ?? 0;
   const hasScope3InPeriod = totalScope3 > 0;
