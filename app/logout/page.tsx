@@ -18,9 +18,5 @@ export default function LogoutPage() {
     doLogout();
   }, [router]);
 
-  return (
-    <div style={{ padding: 40, fontSize: 16 }}>
-      Logging you out...
-    </div>
-  );
+  return null;
 }
