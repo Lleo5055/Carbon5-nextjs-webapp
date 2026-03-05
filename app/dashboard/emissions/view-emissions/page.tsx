@@ -144,6 +144,7 @@ function applyCustomRange(
 }
 
 const PLAN_CACHE_KEY = 'greenio_plan_v1';
+const FREE_REPORT_CACHE_KEY = `greenio_free_report_used_${new Date().getFullYear()}`;
 
 /* ---------- FIXED: Safe Supabase ---------- */
 async function getCurrentPlan(): Promise<Plan> {
@@ -290,29 +291,53 @@ const { data: sessionData } = await supabase.auth.getSession();
       ? applyCustomRange(allMonths, customStart, customEnd)
       : applyFixedPeriod(allMonths, period);
 
-  const includedMonthLabels = new Set(months.map((m) => m.monthLabel));
-  const scope3ForPeriod = (scope3Rows ?? []).filter(
-    (row: any) => row.month && includedMonthLabels.has(row.month as string)
-  );
+  // Filter scope3 by period independently of scope1/2 months
+  // so scope3-only months are not excluded
+  let scope3ForPeriod: any[];
+  if (period === 'all') {
+    scope3ForPeriod = scope3Rows ?? [];
+  } else if (period === 'custom' && customStart && customEnd) {
+    scope3ForPeriod = (scope3Rows ?? []).filter(
+      (r: any) => r.month && r.month >= customStart && r.month <= customEnd
+    );
+  } else {
+    const n = period === '1m' ? 1 : period === '3m' ? 3 : period === '6m' ? 6 : 12;
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - n);
+    const cutoffStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}`;
+    scope3ForPeriod = (scope3Rows ?? []).filter(
+      (r: any) => r.month && (r.month as string) >= cutoffStr
+    );
+  }
 
   const totalScope3Co2eKg = scope3ForPeriod.reduce(
-    (sum, row: any) => sum + Number(row.co2e_kg ?? 0),
+    (sum: number, row: any) => sum + Number(row.co2e_kg ?? 0),
     0
   );
 
-  if (scope3ForPeriod.length > 0) {
-    const monthMap = new Map<string, ReportMonth>(
-      months.map((m) => [m.monthLabel, m])
-    );
-    scope3ForPeriod.forEach((row: any) => {
-      const label = row.month as string | undefined;
-      if (!label) return;
-      const m = monthMap.get(label);
-      if (!m) return;
-      const add = Number(row.co2e_kg ?? 0) || 0;
-      m.totalCo2eKg += add;
-    });
-  }
+  // Merge scope3 into months; create stub entries for scope3-only months
+  const monthMap = new Map<string, ReportMonth>(months.map((m) => [m.monthLabel, m]));
+  scope3ForPeriod.forEach((row: any) => {
+    const label = row.month as string | undefined;
+    if (!label) return;
+    if (!monthMap.has(label)) {
+      const stub: ReportMonth = {
+        id: `s3-${label}`,
+        monthLabel: label,
+        electricityKwh: 0,
+        fuelLitres: 0,
+        refrigerantKg: 0,
+        totalCo2eKg: 0,
+        dieselLitres: 0,
+        petrolLitres: 0,
+        gasKwh: 0,
+      };
+      monthMap.set(label, stub);
+      months.push(stub);
+    }
+    monthMap.get(label)!.totalCo2eKg += Number(row.co2e_kg ?? 0) || 0;
+  });
+  months.sort((a, b) => new Date(a.monthLabel).getTime() - new Date(b.monthLabel).getTime());
 
   const totalElecCo2 = months.reduce(
     (s, m) => s + m.electricityKwh * ef.electricity,
@@ -598,6 +623,7 @@ const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
 const [userId, setUserId] = useState<string | null>(null);
 const [snapshotLoading, setSnapshotLoading] = useState(false);
+const [freeReportUsed, setFreeReportUsed] = useState(false);
 // -----------------------------
 // RESTORE CACHED REPORT (INSTANT PAINT)
 // -----------------------------
@@ -645,15 +671,44 @@ useEffect(() => {
   });
 }, []);
 
-// Seed plan from sessionStorage cache for instant button unlock on revisit
+// Seed plan + free report limit from sessionStorage for instant UI on revisit
 useEffect(() => {
   try {
     const cached = sessionStorage.getItem(PLAN_CACHE_KEY) as Plan | null;
     if (cached && ['free', 'growth', 'pro', 'enterprise'].includes(cached)) {
       setPlan(cached);
     }
+    if (sessionStorage.getItem(FREE_REPORT_CACHE_KEY) === '1') {
+      setFreeReportUsed(true);
+    }
   } catch {}
 }, []);
+
+// Check free report usage — runs once plan and userId are both known
+useEffect(() => {
+  if (plan !== 'free' || !userId) return;
+  let cancelled = false;
+  async function check() {
+    const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString();
+    const { count } = await supabase
+      .from('activity_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('actor_id', userId!)
+      .eq('action', 'export_pdf')
+      .gte('created_at', yearStart);
+    if (cancelled) return;
+    if ((count ?? 0) >= 1) {
+      setFreeReportUsed(true);
+      try { sessionStorage.setItem(FREE_REPORT_CACHE_KEY, '1'); } catch {}
+    } else {
+      // DB says 0 downloads — clear any stale cache so user can still get their 1 free report
+      setFreeReportUsed(false);
+      try { sessionStorage.removeItem(FREE_REPORT_CACHE_KEY); } catch {}
+    }
+  }
+  check();
+  return () => { cancelled = true; };
+}, [plan, userId]);
 
 // -----------------------------
 // DATA LOAD (CLIENT ONLY)
@@ -707,8 +762,9 @@ useEffect(() => {
 
 
   const isFreePlan = plan === 'free';
+  const isProPlus  = plan === 'pro' || plan === 'enterprise';
 
-  const hasData = months.length > 0;
+  const hasData = months.length > 0 || scope3Rows.length > 0;
   const totalCo2e = totals.totalCo2eKg;
   const totalScope3 = totals.totalScope3Co2eKg ?? 0;
   const hasScope3InPeriod = totalScope3 > 0;
@@ -936,6 +992,7 @@ useEffect(() => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          userId,
           companyName:   profile?.company_name ?? '',
           industry:      profile?.industry ?? '',
           countryCode,
@@ -961,6 +1018,11 @@ useEffect(() => {
           },
         }),
       });
+      if (res.status === 403) {
+        const json = await res.json().catch(() => ({}));
+        alert(json.error ?? 'Leadership Snapshot requires a Pro plan.');
+        return;
+      }
       if (!res.ok) throw new Error('Snapshot generation failed');
 
       const blob = await res.blob();
@@ -1108,7 +1170,11 @@ useEffect(() => {
               <div className="flex flex-wrap items-center justify-start lg:justify-end gap-2">
                 {/* PDF */}
                 <form method="GET" action="/api/report" target="_blank"
-                  onSubmit={() => logActivity('export_pdf', 'report', { period: report.periodLabel })}>
+                  onSubmit={() => {
+                    logActivity('export_pdf', 'report', { period: report.periodLabel });
+                    // Lock in-session immediately so user can't double-click; DB check persists across refreshes
+                    if (isFreePlan) setFreeReportUsed(true);
+                  }}>
   <input type="hidden" name="userId" value={userId ?? ''} />
 
   <input
@@ -1127,31 +1193,41 @@ useEffect(() => {
 
   <button
   type="submit"
-  disabled={!userId}
+  disabled={!userId || (isFreePlan && freeReportUsed)}
   className={`h-[32px] px-4 rounded-full border text-xs font-medium ${
-    !userId
-      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+    !userId || (isFreePlan && freeReportUsed)
+      ? 'bg-slate-50 text-slate-400 border-dashed border-slate-300 cursor-not-allowed'
       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-900 hover:text-white'
   }`}
 >
-  Emission Report
+  {isFreePlan && freeReportUsed ? 'Emission Report (Growth+)' : 'Emission Report'}
 </button>
 
 </form>
 
-                {/* Leadership Snapshot — POSTs pre-fetched data (browser Supabase works, server-side fetch is blocked) */}
-                <button
-                  type="button"
-                  onClick={handleSnapshot}
-                  disabled={!userId || snapshotLoading}
-                  className={`h-[32px] px-4 rounded-full border text-xs font-medium flex items-center justify-center ${
-                    !userId
-                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-900 hover:text-white'
-                  }`}
-                >
-                  {snapshotLoading ? 'Generating...' : 'Leadership Snapshot'}
-                </button>
+                {/* Leadership Snapshot — Pro+ only */}
+                {isProPlus ? (
+                  <button
+                    type="button"
+                    onClick={handleSnapshot}
+                    disabled={!userId || snapshotLoading}
+                    className={`h-[32px] px-4 rounded-full border text-xs font-medium flex items-center justify-center ${
+                      !userId
+                        ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-900 hover:text-white'
+                    }`}
+                  >
+                    {snapshotLoading ? 'Generating...' : 'Leadership Snapshot'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="h-[32px] px-4 rounded-full border text-xs font-medium bg-slate-50 text-slate-400 border-dashed border-slate-300 cursor-not-allowed"
+                  >
+                    Leadership Snapshot (Pro)
+                  </button>
+                )}
 
                 {/* CSV / Excel */}
                 {isFreePlan ? (
@@ -1211,9 +1287,16 @@ useEffect(() => {
 
               {isFreePlan && (
                 <p className="text-[11px] text-slate-500 mt-1 text-right">
-                  On the Free plan you get PDF reports. CSV and Excel exports
-                  unlock on <span className="font-medium">Growth</span> and
-                  above.
+                  Free plan: 1 PDF report/year · CSV &amp; Excel unlock on{' '}
+                  <a href="/billing" className="font-medium underline">Growth</a>
+                  {' '}· Leadership Snapshot on{' '}
+                  <a href="/billing" className="font-medium underline">Pro</a>.
+                </p>
+              )}
+              {!isFreePlan && !isProPlus && (
+                <p className="text-[11px] text-slate-500 mt-1 text-right">
+                  Leadership Snapshot unlocks on{' '}
+                  <a href="/billing" className="font-medium underline">Pro</a>.
                 </p>
               )}
             </div>
@@ -1248,7 +1331,7 @@ useEffect(() => {
                         {formatKg(totalCo2e)}
                       </p>
                       <p className="text-[11px] text-slate-500 mt-1">
-                        Across {months.length} reported months.
+                        Across {months.length} reported {months.length === 1 ? 'month' : 'months'}.
                       </p>
 
                       {hasScope3InPeriod && (
@@ -1286,19 +1369,31 @@ useEffect(() => {
                       <span>Main hotspot</span>
                     </p>
                     <div>
-                      <p className="text-lg font-medium mt-3">{hotspot}</p>
-
-                      <p className="text-[11px] text-slate-500 mt-1">
-                        Electricity: {electricitySharePercent}% · Diesel:{' '}
-                        {dieselSharePercent}% · Petrol: {petrolSharePercent}% ·
-                        Gas: {gasSharePercent}% · Refrigerant:{' '}
-                        {refrigerantSharePercent}%
-                      </p>
-
-                      <p className="text-[11px] text-slate-500 mt-1">
-                        {hotspotContext} caused {hotspotSharePercent}% of
-                        emissions.
-                      </p>
+                      {hotspotSharePercent === 0 && hasScope3InPeriod ? (
+                        <>
+                          <p className="text-lg font-medium mt-3">Scope 3 Activities</p>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            No Scope 1 &amp; 2 emissions logged yet.
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            Scope 3 accounts for 100% of emissions this period.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-lg font-medium mt-3">{hotspot}</p>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            Electricity: {electricitySharePercent}% · Diesel:{' '}
+                            {dieselSharePercent}% · Petrol: {petrolSharePercent}% ·
+                            Gas: {gasSharePercent}% · Refrigerant:{' '}
+                            {refrigerantSharePercent}%
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            {hotspotContext} caused {hotspotSharePercent}% of
+                            emissions.
+                          </p>
+                        </>
+                      )}
                     </div>
                   </article>
                 </div>
@@ -1322,38 +1417,44 @@ useEffect(() => {
                 {/* Breakdown */}
                 <article className="rounded-xl bg-white border p-6 shadow">
                   <h2 className="text-sm font-semibold">Emissions breakdown</h2>
-                  <div className="mt-4 space-y-2 text-xs leading-relaxed">
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-slate-600">Electricity</span>
-                      <span className="text-right tabular-nums min-w-[3ch]">
-                        {electricitySharePercent}%
-                      </span>
+                  {hotspotSharePercent === 0 && hasScope3InPeriod ? (
+                    <p className="mt-4 text-xs text-slate-500">
+                      All emissions this period are from Scope 3 activities. Add Scope 1 &amp; 2 data to see a source breakdown.
+                    </p>
+                  ) : (
+                    <div className="mt-4 space-y-2 text-xs leading-relaxed">
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-slate-600">Electricity</span>
+                        <span className="text-right tabular-nums min-w-[3ch]">
+                          {electricitySharePercent}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-slate-600">Diesel</span>
+                        <span className="text-right tabular-nums min-w-[3ch]">
+                          {dieselSharePercent}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-slate-600">Petrol</span>
+                        <span className="text-right tabular-nums min-w-[3ch]">
+                          {petrolSharePercent}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-slate-600">Gas</span>
+                        <span className="text-right tabular-nums min-w-[3ch]">
+                          {gasSharePercent}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-slate-600">Refrigerant</span>
+                        <span className="text-right tabular-nums min-w-[3ch]">
+                          {refrigerantSharePercent}%
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-slate-600">Diesel</span>
-                      <span className="text-right tabular-nums min-w-[3ch]">
-                        {dieselSharePercent}%
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-slate-600">Petrol</span>
-                      <span className="text-right tabular-nums min-w-[3ch]">
-                        {petrolSharePercent}%
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-slate-600">Gas</span>
-                      <span className="text-right tabular-nums min-w-[3ch]">
-                        {gasSharePercent}%
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-slate-600">Refrigerant</span>
-                      <span className="text-right tabular-nums min-w-[3ch]">
-                        {refrigerantSharePercent}%
-                      </span>
-                    </div>
-                  </div>
+                  )}
                 </article>
 
                 {/* Fuel detail */}
@@ -1451,10 +1552,14 @@ useEffect(() => {
                             {formatKgValue(m.totalCo2eKg)}
                           </td>
                           <td className="p-2">
-                            <RowActionsClient
-                              id={m.id}
-                              monthLabel={m.monthLabel}
-                            />
+                            {typeof m.id === 'string' && m.id.startsWith('s3-') ? (
+                              <span className="text-xs text-slate-400">Scope 3 only</span>
+                            ) : (
+                              <RowActionsClient
+                                id={m.id}
+                                monthLabel={m.monthLabel}
+                              />
+                            )}
                           </td>
                         </tr>
                       );

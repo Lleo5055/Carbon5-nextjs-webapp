@@ -42,11 +42,26 @@ export default function TeamPage() {
   const [copied, setCopied] = useState(false);
 
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [membersLoading, setMembersLoading] = useState(true);
+
+  // Seed from sessionStorage for instant paint — eliminates the Loading... screen
+  useEffect(() => {
+    try {
+      const cachedPlan = sessionStorage.getItem('greenio_plan_v1') as Plan | null;
+      if (cachedPlan && ['free', 'growth', 'pro', 'enterprise'].includes(cachedPlan)) {
+        setPlan(cachedPlan);
+        setLoading(false);
+      } else if (sessionStorage.getItem('greenio_is_pro') === '1') {
+        setPlan('pro');
+        setLoading(false);
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     async function load() {
       const token = await getAuthToken();
-      if (!token) { setLoading(false); return; }
+      if (!token) { setLoading(false); setMembersLoading(false); return; }
 
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -59,7 +74,6 @@ export default function TeamPage() {
         .maybeSingle();
 
       if (memberRow) {
-        // Fetch owner's email from profiles
         const { data: ownerProfile } = await supabase
           .from('profiles')
           .select('company_name')
@@ -70,6 +84,7 @@ export default function TeamPage() {
           ownerEmail: ownerProfile?.company_name ?? 'your organisation',
         });
         setLoading(false);
+        setMembersLoading(false);
         return;
       }
 
@@ -82,7 +97,9 @@ export default function TeamPage() {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      setPlan((planRow?.plan as Plan) ?? 'free');
+      const resolvedPlan = (planRow?.plan as Plan) ?? 'free';
+      setPlan(resolvedPlan);
+      setLoading(false);
 
       const res = await fetch('/api/team/members', {
         headers: { Authorization: `Bearer ${token}` },
@@ -91,8 +108,7 @@ export default function TeamPage() {
         const json = await res.json();
         setMembers(json.members ?? []);
       }
-
-      setLoading(false);
+      setMembersLoading(false);
     }
     load();
   }, []);
@@ -166,8 +182,9 @@ export default function TeamPage() {
     return (
       <main className="min-h-screen bg-slate-50 px-4 py-20">
         <div className="mb-6">
-          <a href="/dashboard" className="text-sm text-slate-600 hover:text-slate-900 underline">
-            ← Back to dashboard
+          <a href="/dashboard" className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-full px-3 py-1.5 hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 shrink-0"><path fillRule="evenodd" d="M14 8a.75.75 0 0 1-.75.75H4.56l3.22 3.22a.75.75 0 1 1-1.06 1.06l-4.5-4.5a.75.75 0 0 1 0-1.06l4.5-4.5a.75.75 0 0 1 1.06 1.06L4.56 7.25H13.25A.75.75 0 0 1 14 8Z" clipRule="evenodd" /></svg>
+            Dashboard
           </a>
         </div>
         <div className="mx-auto max-w-2xl">
@@ -210,8 +227,9 @@ export default function TeamPage() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-20">
       <div className="mb-6">
-        <a href="/dashboard" className="text-sm text-slate-600 hover:text-slate-900 underline">
-          ← Back to dashboard
+        <a href="/dashboard" className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-full px-3 py-1.5 hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 shrink-0"><path fillRule="evenodd" d="M14 8a.75.75 0 0 1-.75.75H4.56l3.22 3.22a.75.75 0 1 1-1.06 1.06l-4.5-4.5a.75.75 0 0 1 0-1.06l4.5-4.5a.75.75 0 0 1 1.06 1.06L4.56 7.25H13.25A.75.75 0 0 1 14 8Z" clipRule="evenodd" /></svg>
+          Dashboard
         </a>
       </div>
 
@@ -365,7 +383,19 @@ export default function TeamPage() {
                     <td className="px-6 py-3" />
                   </tr>
 
-                  {members.length === 0 && (
+                  {membersLoading && (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-4">
+                        <div className="space-y-2">
+                          {[1, 2].map((i) => (
+                            <div key={i} className="h-4 bg-slate-100 rounded animate-pulse w-full" />
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+
+                  {!membersLoading && members.length === 0 && (
                     <tr>
                       <td colSpan={4} className="px-6 py-6 text-center text-xs text-slate-400">
                         No team members yet. Add your first member above.

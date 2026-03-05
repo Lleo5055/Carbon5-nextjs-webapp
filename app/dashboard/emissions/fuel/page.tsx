@@ -214,7 +214,28 @@ export default function FuelInsightsPage({ searchParams }: { searchParams?: { pe
     fetchData();
   }, [period]);
 
-  if (!data) return <p>Loading...</p>;
+  if (!data) return (
+    <main className="min-h-screen bg-slate-50">
+      <div className="mx-auto max-w-5xl px-4 py-8 space-y-6">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-full px-3 py-1.5 shadow-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 shrink-0"><path fillRule="evenodd" d="M14 8a.75.75 0 0 1-.75.75H4.56l3.22 3.22a.75.75 0 1 1-1.06 1.06l-4.5-4.5a.75.75 0 0 1 0-1.06l4.5-4.5a.75.75 0 0 1 1.06 1.06L4.56 7.25H13.25A.75.75 0 0 1 14 8Z" clipRule="evenodd" /></svg>
+            Dashboard
+          </Link>
+          <span className="hidden md:inline-block h-4 w-px bg-slate-200" />
+          <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Hotspot · Fuel</p>
+        </div>
+        <header>
+          <h1 className="text-2xl md:text-3xl font-semibold text-slate-900">Fuel Insights</h1>
+          <p className="text-sm text-slate-600 mt-1">Understand how fuel contributes to your footprint in this period.</p>
+        </header>
+        <div className="grid gap-4 md:grid-cols-3">
+          {[1,2,3].map(i => <div key={i} className="rounded-xl bg-white border p-6 shadow h-28 animate-pulse bg-slate-100" />)}
+        </div>
+        <div className="rounded-xl bg-white border p-6 shadow h-48 animate-pulse bg-slate-100" />
+      </div>
+    </main>
+  );
 
   const { months, totalLitresEquivalent, totalCo2eKg, lastMonth, prevMonth, shareOfFootprintPercent } = data;
   const hasData = months.length > 0;
@@ -243,8 +264,9 @@ export default function FuelInsightsPage({ searchParams }: { searchParams?: { pe
         {/* Top nav / breadcrumb */}
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="text-xs text-slate-500 hover:text-slate-800">
-              ← Back to dashboard
+            <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-full px-3 py-1.5 hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 shrink-0"><path fillRule="evenodd" d="M14 8a.75.75 0 0 1-.75.75H4.56l3.22 3.22a.75.75 0 1 1-1.06 1.06l-4.5-4.5a.75.75 0 0 1 0-1.06l4.5-4.5a.75.75 0 0 1 1.06 1.06L4.56 7.25H13.25A.75.75 0 0 1 14 8Z" clipRule="evenodd" /></svg>
+              Dashboard
             </Link>
             <span className="hidden md:inline-block h-4 w-px bg-slate-200" />
             <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Hotspot · Fuel</p>

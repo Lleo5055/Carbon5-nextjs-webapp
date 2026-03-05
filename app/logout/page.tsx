@@ -9,6 +9,8 @@ export default function LogoutPage() {
 
   useEffect(() => {
     const doLogout = async () => {
+      // Clear all caches immediately so the next user sees no stale data
+      sessionStorage.clear();
       await supabase.auth.signOut();
       router.push('/login');
     };

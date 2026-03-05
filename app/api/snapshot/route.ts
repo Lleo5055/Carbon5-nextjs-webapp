@@ -419,6 +419,55 @@ async function buildPdf(p: PdfInput): Promise<Uint8Array> {
 export async function POST(req: NextRequest) {
   try {
     const b = await req.json();
+
+    // ── Plan gate: Leadership Snapshot is Pro+ only ──
+    const reqUserId = b.userId as string | undefined;
+    if (reqUserId) {
+      try {
+        const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+        const SB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+        const hdrs = { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` };
+
+        let userPlan: string | null = null;
+
+        // Direct plan lookup
+        const planRows = await fetch(
+          `${SB_URL}/rest/v1/user_plans?user_id=eq.${reqUserId}&select=plan&order=created_at.desc&limit=1`,
+          { headers: hdrs }
+        ).then(r => r.json());
+        if (Array.isArray(planRows) && planRows[0]?.plan) {
+          userPlan = planRows[0].plan;
+        }
+
+        // Team member — inherit owner's plan
+        if (!userPlan) {
+          const memberRows = await fetch(
+            `${SB_URL}/rest/v1/team_members?member_user_id=eq.${reqUserId}&status=eq.active&select=owner_id&limit=1`,
+            { headers: hdrs }
+          ).then(r => r.json());
+          const ownerId = Array.isArray(memberRows) && memberRows[0]?.owner_id ? memberRows[0].owner_id : null;
+          if (ownerId) {
+            const ownerPlanRows = await fetch(
+              `${SB_URL}/rest/v1/user_plans?user_id=eq.${ownerId}&select=plan&order=created_at.desc&limit=1`,
+              { headers: hdrs }
+            ).then(r => r.json());
+            if (Array.isArray(ownerPlanRows) && ownerPlanRows[0]?.plan) {
+              userPlan = ownerPlanRows[0].plan;
+            }
+          }
+        }
+
+        if (!['pro', 'enterprise'].includes(userPlan ?? '')) {
+          return NextResponse.json(
+            { error: 'Leadership Snapshot requires a Pro plan. Upgrade at /billing.' },
+            { status: 403 }
+          );
+        }
+      } catch {
+        // Fail open — don't block Pro users due to a network hiccup
+      }
+    }
+
     const elecCo2eKg   = safe(b.elecCo2eKg);
     const fuelCo2eKg   = safe(b.fuelCo2eKg);
     const refrigCo2eKg = safe(b.refrigCo2eKg);

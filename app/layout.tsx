@@ -1,4 +1,5 @@
 import './globals.css';
+import AuthCacheGuard from '@/components/AuthCacheGuard';
 
 export const metadata = {
   title: 'UK SME Carbon Accounting',
@@ -12,7 +13,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AuthCacheGuard />
+        {children}
+      </body>
     </html>
   );
 }

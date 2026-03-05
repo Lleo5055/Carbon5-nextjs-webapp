@@ -31,7 +31,7 @@ export async function logActivity(
       .maybeSingle();
     const actorName = profile?.contact_name || user.email || 'Unknown';
 
-    await supabase.from('activity_log').insert({
+    const { error } = await supabase.from('activity_log').insert({
       owner_id: ownerId,
       actor_id: user.id,
       actor_name: actorName,
@@ -39,7 +39,8 @@ export async function logActivity(
       resource,
       detail,
     });
-  } catch {
-    // Silent fail — activity logging must never break main flows
+    if (error) console.error('[logActivity] insert failed:', error);
+  } catch (err) {
+    console.error('[logActivity] exception:', err);
   }
 }

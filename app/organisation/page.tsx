@@ -173,6 +173,7 @@ export default function OrganisationPage() {
   const [tab, setTab] = useState<'profile' | 'activity'>('profile');
 
   // ── Profile state ──────────────────────────────────────────────────────────
+  const PROFILE_CACHE_KEY = 'greenio_profile_cache';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isTeamMember, setIsTeamMember] = useState(false);
@@ -191,6 +192,19 @@ export default function OrganisationPage() {
   const [memberFilter, setMemberFilter] = useState('');
   const [actionFilter, setActionFilter] = useState('');
   const [currentUserId, setCurrentUserId] = useState('');
+
+  // Seed profile from cache for instant paint
+  useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem(PROFILE_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.form) setForm(parsed.form);
+        if (parsed.isTeamMember) setIsTeamMember(true);
+        setLoading(false);
+      }
+    } catch {}
+  }, []);
 
   // ── Load profile ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -232,7 +246,7 @@ export default function OrganisationPage() {
       }
 
       if (profile) {
-        setForm({
+        const formData = {
           company_name:              profile.company_name              || '',
           industry:                  profile.industry                  || '',
           country:                   profile.country                   || '',
@@ -252,7 +266,9 @@ export default function OrganisationPage() {
           annual_output_units:       profile.annual_output_units       || '',
           methodology_confirmed:     profile.methodology_confirmed     || false,
           energy_efficiency_actions: profile.energy_efficiency_actions || '',
-        });
+        };
+        setForm(formData);
+        try { sessionStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify({ form: formData, isTeamMember: !!memberRow })); } catch {}
       }
 
       setLoading(false);
@@ -328,8 +344,9 @@ export default function OrganisationPage() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-20">
       <div className="mb-6">
-        <a href="/dashboard" className="text-sm text-slate-600 hover:text-slate-900 underline">
-          ← Back to dashboard
+        <a href="/dashboard" className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-full px-3 py-1.5 hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 shrink-0"><path fillRule="evenodd" d="M14 8a.75.75 0 0 1-.75.75H4.56l3.22 3.22a.75.75 0 1 1-1.06 1.06l-4.5-4.5a.75.75 0 0 1 0-1.06l4.5-4.5a.75.75 0 0 1 1.06 1.06L4.56 7.25H13.25A.75.75 0 0 1 14 8Z" clipRule="evenodd" /></svg>
+          Dashboard
         </a>
       </div>
 

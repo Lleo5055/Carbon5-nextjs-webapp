@@ -687,9 +687,10 @@ await supabase.from('edit_history').insert({
 
                   <Link
                     href="/dashboard"
-                    className="h-[30px] px-3 rounded-full bg-slate-900 text-white text-[11px] font-semibold flex items-center justify-center hover:bg-slate-800"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-full px-3 py-1.5 hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-colors"
                   >
-                    ← Back to dashboard
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 shrink-0"><path fillRule="evenodd" d="M14 8a.75.75 0 0 1-.75.75H4.56l3.22 3.22a.75.75 0 1 1-1.06 1.06l-4.5-4.5a.75.75 0 0 1 0-1.06l4.5-4.5a.75.75 0 0 1 1.06 1.06L4.56 7.25H13.25A.75.75 0 0 1 14 8Z" clipRule="evenodd" /></svg>
+                    Dashboard
                   </Link>
                 </div>
               </div>
