@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
+import { currencyCodeForCountry, localeForCountry } from '@/lib/currency';
+import { fyStartMonthForCountry } from '@/lib/financialYear';
 
 const INDUSTRIES = [
   'Agriculture & Farming',
@@ -142,6 +144,10 @@ export default function OnboardingPage() {
         has_company_vehicles,
         renewable_energy_tariff,
         onboarding_complete: true,
+        // Feature 1.1 + 1.2: auto-set currency, locale, and FY start month
+        currency:        currencyCodeForCountry(country),
+        locale:          localeForCountry(country),
+        fy_start_month:  fyStartMonthForCountry(country),
       });
 
     if (error) {
@@ -151,7 +157,12 @@ export default function OnboardingPage() {
       return;
     }
 
-    router.push('/dashboard');
+    // India accounts go to BRSR profile step before dashboard
+    if (country === 'IN') {
+      router.push('/dashboard/brsr-profile?onboarding=1');
+    } else {
+      router.push('/dashboard');
+    }
   }
 
   return (

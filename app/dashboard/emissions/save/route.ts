@@ -28,11 +28,15 @@ export async function POST(req: NextRequest) {
       gasKwh,
       refrigerantKg,
       refrigerantCode,
+      // Feature 1.8: ef_version stamped at save time (looked up client-side)
+      efVersion,
+      // Feature 1.9: data source provenance ('manual' | 'bill_scan' | 'csv_import' | 'api_import')
+      dataSource,
     } = body;
 
     const monthLabel = `${monthName} ${year}`;
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       user_id: user.id,
       month: monthLabel,
       electricity_kw: Number(electricityKwh) || 0,
@@ -42,7 +46,14 @@ export async function POST(req: NextRequest) {
       refrigerant_kg: Number(refrigerantKg) || 0,
       refrigerant_code: refrigerantCode || 'GENERIC_HFC',
       total_co2e: 0,
+      // Feature 1.9: always record how data arrived
+      data_source: dataSource || 'manual',
     };
+
+    // Feature 1.8: stamp ef_version only on new inserts — never overwrite on edit
+    if (!id && efVersion) {
+      payload.ef_version = efVersion;
+    }
 
     // 3. Insert or Update
     let error = null;
