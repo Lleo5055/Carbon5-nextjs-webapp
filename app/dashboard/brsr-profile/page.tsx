@@ -198,7 +198,7 @@ function BrsrProfileInner() {
                 { value: 'no',         label: 'No — unlisted company' },
                 { value: 'subsidiary', label: 'Subsidiary of a listed company' },
               ].map(({ value, label }) => (
-                <label key={value} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                <label key={value} className="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                   <input
                     type="radio"
                     name="listed_status"
