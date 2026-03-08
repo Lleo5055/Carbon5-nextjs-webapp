@@ -1820,6 +1820,7 @@ page.drawText(`Greenio · ${reportLabel} · Page 6`, {
     });
   } catch (err) {
     console.error('REPORT ERROR:', err);
-    return new NextResponse('Failed to generate report', { status: 500 });
+    const msg = err instanceof Error ? err.message : String(err);
+    return new NextResponse(`Failed to generate report: ${msg}`, { status: 500 });
   }
 }
