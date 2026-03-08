@@ -1106,24 +1106,19 @@ const youTonnes = dashData.totalCo2eKg / 1000;
         <section className="relative rounded-xl border border-slate-200 shadow bg-gradient-to-r from-slate-50 via-slate-50 to-indigo-50 px-4 py-5 md:px-6 md:py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           {/* PROFILE ICON (top-right) */}
          <div className="absolute top-4 right-4 z-50" ref={profileMenuRef}>
-  <button
-    onClick={() => setShowProfileMenu(v => !v)}
-    className="list-none cursor-pointer flex items-center justify-center
+  <details className="relative" open={showProfileMenu} onToggle={(e) => setShowProfileMenu((e.target as HTMLDetailsElement).open)}>
+    <summary className="list-none cursor-pointer flex items-center justify-center
         w-9 h-9 rounded-full bg-white shadow-sm border border-slate-200
-        text-slate-600 hover:text-slate-800 hover:bg-slate-50 transition"
-    aria-label="Account menu"
-  >
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className="w-6 h-6 text-slate-700"
-    >
-      <path d="M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5zm-7 9c0-3.866 3.582-7 8-7 .778 0 1.528.099 2.236.282a6.46 6.46 0 00-.236 1.718c0 .586.078 1.152.223 1.691A9.987 9.987 0 0112 22H5zm16.707-5.293l-1.414-1.414-1.293.647a4.018 4.018 0 00-.707-.408l-.193-1.445h-2l-.193 1.445c-.246.111-.479.249-.707.408l-1.293-.647-1.414 1.414.647 1.293c-.159.228-.297.461-.408.707l-1.445.193v2l1.445.193c.111.246.249.479.408.707l-.647 1.293 1.414 1.414 1.293-.647c.228.159.461.297.707.408l.193 1.445h2l.193-1.445c.246-.111.479-.249.707-.408l1.293.647 1.414-1.414-.647-1.293c.159-.228.297-.461.408-.707l1.445-.193v-2l-1.445-.193a4.06 4.06 0 00-.408-.707l.647-1.293zM18 19a1 1 0 110-2 1 1 0 010 2z"/>
-    </svg>
-  </button>
-
-  {showProfileMenu && (
+        text-slate-600 hover:text-slate-800 hover:bg-slate-50 transition">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        className="w-6 h-6 text-slate-700"
+      >
+        <path d="M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5zm-7 9c0-3.866 3.582-7 8-7 .778 0 1.528.099 2.236.282a6.46 6.46 0 00-.236 1.718c0 .586.078 1.152.223 1.691A9.987 9.987 0 0112 22H5zm16.707-5.293l-1.414-1.414-1.293.647a4.018 4.018 0 00-.707-.408l-.193-1.445h-2l-.193 1.445c-.246.111-.479.249-.707.408l-1.293-.647-1.414 1.414.647 1.293c-.159.228-.297.461-.408.707l-1.445.193v2l1.445.193c.111.246.249.479.408.707l-.647 1.293 1.414 1.414 1.293-.647c.228.159.461.297.707.408l.193 1.445h2l.193-1.445c.246-.111.479-.249.707-.408l1.293.647 1.414-1.414-.647-1.293c.159-.228.297-.461.408-.707l1.445-.193v-2l-1.445-.193a4.06 4.06 0 00-.408-.707l.647-1.293zM18 19a1 1 0 110-2 1 1 0 010 2z"/>
+      </svg>
+    </summary>
     <div className="absolute right-0 mt-2 w-40 bg-white border border-slate-200
         rounded-lg shadow-lg py-1 text-sm">
       {isPro ? (
@@ -1145,7 +1140,7 @@ const youTonnes = dashData.totalCo2eKg / 1000;
         Logout
       </Link>
     </div>
-  )}
+  </details>
 </div>
 
 
