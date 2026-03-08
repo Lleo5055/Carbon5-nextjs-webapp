@@ -257,7 +257,7 @@ const currencySymbol = PDF_CURRENCY[countryCode] ?? getCurrencyConfig(countryCod
 // --------------------
 // Totals (activity)
 // --------------------
-const totalElecKwh = list.reduce((s, r) => s + safe(r.electricity_kw), 0);
+const totalElecKwh = list.reduce((s, r) => s + safe(r.electricity_kwh ?? r.electricity_kw), 0);
 const totalDieselLitres = list.reduce((s, r) => s + safe(r.diesel_litres), 0);
 const totalPetrolLitres = list.reduce((s, r) => s + safe(r.petrol_litres), 0);
 const totalGasKwh = list.reduce((s, r) => s + safe(r.gas_kwh), 0);
@@ -317,7 +317,7 @@ for (const r of s3) {
 const months = list.map((r) => r.month);
 
 const values = list.map((r) => {
-  const elecKg = safe(r.electricity_kw) * ef.electricity;
+  const elecKg = safe(r.electricity_kwh ?? r.electricity_kw) * ef.electricity;
 
   const fuelKg =
     safe(r.diesel_litres) * ef.diesel +
@@ -348,6 +348,27 @@ const values = list.map((r) => {
 
     const latest = values[values.length - 1] || 0;
     const latestMonth = months[months.length - 1] || '-';
+
+    // ======================== PRE-COMPUTE SIGNALS (used across pages) ========================
+    const total_t_pre = (scope1_fuel_kg + scope1_refrigerant_kg + scope2_kg + scope3_kg) / 1000;
+    const s1_share_pre = total_t_pre ? (scope1_fuel_kg + scope1_refrigerant_kg) / 1000 / total_t_pre : 0;
+    const s2_share_pre = total_t_pre ? scope2_kg / 1000 / total_t_pre : 0;
+    const s3_share_pre = total_t_pre ? scope3_kg / 1000 / total_t_pre : 0;
+    let dominant: 'fuel' | 'electricity' | 'scope3' = 'fuel';
+    if (s2_share_pre > s1_share_pre && s2_share_pre > s3_share_pre) dominant = 'electricity';
+    if (s3_share_pre > s1_share_pre && s3_share_pre > s2_share_pre) dominant = 'scope3';
+    const hotspotLabel = dominant === 'electricity' ? 'Electricity (Scope 2)' : dominant === 'scope3' ? 'Supply chain (Scope 3)' : 'Fuels (Scope 1)';
+
+    // Helper: format YYYY-MM as "Jan 2025"
+    const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    function fmtMonth(ym: string): string {
+      if (!ym || ym === '-' || !ym.includes('-')) return ym || '-';
+      const parts = ym.split('-');
+      if (parts.length < 2) return ym;
+      const [yr, mo] = parts;
+      const idx = parseInt(mo, 10) - 1;
+      return (MONTH_ABBR[idx] ?? mo) + ' ' + yr;
+    }
 
     // ======================== PDF INIT ========================
     const pdf = await PDFDocument.create();
@@ -439,31 +460,31 @@ y -= 42;
 // METADATA
 // =========================
 
-
-drawText(
-  page,
-  `Reporting period: ${reportStartMonth} to ${reportEndMonth}`,
-  50,
-  y,
-  11,
-  font,
-  BLACK
-);
-y -= 16;
-
-drawText(page, `Organisation: ${companyName}`, 50, y, 11, font, BLACK);
-y -= 16;
-
-drawText(page, `Country: ${countryName}`, 50, y, 11, font, BLACK);
-y -= 16;
-
 const d = new Date();
 const reportDate = `${String(d.getDate()).padStart(2, '0')}/${String(
   d.getMonth() + 1
 ).padStart(2, '0')}/${d.getFullYear()}`;
 
-drawText(page, `Report date: ${reportDate}`, 50, y, 11, font, BLACK);
+const periodStr = (reportStartMonth && reportStartMonth !== 'Not available' && reportEndMonth && reportEndMonth !== 'Not available')
+  ? `${fmtMonth(reportStartMonth)} – ${fmtMonth(reportEndMonth)}`
+  : 'All data';
 
+// Two-column metadata
+const col1X = 50, col2X = 310;
+drawText(page, `Organisation:`, col1X, y, 10, font, rgb(0.45, 0.45, 0.47));
+drawText(page, companyName, col1X + 80, y, 10, font, BLACK);
+drawText(page, `Report date:`, col2X, y, 10, font, rgb(0.45, 0.45, 0.47));
+drawText(page, reportDate, col2X + 72, y, 10, font, BLACK);
+y -= 15;
+
+drawText(page, `Period:`, col1X, y, 10, font, rgb(0.45, 0.45, 0.47));
+drawText(page, periodStr, col1X + 80, y, 10, font, BLACK);
+drawText(page, `Country:`, col2X, y, 10, font, rgb(0.45, 0.45, 0.47));
+drawText(page, countryName, col2X + 72, y, 10, font, BLACK);
+y -= 15;
+
+drawText(page, `Industry:`, col1X, y, 10, font, rgb(0.45, 0.45, 0.47));
+drawText(page, industry === 'Not provided' ? 'Not provided' : industry, col1X + 80, y, 10, font, BLACK);
 y -= 20;
 
 // ---- divider ABOVE hero ----
@@ -520,82 +541,62 @@ page.drawLine({
 y -= 32;
 
 // =========================
-// EMISSIONS SUMMARY
+// SCOPE BREAKDOWN — 3-column tiles
 // =========================
-page.drawText('Emissions summary', {
-  x: 50,
-  y,
-  size: 14,
-  font: bold,
-  color: TEXT,
+page.drawText('Emissions by scope', {
+  x: 50, y, size: 13, font: bold, color: TEXT,
 });
-
 y -= 18;
 
-drawText(page, `Scope 1 (fuels): ${scope1_t.toFixed(2)} tCO2e`, 50, y, 11, font, BLACK);
-y -= 16;
+const tileW = 156, tileH = 52, tileGap = 11;
+const tileColors = [
+  rgb(0.87, 0.93, 0.88),   // S1 — light green
+  rgb(0.86, 0.92, 0.98),   // S2 — light blue
+  rgb(0.96, 0.92, 0.86),   // S3 — light amber
+];
+const tileLabels = ['Scope 1 — Fuels', 'Scope 2 — Electricity', 'Scope 3 — Supply chain'];
+const tileValues = [scope1_t, scope2_t, scope3_t];
 
-drawText(
-  page,
-  `Scope 2 (electricity): ${scope2_t.toFixed(2)} tCO2e`,
-  50,
-  y,
-  11,
-  font,
-  BLACK
-);
-y -= 16;
+for (let i = 0; i < 3; i++) {
+  const tx = 50 + i * (tileW + tileGap);
+  page.drawRectangle({ x: tx, y: y - tileH, width: tileW, height: tileH, color: tileColors[i] });
+  page.drawText(`${tileValues[i].toFixed(2)} tCO2e`, { x: tx + 10, y: y - 22, size: 14, font: bold, color: BLACK });
+  page.drawText(tileLabels[i], { x: tx + 10, y: y - 37, size: 9, font, color: rgb(0.3, 0.3, 0.3) });
+}
 
-drawText(
-  page,
-  `Scope 3 (selected): ${scope3_t.toFixed(2)} tCO2e`,
-  50,
-  y,
-  11,
-  font,
-  BLACK
-);
+y -= tileH + 22;
 
-
-y -= 18;
-
+// =========================
+// KEY STATS ROW
+// =========================
 const energy_kwh =
   totalElecKwh +
   totalDieselLitres * 10.9 +
   totalPetrolLitres * 9.4 +
   totalGasKwh;
 
+const statsLine = [
+  `Energy use: ${Math.round(energy_kwh).toLocaleString()} kWh`,
+  `Main hotspot: ${hotspotLabel}`,
+  empCount ? `Employees: ${empCount}` : null,
+].filter(Boolean) as string[];
 
-drawText(page, `Energy use equivalent: ${energy_kwh} kWh`, 50, y, 11, font, BLACK);
-y -= 16;
-
-drawText(page, 'Main hotspot: Diesel fuel use', 50, y, 11, font, BLACK);
-
-y -= 40;
+for (let i = 0; i < statsLine.length; i++) {
+  drawText(page, statsLine[i], 50, y - i * 15, 10, font, rgb(0.3, 0.3, 0.3));
+}
+y -= statsLine.length * 15 + 20;
 
 // =========================
 // ORGANISATION PROFILE
 // =========================
-page.drawText('Organisation profile', {
-  x: 50,
-  y,
-  size: 14,
-  font: bold,
-  color: TEXT,
+page.drawText('Organisation details', {
+  x: 50, y, size: 13, font: bold, color: TEXT,
 });
-
 y -= 18;
 
-drawText(page, `Industry: ${industry}`, 50, y, 11, font, BLACK);
-y -= 14;
-
-drawText(page, `Employees: ${empCount}`, 50, y, 11, font, BLACK);
-y -= 14;
-
-drawText(page, `Revenue: ${currencySymbol}${revenue.toLocaleString()}`, 50, y, 11, font, BLACK);
-y -= 14;
-
-drawText(page, `Output units: ${outputUnits}`, 50, y, 11, font, BLACK);
+if (empCount) { drawText(page, `Employees: ${empCount}`, 50, y, 10, font, BLACK); y -= 14; }
+if (revenue > 0) { drawText(page, `Annual revenue: ${currencySymbol}${revenue.toLocaleString()}`, 50, y, 10, font, BLACK); y -= 14; }
+if (outputUnits > 0) { drawText(page, `Annual output units: ${outputUnits.toLocaleString()}`, 50, y, 10, font, BLACK); y -= 14; }
 
 // =========================
 // FOOTER
@@ -685,7 +686,7 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
     });
     y -= 22;
 
-    page.drawText(`Highest month: ${peakMonth} (${peak.toFixed(2)} kg CO2e)`, {
+    page.drawText(`Highest month: ${fmtMonth(peakMonth)} (${(peak / 1000).toFixed(2)} tCO2e)`, {
       x: 50,
       y,
       size: 11,
@@ -695,7 +696,7 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
 
     y -= 18;
     page.drawText(
-      `Latest month: ${latestMonth} (${latest.toFixed(2)} kg CO2e)`,
+      `Latest month: ${fmtMonth(latestMonth)} (${(latest / 1000).toFixed(2)} tCO2e)`,
       {
         x: 50,
         y,
@@ -829,6 +830,19 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
     // ROWS
     let rowShade = false;
     for (const r of list) {
+      // Page overflow guard
+      if (y < 80) {
+        page.drawText(`Greenio · ${reportLabel} · Page 2 (cont.)`, { x: 180, y: 20, size: 9, font, color: TEXT });
+        page = pdf.addPage([595, 842]);
+        y = 780;
+        page.drawRectangle({ x: 45, y: y - 16, width: 510, height: 22, color: rgb(0, 0, 0) });
+        page.drawText('Month', { x: 55, y: y - 6, size: 11, font: bold, color: rgb(1,1,1) });
+        page.drawText('Electricity (kWh)', { x: 170, y: y - 6, size: 11, font: bold, color: rgb(1,1,1) });
+        page.drawText('Diesel (L)', { x: 310, y: y - 6, size: 11, font: bold, color: rgb(1,1,1) });
+        page.drawText('Total CO2e (kg)', { x: 430, y: y - 6, size: 11, font: bold, color: rgb(1,1,1) });
+        y -= 26;
+      }
+
       page.drawRectangle({
         x: 45,
         y: y - 16,
@@ -839,8 +853,8 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
 
       rowShade = !rowShade;
 
-      page.drawText(r.month, { x: 55, y: y - 5, size: 11, font, color: TEXT });
-      page.drawText(String(safe(r.electricity_kw)), {
+      page.drawText(fmtMonth(r.month), { x: 55, y: y - 5, size: 11, font, color: TEXT });
+      page.drawText(String(safe(r.electricity_kwh ?? r.electricity_kw)), {
         x: 170,
         y: y - 5,
         size: 11,
@@ -902,16 +916,13 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
     );
     y -= 16;
 
-    paragraph(
-      page,
-      'Includes emissions from combustion of diesel in company-operated vehicles or equipment.',
-      50,
-      480,
-      11,
-      { value: y }
-    );
+    {
+      const yRef = { value: y };
+      paragraph(page, 'Includes emissions from combustion of diesel, petrol and gas in company-operated vehicles or equipment.', 50, 480, 11, yRef);
+      y = yRef.value;
+    }
 
-    y -= 20;
+    y -= 10;
 
     // ---- Scope 2 ----
     page.drawText(
@@ -920,32 +931,26 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
     );
     y -= 16;
 
-    paragraph(
-      page,
-      `Calculated using national grid emission factors for ${countryName} (${ef.electricity} kg CO2e per kWh).`,
-      50,
-      480,
-      11,
-      { value: y }
-    );
+    {
+      const yRef = { value: y };
+      paragraph(page, `Calculated using national grid emission factors for ${countryName} (${ef.electricity} kg CO2e per kWh).`, 50, 480, 11, yRef);
+      y = yRef.value;
+    }
 
-    y -= 20;
+    y -= 10;
 
     // ---- Scope 3 ----
     page.drawText(
-      `Scope 3 (selected categories): ${scope3_t.toFixed(3)} tCO2e`,
+      `Scope 3 (selected categories): ${scope3_t.toFixed(2)} tCO2e`,
       { x: 50, y, size: 12, font, color: TEXT }
     );
     y -= 16;
 
-    paragraph(
-      page,
-      'Scope 3 values represent only categories recorded in Greenio. This is not a complete Scope 3 inventory.',
-      50,
-      480,
-      11,
-      { value: y }
-    );
+    {
+      const yRef = { value: y };
+      paragraph(page, 'Scope 3 values represent only categories recorded in Greenio. This is not a complete Scope 3 inventory.', 50, 480, 11, yRef);
+      y = yRef.value;
+    }
 
     // Add spacing before table
     y -= 40;
@@ -1052,6 +1057,13 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
     // Add spacing before next header
     y -= 20;
 
+    // ---- Page break guard before Hotspot ----
+    if (y < 160) {
+      page.drawText(`Greenio · ${reportLabel} · Page 3 (cont.)`, { x: 180, y: 20, size: 9, font, color: TEXT });
+      page = pdf.addPage([595, 842]);
+      y = 780;
+    }
+
     // ---- HOTSPOT ----
     page.drawText('Hotspot analysis', {
       x: 50,
@@ -1062,16 +1074,25 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
     });
     y -= 20;
 
-    paragraph(
-      page,
-      'Fuel usage remains the dominant hotspot. Operational routing, driving behaviour, and maintenance practices represent the main levers for reducing emissions.',
-      50,
-      480,
-      11,
-      { value: y }
-    );
+    {
+      const hotspotText = dominant === 'electricity'
+        ? 'Electricity consumption is the dominant emissions source. Facilities, equipment and operational hours drive most carbon intensity.'
+        : dominant === 'scope3'
+        ? 'Supply chain activities (Scope 3) are the dominant emissions source. Upstream procurement and logistics represent the main reduction levers.'
+        : 'Fuel combustion (Scope 1) is the dominant emissions source. Operational routing, driving behaviour and maintenance practices represent the main reduction levers.';
+      const yRef = { value: y };
+      paragraph(page, hotspotText, 50, 480, 11, yRef);
+      y = yRef.value;
+    }
 
     y -= 40;
+
+    // ---- Page break guard before SECR (needs ~200px) ----
+    if (y < 220) {
+      page.drawText(`Greenio · ${reportLabel} · Page 3 (cont.)`, { x: 180, y: 20, size: 9, font, color: TEXT });
+      page = pdf.addPage([595, 842]);
+      y = 780;
+    }
 
     // ---- SECR ----
     page.drawText(isGB ? 'SECR summary' : 'Energy and emissions summary', {
@@ -1176,33 +1197,29 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
     });
     y -= 20;
 
-    page.drawText(
-      `tCO2e per employee: ${
-        empCount ? (totalCO2kg / 1000 / empCount)
-.toFixed(3) : 'data not provided'
-      }`,
-      { x: 50, y, size: 11, font, color: TEXT }
-    );
+    if (empCount) {
+      page.drawText(`tCO2e per employee: ${(totalCO2kg / 1000 / empCount).toFixed(3)}`, { x: 50, y, size: 11, font, color: TEXT });
+      y -= 16;
+    }
 
-    y -= 16;
+    if (revenue > 0) {
+      const perRevenue = totalCO2kg / 1000 / revenue;
+      const perRevenueStr = perRevenue < 0.001 ? perRevenue.toExponential(3) : perRevenue.toFixed(4);
+      page.drawText(`tCO2e per ${currencySymbol} revenue: ${perRevenueStr}`, { x: 50, y, size: 11, font, color: TEXT });
+      y -= 16;
+    }
 
-    page.drawText(
-      `tCO2e per ${currencySymbol} revenue: ${
-        revenue ? (totalCO2kg / 1000 / revenue).toFixed(6) : 'data not provided'
-      }`,
-      { x: 50, y, size: 11, font, color: TEXT }
-    );
+    if (outputUnits > 0) {
+      const perUnit = totalCO2kg / 1000 / outputUnits;
+      const perUnitStr = perUnit < 0.001 ? perUnit.toExponential(3) : perUnit.toFixed(4);
+      page.drawText(`tCO2e per output unit: ${perUnitStr}`, { x: 50, y, size: 11, font, color: TEXT });
+      y -= 16;
+    }
 
-    y -= 16;
-
-    page.drawText(
-      `tCO2e per output unit: ${
-        outputUnits
-          ? (totalCO2kg / 1000 / outputUnits).toFixed(6)
-          : 'data not provided'
-      }`,
-      { x: 50, y, size: 11, font, color: TEXT }
-    );
+    if (!empCount && revenue <= 0 && outputUnits <= 0) {
+      page.drawText('No intensity data available. Add employee count and revenue in your profile.', { x: 50, y, size: 10, font, color: rgb(0.5, 0.5, 0.52) });
+      y -= 14;
+    }
     // ---- FOOTER ----
     page.drawText(`Greenio · ${reportLabel} · Page 3`, {
       x: 180,
@@ -1236,14 +1253,7 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
     y -= 40;
 
     // ---------------- DYNAMIC SIGNALS ----------------
-    const total_t = scope1_t + scope2_t + scope3_t;
-    const s1_share = total_t ? scope1_t / total_t : 0;
-    const s2_share = total_t ? scope2_t / total_t : 0;
-    const s3_share = total_t ? scope3_t / total_t : 0;
-
-    let dominant = 'fuel';
-    if (s2_share > s1_share && s2_share > s3_share) dominant = 'electricity';
-    if (s3_share > s1_share && s3_share > s2_share) dominant = 'scope3';
+    // dominant is pre-computed above (s1_share_pre etc.)
 
     let trend = 'stable';
     if (values.length > 3) {
