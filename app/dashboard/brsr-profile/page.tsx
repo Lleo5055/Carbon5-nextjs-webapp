@@ -8,7 +8,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
@@ -46,6 +46,14 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function BrsrProfilePage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-slate-50 flex items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-emerald-600" /></main>}>
+      <BrsrProfileInner />
+    </Suspense>
+  );
+}
+
+function BrsrProfileInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isOnboarding = searchParams.get('onboarding') === '1';
