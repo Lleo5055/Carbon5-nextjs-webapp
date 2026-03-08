@@ -486,14 +486,21 @@ export default function OrganisationPage() {
 
                   {/* REGULATORY */}
                   <section>
-                    <h2 className="text-sm font-semibold text-slate-700 mb-3">
-                      {compliance.sectionTitle}
-                      {compliance.framework && (
-                        <span className="ml-2 text-xs font-normal text-slate-400">
-                          (optional but required for {compliance.framework}-compliant reports)
-                        </span>
+                    <div className="flex items-center justify-between mb-3">
+                      <h2 className="text-sm font-semibold text-slate-700">
+                        {compliance.sectionTitle}
+                        {compliance.framework && (
+                          <span className="ml-2 text-xs font-normal text-slate-400">
+                            (optional but required for {compliance.framework}-compliant reports)
+                          </span>
+                        )}
+                      </h2>
+                      {compliance.framework === 'BRSR' && (
+                        <a href="/dashboard/brsr-profile" className="text-xs font-medium text-emerald-700 hover:text-emerald-800 underline underline-offset-2">
+                          BRSR company profile →
+                        </a>
                       )}
-                    </h2>
+                    </div>
                     <div className="space-y-4">
                       <div>
                         <label className="text-xs font-medium text-slate-600">{compliance.revenueLabel}</label>
