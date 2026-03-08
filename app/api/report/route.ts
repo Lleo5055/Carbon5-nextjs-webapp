@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 
 import { getFactorsForCountry } from '@/lib/factors';
 import { calcRefrigerantCo2e } from '@/lib/emissionFactors';
+import { getCurrencyConfig } from '@/lib/currency';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -236,6 +237,7 @@ const COUNTRY_NAMES: Record<string, string> = {
 };
 const countryName = COUNTRY_NAMES[countryCode] ?? countryCode;
 const reportLabel = isGB ? 'SECR-ready emissions report' : 'Carbon Footprint Report';
+const currencySymbol = getCurrencyConfig(countryCode).symbol;
 
     // Extract profile fields (Organisation Card)
     const companyName = profile.company_name || 'Not provided';
@@ -588,7 +590,7 @@ y -= 14;
 drawText(page, `Employees: ${empCount}`, 50, y, 11, font, BLACK);
 y -= 14;
 
-drawText(page, `Revenue: £${revenue.toLocaleString()}`, 50, y, 11, font, BLACK);
+drawText(page, `Revenue: ${currencySymbol}${revenue.toLocaleString()}`, 50, y, 11, font, BLACK);
 y -= 14;
 
 drawText(page, `Output units: ${outputUnits}`, 50, y, 11, font, BLACK);
@@ -1183,7 +1185,7 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
     y -= 16;
 
     page.drawText(
-      `tCO2e per £ revenue: ${
+      `tCO2e per ${currencySymbol} revenue: ${
         revenue ? (totalCO2kg / 1000 / revenue).toFixed(6) : 'data not provided'
       }`,
       { x: 50, y, size: 11, font, color: TEXT }
