@@ -502,6 +502,8 @@ if (Object.keys(changes).length > 0) {
               refrigerant_kg: ref,
               refrigerant_code: refCode,
               total_co2e: totalCo2e,
+              data_source: 'manual',
+              ef_version: ef.version,
             });
 if (insertError) throw insertError;
 
