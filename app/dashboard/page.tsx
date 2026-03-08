@@ -13,6 +13,7 @@ import OnboardingCard from './OnboardingCard';
 
 import { calcRefrigerantCo2e } from '../../lib/emissionFactors';
 import { getFactorsForCountry } from '@/lib/factors';
+import { computeBrsrCompleteness, type BrsrCompletenessResult } from '@/lib/brsrCompleteness';
 
 // Safe absolute base URL for server-side fetch (Vercel SSR fix)
 const baseUrl = process.env.VERCEL_URL
@@ -582,6 +583,7 @@ const [state, setState] = React.useState<{
 
 const [isTeamMember, setIsTeamMember] = React.useState(false);
 const [isPro, setIsPro] = React.useState(false);
+const [brsrResult, setBrsrResult] = React.useState<BrsrCompletenessResult | null>(null);
 const [showProfileMenu, setShowProfileMenu] = React.useState(false);
 const profileMenuRef = React.useRef<HTMLDivElement>(null);
 
@@ -664,10 +666,10 @@ if (!cancelled) {
     // 2️⃣ Load profile (non-blocking)
 supabase
   .from('profiles')
-  .select('onboarding_complete, industry, company_name')
-  .eq('id', user.id) // ✅ IMPORTANT: load the logged-in user's profile
+  .select('onboarding_complete, industry, company_name, country, india_water_enabled, india_waste_enabled')
+  .eq('id', user.id)
   .single()
-  .then(({ data, error }) => {
+  .then(async ({ data, error }) => {
     if (error) {
       console.error('Failed to load profile:', error);
       return;
@@ -676,12 +678,33 @@ supabase
     if (!cancelled && data) {
       setState((prev) =>
         prev
-          ? {
-              ...prev,
-              profile: data,
-            }
+          ? { ...prev, profile: data }
           : prev
       );
+    }
+
+    // 2b️⃣ BRSR completeness — India accounts only (non-blocking)
+    if (data?.country === 'IN' && !cancelled) {
+      const [brsrRes, emissionsRes, scope3Res, waterRes, wasteRes] = await Promise.all([
+        supabase.from('brsr_profile').select('industry_sector,permanent_employees,permanent_workers,is_listed_company,renewable_elec_pct,has_ghg_reduction_plan').eq('account_id', user.id).maybeSingle(),
+        supabase.from('emissions').select('diesel_litres,electricity_kw,total_co2e').eq('user_id', user.id).limit(1),
+        supabase.from('scope3_activities').select('id').eq('user_id', user.id).limit(1),
+        data.india_water_enabled ? supabase.from('water_entries').select('id').eq('account_id', user.id).limit(1) : Promise.resolve({ data: [] as any[] }),
+        data.india_waste_enabled ? supabase.from('waste_entries').select('id').eq('account_id', user.id).limit(1) : Promise.resolve({ data: [] as any[] }),
+      ]);
+      const emRow = emissionsRes.data?.[0];
+      const result = computeBrsrCompleteness(
+        brsrRes.data ?? null,
+        {
+          hasScope1: !!emRow && ((emRow.diesel_litres ?? 0) > 0),
+          hasScope2: !!emRow && ((emRow.electricity_kw ?? 0) > 0),
+          hasScope3: (scope3Res.data?.length ?? 0) > 0,
+          hasWater:  (waterRes.data?.length ?? 0) > 0,
+          hasWaste:  (wasteRes.data?.length ?? 0) > 0,
+        },
+        { waterEnabled: !!data.india_water_enabled, wasteEnabled: !!data.india_waste_enabled }
+      );
+      if (!cancelled) setBrsrResult(result);
     }
   });
 
@@ -1243,6 +1266,43 @@ const youTonnes = dashData.totalCo2eKg / 1000;
               </p>
             </div>
           </div>
+                {/* BRSR COMPLETENESS — India accounts only */}
+                {brsrResult && (
+                  <section className="rounded-xl bg-white border border-emerald-100 p-5 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-emerald-700 font-semibold">BRSR Readiness</p>
+                        <p className="mt-0.5 text-xs text-slate-500">{brsrResult.completedCount}/{brsrResult.totalCount} checks complete</p>
+                      </div>
+                      <span className={`text-lg font-bold ${brsrResult.score >= 80 ? 'text-emerald-600' : brsrResult.score >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
+                        {brsrResult.score}%
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-[width] ${brsrResult.score >= 80 ? 'bg-emerald-500' : brsrResult.score >= 50 ? 'bg-amber-400' : 'bg-red-400'}`}
+                        style={{ width: `${brsrResult.score}%` }}
+                      />
+                    </div>
+                    <ul className="space-y-1.5">
+                      {brsrResult.checks.filter(c => !c.complete).slice(0, 4).map(check => (
+                        <li key={check.key}>
+                          <a href={check.linkTo} className="flex items-center gap-2 text-[11px] text-slate-500 hover:text-emerald-700 group">
+                            <span className="w-2.5 h-2.5 rounded-full border border-slate-300 flex-shrink-0" />
+                            <span className="group-hover:underline underline-offset-2">{check.label}</span>
+                          </a>
+                        </li>
+                      ))}
+                      {brsrResult.checks.filter(c => c.complete).map(check => (
+                        <li key={check.key} className="flex items-center gap-2 text-[11px] text-slate-400">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                          <span>{check.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
                 {/* Summary – now purely numbers / narrative */}
                 <section className="rounded-xl bg-white border p-6 shadow flex flex-col gap-4">
                   <header className="flex items-start justify-between gap-2">
