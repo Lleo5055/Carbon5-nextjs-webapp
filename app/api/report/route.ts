@@ -237,7 +237,9 @@ const COUNTRY_NAMES: Record<string, string> = {
 };
 const countryName = COUNTRY_NAMES[countryCode] ?? countryCode;
 const reportLabel = isGB ? 'SECR-ready emissions report' : 'Carbon Footprint Report';
-const currencySymbol = getCurrencyConfig(countryCode).symbol;
+// WinAnsi-safe currency label for pdf-lib (₹ and zł are outside Windows-1252)
+const PDF_CURRENCY: Record<string, string> = { IN: 'INR', PL: 'PLN' };
+const currencySymbol = PDF_CURRENCY[countryCode] ?? getCurrencyConfig(countryCode).symbol;
 
     // Extract profile fields (Organisation Card)
     const companyName = profile.company_name || 'Not provided';
@@ -1820,7 +1822,6 @@ page.drawText(`Greenio · ${reportLabel} · Page 6`, {
     });
   } catch (err) {
     console.error('REPORT ERROR:', err);
-    const msg = err instanceof Error ? err.message : String(err);
-    return new NextResponse(`Failed to generate report: ${msg}`, { status: 500 });
+    return new NextResponse('Failed to generate report', { status: 500 });
   }
 }
