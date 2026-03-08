@@ -583,7 +583,27 @@ const [state, setState] = React.useState<{
 
 const [isTeamMember, setIsTeamMember] = React.useState(false);
 const [isPro, setIsPro] = React.useState(false);
-const [brsrResult, setBrsrResult] = React.useState<BrsrCompletenessResult | null>(null);
+const [brsrResult, setBrsrResult] = React.useState<BrsrCompletenessResult | null>(() => {
+  try {
+    const c = sessionStorage.getItem('greenio_brsr_result_v1');
+    return c ? JSON.parse(c) : null;
+  } catch { return null; }
+});
+const [indiaEnvTotals, setIndiaEnvTotals] = React.useState<{
+  totalWaterKl: number;
+  waterCo2eKg: number;
+  totalWasteKg: number;
+  wasteCo2eKg: number;
+  latestAirFY: number | null;
+  noxT: number | null;
+  soxT: number | null;
+  pmT: number | null;
+} | null>(() => {
+  try {
+    const c = sessionStorage.getItem('greenio_india_env_totals_v1');
+    return c ? JSON.parse(c) : null;
+  } catch { return null; }
+});
 const [showProfileMenu, setShowProfileMenu] = React.useState(false);
 const profileMenuRef = React.useRef<HTMLDivElement>(null);
 
@@ -666,7 +686,7 @@ if (!cancelled) {
     // 2️⃣ Load profile (non-blocking)
 supabase
   .from('profiles')
-  .select('onboarding_complete, industry, company_name, country, india_water_enabled, india_waste_enabled')
+  .select('onboarding_complete, industry, company_name, country, india_water_enabled, india_waste_enabled, india_air_enabled')
   .eq('id', user.id)
   .single()
   .then(async ({ data, error }) => {
@@ -704,7 +724,54 @@ supabase
         },
         { waterEnabled: !!data.india_water_enabled, wasteEnabled: !!data.india_waste_enabled }
       );
-      if (!cancelled) setBrsrResult(result);
+      if (!cancelled) {
+        setBrsrResult(result);
+        try { sessionStorage.setItem('greenio_brsr_result_v1', JSON.stringify(result)); } catch {}
+      }
+
+      // Fetch full env rows — used for dashboard card totals AND prefilled into
+      // the greenio_india_env_v1 cache so view-emissions loads instantly
+      const [waterAll, wasteAll, airAll] = await Promise.all([
+        data.india_water_enabled
+          ? supabase.from('water_entries').select('*').eq('account_id', user.id).order('period_year', { ascending: true }).order('period_month', { ascending: true })
+          : Promise.resolve({ data: [] as any[] }),
+        data.india_waste_enabled
+          ? supabase.from('waste_entries').select('*').eq('account_id', user.id).order('period_year', { ascending: true }).order('period_month', { ascending: true })
+          : Promise.resolve({ data: [] as any[] }),
+        data.india_air_enabled
+          ? supabase.from('air_emissions').select('*').eq('account_id', user.id).order('period_year', { ascending: false })
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+      if (!cancelled) {
+        const waterData = waterAll.data ?? [];
+        const wasteData = wasteAll.data ?? [];
+        const airData   = airAll.data ?? [];
+        const latestAir = airData[0] ?? null;
+        const hasEnvData = waterData.length > 0 || wasteData.length > 0 || latestAir;
+        if (hasEnvData) {
+          const envTotals = {
+            totalWaterKl: waterData.reduce((s: number, r: any) => s + (r.volume_withdrawn_kl ?? 0), 0),
+            waterCo2eKg:  waterData.reduce((s: number, r: any) => s + (r.co2e_kg ?? 0), 0),
+            totalWasteKg: wasteData.reduce((s: number, r: any) => s + (r.total_kg ?? 0), 0),
+            wasteCo2eKg:  wasteData.reduce((s: number, r: any) => s + (r.co2e_kg ?? 0), 0),
+            latestAirFY: latestAir?.period_year ?? null,
+            noxT: latestAir?.nox_tonnes ?? null,
+            soxT: latestAir?.sox_tonnes ?? null,
+            pmT:  latestAir?.pm_tonnes  ?? null,
+          };
+          setIndiaEnvTotals(envTotals);
+          try { sessionStorage.setItem('greenio_india_env_totals_v1', JSON.stringify(envTotals)); } catch {}
+        }
+        // Prefill view-emissions cache so Section C renders instantly on navigation
+        try {
+          sessionStorage.setItem('greenio_india_env_v1', JSON.stringify({
+            isIndia: true,
+            waterRows: waterData,
+            wasteRows: wasteData,
+            airRows:   airData,
+          }));
+        } catch {}
+      }
     }
   });
 
@@ -1295,6 +1362,48 @@ const youTonnes = dashData.totalCo2eKg / 1000;
                         </li>
                       ))}
                     </ul>
+                  </section>
+                )}
+
+                {/* INDIA ENV CARD — Water / Waste / Air */}
+                {indiaEnvTotals && (
+                  <section className="rounded-xl bg-white border border-blue-100 p-5 shadow-sm space-y-3">
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-blue-700 font-semibold">Sec. C · Principle 6</p>
+                    <div className="space-y-2.5">
+                      {indiaEnvTotals.totalWaterKl > 0 && (
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-slate-600">Water withdrawn</span>
+                          <div className="text-right">
+                            <p className="text-xs font-semibold text-slate-800">{indiaEnvTotals.totalWaterKl.toLocaleString()} kL</p>
+                            <p className="text-[10px] text-slate-400">{indiaEnvTotals.waterCo2eKg.toFixed(1)} kg CO₂e</p>
+                          </div>
+                        </div>
+                      )}
+                      {indiaEnvTotals.totalWasteKg > 0 && (
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-slate-600">Waste generated</span>
+                          <div className="text-right">
+                            <p className="text-xs font-semibold text-slate-800">{indiaEnvTotals.totalWasteKg.toLocaleString()} kg</p>
+                            <p className="text-[10px] text-slate-400">{indiaEnvTotals.wasteCo2eKg.toFixed(1)} kg CO₂e (landfill)</p>
+                          </div>
+                        </div>
+                      )}
+                      {indiaEnvTotals.latestAirFY && (
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-xs text-slate-600">Air — FY{String(indiaEnvTotals.latestAirFY).slice(2)}–{String(indiaEnvTotals.latestAirFY + 1).slice(2)}</span>
+                          <p className="text-xs font-semibold text-slate-800 text-right">
+                            {[
+                              indiaEnvTotals.noxT != null ? `NOx ${indiaEnvTotals.noxT}t` : null,
+                              indiaEnvTotals.soxT != null ? `SOx ${indiaEnvTotals.soxT}t` : null,
+                              indiaEnvTotals.pmT != null ? `PM ${indiaEnvTotals.pmT}t` : null,
+                            ].filter(Boolean).join(' · ') || '—'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <Link href="/dashboard/emissions/view-emissions" className="block text-[11px] text-emerald-700 hover:underline pt-1">
+                      View Principle 6 tables →
+                    </Link>
                   </section>
                 )}
 

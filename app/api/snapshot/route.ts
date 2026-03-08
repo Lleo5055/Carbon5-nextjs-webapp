@@ -543,11 +543,14 @@ export async function POST(req: NextRequest) {
       performance: perf,
     });
 
+    const snapCompany = String(b.companyName ?? 'Greenio').replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    const snapFilename = `${snapCompany}-snapshot.pdf`;
+
     return new NextResponse(pdfBytes.buffer as ArrayBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": 'attachment; filename="leadership-snapshot.pdf"',
+        "Content-Disposition": `attachment; filename="${snapFilename}"`,
       },
     });
   } catch (err: unknown) {
@@ -872,11 +875,12 @@ export async function GET(req: NextRequest) {
       ML, 37, 6.5, font, C.MUTED);
 
     const pdfBytes = await pdf.save();
+    const getSnapCompany = ((profile.company_name as string) ?? 'Greenio').replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
     return new NextResponse(pdfBytes.buffer as ArrayBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": 'attachment; filename="leadership-snapshot.pdf"',
+        "Content-Disposition": `attachment; filename="${getSnapCompany}-snapshot.pdf"`,
       },
     });
 

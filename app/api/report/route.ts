@@ -361,14 +361,14 @@ const values = list.map((r) => {
 
     // Helper: format YYYY-MM as "Jan 2025"
     const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    function fmtMonth(ym: string): string {
+    const fmtMonth = (ym: string): string => {
       if (!ym || ym === '-' || !ym.includes('-')) return ym || '-';
       const parts = ym.split('-');
       if (parts.length < 2) return ym;
       const [yr, mo] = parts;
       const idx = parseInt(mo, 10) - 1;
       return (MONTH_ABBR[idx] ?? mo) + ' ' + yr;
-    }
+    };
 
     // ======================== PDF INIT ========================
     const pdf = await PDFDocument.create();
@@ -377,7 +377,6 @@ const values = list.map((r) => {
 
     const BLUE = rgb(52 / 255, 168 / 255, 83 / 255); // chrome green
 
-    const LIGHT_TILE = rgb(230 / 255, 238 / 255, 255 / 255);
     const TEXT = rgb(32 / 255, 32 / 255, 34 / 255);
 
     // paragraph wrapper
@@ -554,7 +553,7 @@ const tileColors = [
   rgb(0.86, 0.92, 0.98),   // S2 — light blue
   rgb(0.96, 0.92, 0.86),   // S3 — light amber
 ];
-const tileLabels = ['Scope 1 — Fuels', 'Scope 2 — Electricity', 'Scope 3 — Supply chain'];
+const tileLabels = ['Scope 1: Fuels', 'Scope 2: Electricity', 'Scope 3: Supply chain'];
 const tileValues = [scope1_t, scope2_t, scope3_t];
 
 for (let i = 0; i < 3; i++) {
@@ -631,50 +630,31 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
 
     y -= 34;
 
-    // ---- KEY METRICS SUMMARY ----
-    page.drawText(
-  `Total emissions: ${(totalCO2kg / 1000).toFixed(2)} tCO2e`,
-  { x: 50, y, size: 12, font, color: TEXT }
-);
+    // ---- KEY METRICS SUMMARY (table) ----
+    {
+      page.drawRectangle({ x: 45, y: y - 18, width: 510, height: 22, color: rgb(0, 0, 0) });
+      page.drawText('Emissions summary', { x: 55, y: y - 10, size: 10, font: bold, color: rgb(1, 1, 1) });
+      page.drawText('Value', { x: 400, y: y - 10, size: 10, font: bold, color: rgb(1, 1, 1) });
+      y -= 26;
 
-
-    y -= 20;
-    page.drawText(
-      `Electricity (Scope 2): ${scope2_kg.toFixed(0)} kg CO2e`,
-      {
-        x: 50,
-        y,
-        size: 12,
-        font,
-        color: TEXT,
+      const execRows: Array<{ label: string; value: string; highlight?: boolean }> = [
+        { label: 'Total emissions', value: `${(totalCO2kg / 1000).toFixed(2)} tCO2e`, highlight: true },
+        { label: 'Scope 1 (fuels)', value: `${scope1_fuel_kg.toFixed(0)} kg CO2e` },
+        { label: 'Scope 2 (electricity)', value: `${scope2_kg.toFixed(0)} kg CO2e` },
+        { label: 'Scope 3 (selected categories)', value: `${(scope3_t * 1000).toFixed(0)} kg CO2e` },
+      ];
+      let exShade = false;
+      for (const row of execRows) {
+        const bg = row.highlight ? rgb(0.92, 0.96, 0.92) : exShade ? rgb(0.96, 0.96, 0.97) : rgb(0.99, 0.99, 1);
+        page.drawRectangle({ x: 45, y: y - 18, width: 510, height: 22, color: bg });
+        page.drawLine({ start: { x: 45, y: y - 18 }, end: { x: 555, y: y - 18 }, thickness: 0.3, color: rgb(0.87, 0.87, 0.87) });
+        page.drawText(row.label, { x: 55, y: y - 6, size: 10, font: row.highlight ? bold : font, color: TEXT });
+        page.drawText(row.value, { x: 400, y: y - 6, size: 10, font: row.highlight ? bold : font, color: row.highlight ? BLUE : TEXT });
+        exShade = !exShade;
+        y -= 24;
       }
-    );
-
-    y -= 20;
-    page.drawText(
-      `Fuels (Scope 1): ${scope1_fuel_kg.toFixed(0)} kg CO2e`,
-      {
-        x: 50,
-        y,
-        size: 12,
-        font,
-        color: TEXT,
-      }
-    );
-
-    y -= 30;
-    page.drawText(
-      `Scope 3 (selected categories): ${(scope3_t * 1000).toFixed(0)} kg CO2e`,
-      {
-        x: 50,
-        y,
-        size: 12,
-        font,
-        color: TEXT,
-      }
-    );
-
-    y -= 30;
+    }
+    y -= 14;
 
     // ---- PERIOD HIGHLIGHTS ----
     page.drawText('Period highlights', {
@@ -794,7 +774,7 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
       color: rgb(0, 0, 0),
     });
 
-    const hY = y - 6;
+    const hY = y - 9;  // vertically centred in 22pt header rect
 
     page.drawText('Month', {
       x: 55,
@@ -836,10 +816,10 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
         page = pdf.addPage([595, 842]);
         y = 780;
         page.drawRectangle({ x: 45, y: y - 16, width: 510, height: 22, color: rgb(0, 0, 0) });
-        page.drawText('Month', { x: 55, y: y - 6, size: 11, font: bold, color: rgb(1,1,1) });
-        page.drawText('Electricity (kWh)', { x: 170, y: y - 6, size: 11, font: bold, color: rgb(1,1,1) });
-        page.drawText('Diesel (L)', { x: 310, y: y - 6, size: 11, font: bold, color: rgb(1,1,1) });
-        page.drawText('Total CO2e (kg)', { x: 430, y: y - 6, size: 11, font: bold, color: rgb(1,1,1) });
+        page.drawText('Month', { x: 55, y: y - 9, size: 11, font: bold, color: rgb(1,1,1) });
+        page.drawText('Electricity (kWh)', { x: 170, y: y - 9, size: 11, font: bold, color: rgb(1,1,1) });
+        page.drawText('Diesel (L)', { x: 310, y: y - 9, size: 11, font: bold, color: rgb(1,1,1) });
+        page.drawText('Total CO2e (kg)', { x: 430, y: y - 9, size: 11, font: bold, color: rgb(1,1,1) });
         y -= 26;
       }
 
@@ -909,47 +889,56 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
 
     y -= 30;
 
-    // ---- Scope 1 ----
-    page.drawText(
-      `Scope 1 (direct fuel emissions): ${scope1_t.toFixed(2)} tCO2e`,
-      { x: 50, y, size: 12, font, color: TEXT }
-    );
-    y -= 16;
-
+    // ---- Scope boxes (S1 / S2 / S3) ----
     {
-      const yRef = { value: y };
-      paragraph(page, 'Includes emissions from combustion of diesel, petrol and gas in company-operated vehicles or equipment.', 50, 480, 11, yRef);
-      y = yRef.value;
-    }
-
-    y -= 10;
-
-    // ---- Scope 2 ----
-    page.drawText(
-      `Scope 2 (purchased electricity): ${scope2_t.toFixed(2)} tCO2e`,
-      { x: 50, y, size: 12, font, color: TEXT }
-    );
-    y -= 16;
-
-    {
-      const yRef = { value: y };
-      paragraph(page, `Calculated using national grid emission factors for ${countryName} (${ef.electricity} kg CO2e per kWh).`, 50, 480, 11, yRef);
-      y = yRef.value;
-    }
-
-    y -= 10;
-
-    // ---- Scope 3 ----
-    page.drawText(
-      `Scope 3 (selected categories): ${scope3_t.toFixed(2)} tCO2e`,
-      { x: 50, y, size: 12, font, color: TEXT }
-    );
-    y -= 16;
-
-    {
-      const yRef = { value: y };
-      paragraph(page, 'Scope 3 values represent only categories recorded in Greenio. This is not a complete Scope 3 inventory.', 50, 480, 11, yRef);
-      y = yRef.value;
+      const scopeBoxDefs = [
+        {
+          label: 'Scope 1: Direct fuel emissions',
+          value: `${scope1_t.toFixed(2)} tCO2e`,
+          desc: 'Includes emissions from combustion of diesel, petrol and gas in company-operated vehicles or equipment.',
+          leftBg: rgb(0.84, 0.93, 0.86),
+          rightBg: rgb(0.93, 0.97, 0.94),
+        },
+        {
+          label: 'Scope 2: Purchased electricity',
+          value: `${scope2_t.toFixed(2)} tCO2e`,
+          desc: `Calculated using national grid emission factors for ${countryName} (${ef.electricity} kg CO2e per kWh).`,
+          leftBg: rgb(0.84, 0.91, 0.98),
+          rightBg: rgb(0.93, 0.95, 0.99),
+        },
+        {
+          label: 'Scope 3: Selected categories',
+          value: `${scope3_t.toFixed(2)} tCO2e`,
+          desc: 'Scope 3 values represent only categories recorded in Greenio. This is not a complete Scope 3 inventory.',
+          leftBg: rgb(0.97, 0.93, 0.84),
+          rightBg: rgb(0.99, 0.97, 0.93),
+        },
+      ];
+      const sBoxH = 54;
+      const sLeftW = 148;
+      const sDescX = 45 + sLeftW + 10;
+      const sDescMaxW = 510 - sLeftW - 18;
+      for (const sb of scopeBoxDefs) {
+        page.drawRectangle({ x: 45 + sLeftW, y: y - sBoxH, width: 510 - sLeftW, height: sBoxH, color: sb.rightBg });
+        page.drawRectangle({ x: 45, y: y - sBoxH, width: sLeftW, height: sBoxH, color: sb.leftBg });
+        page.drawText(sb.label, { x: 52, y: y - 14, size: 8.5, font: bold, color: TEXT });
+        page.drawText(sb.value, { x: 52, y: y - 32, size: 13, font: bold, color: BLUE });
+        const descWords = sb.desc.split(' ');
+        let descLine = '';
+        let descLineY = y - 14;
+        for (const dw of descWords) {
+          const test = descLine ? descLine + ' ' + dw : dw;
+          if (font.widthOfTextAtSize(test, 9.5) > sDescMaxW) {
+            page.drawText(descLine, { x: sDescX, y: descLineY, size: 9.5, font, color: TEXT });
+            descLineY -= 14;
+            descLine = dw;
+          } else {
+            descLine = test;
+          }
+        }
+        if (descLine) page.drawText(descLine, { x: sDescX, y: descLineY, size: 9.5, font, color: TEXT });
+        y -= sBoxH + 6;
+      }
     }
 
     // Add spacing before table
@@ -976,21 +965,21 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
 
     page.drawText('Category', {
       x: 55,
-      y: y - 6,
+      y: y - 10,
       size: 11,
       font: bold,
       color: rgb(1, 1, 1),
     });
     page.drawText('Emissions (tCO2e)', {
       x: 210,
-      y: y - 6,
+      y: y - 10,
       size: 11,
       font: bold,
       color: rgb(1, 1, 1),
     });
     page.drawText('Share (%)', {
       x: 380,
-      y: y - 6,
+      y: y - 10,
       size: 11,
       font: bold,
       color: rgb(1, 1, 1),
@@ -1011,9 +1000,9 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
         y = 780;
         // Repeat table header on the new page
         page.drawRectangle({ x: 45, y: y - 18, width: 510, height: 22, color: rgb(0, 0, 0) });
-        page.drawText('Category',           { x: 55,  y: y - 6, size: 11, font: bold, color: rgb(1, 1, 1) });
-        page.drawText('Emissions (tCO2e)',  { x: 210, y: y - 6, size: 11, font: bold, color: rgb(1, 1, 1) });
-        page.drawText('Share (%)',          { x: 380, y: y - 6, size: 11, font: bold, color: rgb(1, 1, 1) });
+        page.drawText('Category',           { x: 55,  y: y - 10, size: 11, font: bold, color: rgb(1, 1, 1) });
+        page.drawText('Emissions (tCO2e)',  { x: 210, y: y - 10, size: 11, font: bold, color: rgb(1, 1, 1) });
+        page.drawText('Share (%)',          { x: 380, y: y - 10, size: 11, font: bold, color: rgb(1, 1, 1) });
         y -= 26;
       }
 
@@ -1029,7 +1018,8 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
       });
       s3AltShade = !s3AltShade;
 
-      page.drawText(r.category, {
+      const catLabel = (r.category ?? '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+      page.drawText(catLabel, {
         x: 55,
         y: y - 5,
         size: 11,
@@ -1094,134 +1084,98 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
       y = 780;
     }
 
-    // ---- SECR ----
+    // ---- Energy and emissions summary (table) ----
     page.drawText(isGB ? 'SECR summary' : 'Energy and emissions summary', {
-      x: 50,
-      y,
-      size: 12,
-      font: bold,
-      color: TEXT,
+      x: 50, y, size: 12, font: bold, color: TEXT,
     });
     y -= 22;
 
-    page.drawText(`Electricity: ${totalElecKwh.toFixed(0)} kWh`, {
-      x: 50,
-      y,
-      size: 11,
-      font,
-      color: TEXT,
-    });
-    y -= 16;
+    {
+      page.drawRectangle({ x: 45, y: y - 18, width: 510, height: 22, color: rgb(0, 0, 0) });
+      page.drawText('Source', { x: 55, y: y - 10, size: 10, font: bold, color: rgb(1, 1, 1) });
+      page.drawText('Value', { x: 360, y: y - 10, size: 10, font: bold, color: rgb(1, 1, 1) });
+      y -= 26;
 
-    page.drawText(
-      `Road fuels: ${(totalDieselLitres * 10.9 + totalPetrolLitres * 9.4 + totalGasKwh).toFixed(0)} kWh`,
-      {
-        x: 50,
-        y,
-        size: 11,
-        font,
-        color: TEXT,
+      const fuelKwhE = totalDieselLitres * 10.9 + totalPetrolLitres * 9.4 + totalGasKwh;
+      const totalEnergyE = totalElecKwh + fuelKwhE;
+      const totalCO2E = scope1_t + scope2_t + scope3_t;
+      const energyTableRows: Array<{ label: string; value: string; isBold?: boolean; isHighlight?: boolean }> = [
+        { label: 'Electricity', value: `${Math.round(totalElecKwh).toLocaleString()} kWh` },
+        { label: 'Road fuels', value: `${Math.round(fuelKwhE).toLocaleString()} kWh` },
+        { label: 'Total energy', value: `${Math.round(totalEnergyE).toLocaleString()} kWh`, isBold: true },
+        { label: 'Scope 1', value: `${scope1_t.toFixed(2)} tCO2e` },
+        { label: 'Scope 2', value: `${scope2_t.toFixed(2)} tCO2e` },
+        { label: 'Scope 3', value: `${scope3_t.toFixed(2)} tCO2e` },
+        { label: 'Total GHG', value: `${totalCO2E.toFixed(2)} tCO2e`, isBold: true, isHighlight: true },
+      ];
+      let eShade = false;
+      for (const row of energyTableRows) {
+        const bg = row.isHighlight ? rgb(0.92, 0.96, 0.92) : eShade ? rgb(0.96, 0.96, 0.97) : rgb(0.99, 0.99, 1);
+        page.drawRectangle({ x: 45, y: y - 18, width: 510, height: 22, color: bg });
+        page.drawLine({ start: { x: 45, y: y - 18 }, end: { x: 555, y: y - 18 }, thickness: 0.3, color: rgb(0.87, 0.87, 0.87) });
+        page.drawText(row.label, { x: 55, y: y - 6, size: 10, font: row.isBold ? bold : font, color: TEXT });
+        page.drawText(row.value, { x: 360, y: y - 6, size: 10, font: row.isBold ? bold : font, color: row.isHighlight ? BLUE : TEXT });
+        eShade = !eShade;
+        y -= 24;
       }
-    );
+    }
+
+    // ---- Page break guard before Intensity metrics (~155px needed) ----
+    let p3Label = `Greenio · ${reportLabel} · Page 3`;
+    if (y < 185) {
+      page.drawText(p3Label, { x: 180, y: 20, size: 9, font, color: TEXT });
+      page = pdf.addPage([595, 842]);
+      y = 780;
+      p3Label = `Greenio · ${reportLabel} · Page 3 (cont.)`;
+    }
+
+    // ---- INTENSITY METRICS (table) ----
     y -= 16;
-
-    page.drawText(
-      `Total energy: ${(totalElecKwh + totalDieselLitres * 10.9 + totalPetrolLitres * 9.4 + totalGasKwh).toFixed(0)} kWh`,
-      {
-        x: 50,
-        y,
-        size: 11,
-        font,
-        color: TEXT,
-      }
-    );
-
-    y -= 26;
-
-    page.drawText('GHG emissions:', {
-      x: 50,
-      y,
-      size: 11,
-      font: bold,
-      color: TEXT,
-    });
-
-    y -= 16;
-    page.drawText(`Scope 1: ${scope1_t.toFixed(2)} tCO2e`, {
-      x: 50,
-      y,
-      size: 11,
-      font,
-      color: TEXT,
-    });
-    y -= 16;
-
-    page.drawText(`Scope 2: ${scope2_t.toFixed(2)} tCO2e`, {
-      x: 50,
-      y,
-      size: 11,
-      font,
-      color: TEXT,
-    });
-    y -= 16;
-
-    page.drawText(`Scope 3: ${scope3_t.toFixed(2)} tCO2e`, {
-      x: 50,
-      y,
-      size: 11,
-      font,
-      color: TEXT,
-    });
-    y -= 16;
-
-    page.drawText(
-      `Total: ${(scope1_t + scope2_t + scope3_t).toFixed(2)} tCO2e`,
-      {
-        x: 50,
-        y,
-        size: 11,
-        font,
-        color: TEXT,
-      }
-    );
-
-    // ---- INTENSITY METRICS ----
-    y -= 28;
 
     page.drawText('Intensity metrics', {
-      x: 50,
-      y,
-      size: 12,
-      font: bold,
-      color: TEXT,
+      x: 50, y, size: 12, font: bold, color: TEXT,
     });
-    y -= 20;
+    y -= 22;
 
-    if (empCount) {
-      page.drawText(`tCO2e per employee: ${(totalCO2kg / 1000 / empCount).toFixed(3)}`, { x: 50, y, size: 11, font, color: TEXT });
-      y -= 16;
-    }
+    {
+      page.drawRectangle({ x: 45, y: y - 18, width: 510, height: 22, color: rgb(0, 0, 0) });
+      page.drawText('Metric', { x: 55, y: y - 10, size: 10, font: bold, color: rgb(1, 1, 1) });
+      page.drawText('Value', { x: 360, y: y - 10, size: 10, font: bold, color: rgb(1, 1, 1) });
+      y -= 26;
 
-    if (revenue > 0) {
-      const perRevenue = totalCO2kg / 1000 / revenue;
-      const perRevenueStr = perRevenue < 0.001 ? perRevenue.toExponential(3) : perRevenue.toFixed(4);
-      page.drawText(`tCO2e per ${currencySymbol} revenue: ${perRevenueStr}`, { x: 50, y, size: 11, font, color: TEXT });
-      y -= 16;
-    }
-
-    if (outputUnits > 0) {
-      const perUnit = totalCO2kg / 1000 / outputUnits;
-      const perUnitStr = perUnit < 0.001 ? perUnit.toExponential(3) : perUnit.toFixed(4);
-      page.drawText(`tCO2e per output unit: ${perUnitStr}`, { x: 50, y, size: 11, font, color: TEXT });
-      y -= 16;
-    }
-
-    if (!empCount && revenue <= 0 && outputUnits <= 0) {
-      page.drawText('No intensity data available. Add employee count and revenue in your profile.', { x: 50, y, size: 10, font, color: rgb(0.5, 0.5, 0.52) });
-      y -= 14;
+      const intensityDefs: Array<{ label: string; value: string; available: boolean }> = [];
+      if (empCount) {
+        intensityDefs.push({ label: 'tCO2e per employee', value: `${(totalCO2kg / 1000 / empCount).toFixed(3)} tCO2e`, available: true });
+      } else {
+        intensityDefs.push({ label: 'tCO2e per employee', value: 'Not provided (add employee count)', available: false });
+      }
+      if (revenue > 0) {
+        const perRevenue = totalCO2kg / 1000 / revenue;
+        const perRevenueStr = perRevenue < 0.001 ? perRevenue.toExponential(3) : perRevenue.toFixed(6);
+        intensityDefs.push({ label: `tCO2e per ${currencySymbol} revenue`, value: `${perRevenueStr} tCO2e / ${currencySymbol}`, available: true });
+      } else {
+        intensityDefs.push({ label: `tCO2e per ${currencySymbol} revenue`, value: 'Not provided (add annual revenue)', available: false });
+      }
+      if (outputUnits > 0) {
+        const perUnit = totalCO2kg / 1000 / outputUnits;
+        const perUnitStr = perUnit < 0.001 ? perUnit.toExponential(3) : perUnit.toFixed(4);
+        intensityDefs.push({ label: 'tCO2e per output unit', value: `${perUnitStr} tCO2e`, available: true });
+      } else {
+        intensityDefs.push({ label: 'tCO2e per output unit', value: 'Not provided', available: false });
+      }
+      let iShade = false;
+      for (const row of intensityDefs) {
+        const bg = iShade ? rgb(0.96, 0.96, 0.97) : rgb(0.99, 0.99, 1);
+        page.drawRectangle({ x: 45, y: y - 18, width: 510, height: 22, color: bg });
+        page.drawLine({ start: { x: 45, y: y - 18 }, end: { x: 555, y: y - 18 }, thickness: 0.3, color: rgb(0.87, 0.87, 0.87) });
+        page.drawText(row.label, { x: 55, y: y - 6, size: 10, font, color: TEXT });
+        page.drawText(row.value, { x: 360, y: y - 6, size: 9.5, font, color: row.available ? TEXT : rgb(0.5, 0.5, 0.52) });
+        iShade = !iShade;
+        y -= 24;
+      }
     }
     // ---- FOOTER ----
-    page.drawText(`Greenio · ${reportLabel} · Page 3`, {
+    page.drawText(p3Label, {
       x: 180,
       y: 20,
       size: 9,
@@ -1346,15 +1300,11 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
 
     y -= 10;
 
-    // ---------------- TOP 3 RECOMMENDED ACTIONS ----------------
+    // ---------------- TOP 3 RECOMMENDED ACTIONS (table) ----------------
     page.drawText('Top 3 recommended actions', {
-      x: 50,
-      y,
-      size: 12,
-      font: bold,
-      color: TEXT,
+      x: 50, y, size: 12, font: bold, color: TEXT,
     });
-    y -= 26;
+    y -= 22;
 
     const actions =
       dominant === 'fuel'
@@ -1375,13 +1325,52 @@ page.drawText(`Greenio · ${reportLabel} · Page 1`, {
             'Embed sustainability requirements into procurement frameworks to influence supply-chain emissions.',
           ];
 
-    for (const a of actions) {
-      const yRef = { value: y };
-      paragraphText(page, font, TEXT, a, yRef);
-      y = yRef.value;
+    {
+      const AMBER_ACT = rgb(218 / 255, 128 / 255, 0 / 255);
+      const actImpacts = ['High', 'Medium', 'Medium'];
+      const actColNum = 55, actColAct = 88, actColImp = 460, actMaxW = 360;
+
+      // Table header — BLACK, matching all other tables
+      page.drawRectangle({ x: 45, y: y - 18, width: 510, height: 22, color: rgb(0, 0, 0) });
+      page.drawText('#', { x: actColNum, y: y - 10, size: 10, font: bold, color: rgb(1, 1, 1) });
+      page.drawText('Action', { x: actColAct, y: y - 10, size: 10, font: bold, color: rgb(1, 1, 1) });
+      page.drawText('Impact', { x: actColImp, y: y - 10, size: 10, font: bold, color: rgb(1, 1, 1) });
+      y -= 26;
+
+      let aShade = false;
+      for (let ai = 0; ai < actions.length; ai++) {
+        // Wrap action text within action column
+        const words = actions[ai].split(' ');
+        const aLines: string[] = [];
+        let aLine = '';
+        for (const w of words) {
+          const test = aLine ? aLine + ' ' + w : w;
+          if (font.widthOfTextAtSize(test, 10) > actMaxW) { if (aLine) aLines.push(aLine); aLine = w; } else { aLine = test; }
+        }
+        if (aLine) aLines.push(aLine);
+
+        const rowH = Math.max(22, aLines.length * 14 + 8);
+        const bg = aShade ? rgb(0.96, 0.96, 0.97) : rgb(0.99, 0.99, 1);
+        page.drawRectangle({ x: 45, y: y - rowH, width: 510, height: rowH, color: bg });
+        page.drawLine({ start: { x: 45, y: y - rowH }, end: { x: 555, y: y - rowH }, thickness: 0.3, color: rgb(0.87, 0.87, 0.87) });
+
+        const midY = y - Math.round(rowH / 2) + 3;
+        page.drawText(String(ai + 1), { x: actColNum, y: midY, size: 10, font, color: TEXT });
+
+        const textStartY = y - Math.round((rowH - aLines.length * 14) / 2) - 10;
+        for (let li = 0; li < aLines.length; li++) {
+          page.drawText(aLines[li], { x: actColAct, y: textStartY - li * 14, size: 10, font, color: TEXT });
+        }
+
+        const impColor = actImpacts[ai] === 'High' ? BLUE : AMBER_ACT;
+        page.drawText(actImpacts[ai], { x: actColImp, y: midY, size: 10, font: bold, color: impColor });
+
+        aShade = !aShade;
+        y -= rowH;
+      }
     }
 
-    y -= 10;
+    y -= 24;
 
     // ---------------- IMMEDIATE ACTIONS ----------------
     page.drawText('Immediate actions (0–6 months)', {
@@ -1524,7 +1513,7 @@ paragraphText(
   page,
   font,
   TEXT,
-  'The primary intensity ratio is tCO2e per employee, as it reflects organisational activity. Supplementary ratios—tCO2e per revenue unit and tCO2e per output unit—are included for transparency.',
+  'The primary intensity ratio is tCO2e per employee, as it reflects organisational activity. These include tCO2e per revenue unit and tCO2e per output unit.',
   yRef
 );
 
@@ -1700,7 +1689,7 @@ y -= 40;
 y -= 10;
 
 // --------------------------- SCOPE 1 ---------------------------
-page.drawText('Scope 1 — Direct emissions factors (fuel combustion)', {
+page.drawText('Scope 1: Direct emissions factors (fuel combustion)', {
   x: 50,
   y,
   size: 12,
@@ -1715,7 +1704,7 @@ page.drawText(`LPG: ${ef.gas > 0 ? (ef.gas * 29).toFixed(3) : '1.500'} kg CO2e p
 page.drawText(`Natural gas: ${ef.gas.toFixed(4)} kg CO2e per kWh`, { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
 
 // --------------------------- SCOPE 2 ---------------------------
-page.drawText('Scope 2 — Purchased electricity (location-based)', {
+page.drawText('Scope 2: Purchased electricity (location-based)', {
   x: 50,
   y,
   size: 12,
@@ -1743,7 +1732,7 @@ page.drawText(isGB ? 'Market-based factors are not used for SECR.' : 'Market-bas
 y -= 25;
 
 // --------------------------- SCOPE 3 ---------------------------
-page.drawText('Scope 3 — Selected categories', {
+page.drawText('Scope 3: Selected categories', {
   x: 50,
   y,
   size: 12,
@@ -1820,14 +1809,292 @@ page.drawText(`Greenio · ${reportLabel} · Page 6`, {
 });
 
 
+    // ========================= PAGE 7 — BRSR Disclosure Summary (India only) =========================
+    if (countryCode === 'IN') {
+      let brsrPageNum = 7;
+      page = pdf.addPage([595, 842]);
+      y = 780;
+
+      const AMBER_BADGE = rgb(218 / 255, 128 / 255, 0 / 255);
+      const BTL = 45;
+      const BTW = 510;
+      const BC1 = 55;
+      const BC2 = 325;  // value col start
+      const BC3 = 455;  // badge col start
+      const BADGE_W = 90;
+
+      // Pre-computed BRSR values
+      const bFuelKwh = totalDieselLitres * 10.9 + totalPetrolLitres * 9.4 + totalGasKwh;
+      const bTotalEnergyKwh = totalElecKwh + bFuelKwh;
+      const bTotalEnergyGJ = bTotalEnergyKwh * 0.0036;
+      const bTotalCO2t = scope1_t + scope2_t + scope3_t;
+      const bGhgPerRev = revenue > 0 ? bTotalCO2t / revenue : null;
+      const bEnergyPerRev = revenue > 0 ? bTotalEnergyGJ / revenue : null;
+      const bGhgPerEmp = empCount > 0 ? bTotalCO2t / empCount : null;
+      const bEnergyPerEmp = empCount > 0 ? bTotalEnergyGJ / empCount : null;
+      const bFmtI = (v: number) => v < 0.0001 ? v.toExponential(3) : v.toFixed(8);
+
+      // Word-wrap helper (shared for indicator and value columns)
+      const bWrap = (text: string, maxW: number, sz: number): string[] => {
+        const words = text.split(' ');
+        const lines: string[] = [];
+        let cur = '';
+        for (const w of words) {
+          const test = cur ? cur + ' ' + w : w;
+          if (font.widthOfTextAtSize(test, sz) > maxW) {
+            if (cur) lines.push(cur);
+            cur = w;
+          } else { cur = test; }
+        }
+        if (cur) lines.push(cur);
+        return lines;
+      };
+
+      // Page-break guard
+      const bEnsure = (needed: number) => {
+        if (y < 50 + needed) {
+          page.drawText(`Greenio · ${reportLabel} · Page ${brsrPageNum}`, { x: 180, y: 20, size: 9, font, color: TEXT });
+          page = pdf.addPage([595, 842]);
+          brsrPageNum++;
+          y = 780;
+        }
+      };
+
+      // Group header — uses BLUE (Greenio green) to match report accent, same feel as scope boxes
+      const bGroupHdr = (text: string) => {
+        bEnsure(50);
+        page.drawRectangle({ x: BTL, y: y - 18, width: BTW, height: 22, color: BLUE });
+        page.drawText(text, { x: BC1, y: y - 6, size: 8.5, font: bold, color: rgb(1, 1, 1) });
+        y -= 26;
+      };
+
+      // Data row — notes rendered INSIDE the row background rect (no floating text)
+      const bRow = (indicator: string, value: string, auto: boolean, note?: string) => {
+        const SZ = 8.5;
+        const NOTE_SZ = 7.5;
+        const NOTE_LH = 11;
+        const indLines = bWrap(indicator, BC2 - BC1 - 8, SZ);
+        const valLines = bWrap(value, BC3 - BC2 - 8, SZ);
+        const mainH = Math.max(22, Math.max(indLines.length, valLines.length) * 13 + 8);
+        const noteLines = note ? bWrap(note, 230, NOTE_SZ) : [];  // 230pt forces 2-line wrap for long notes
+        const rowH = mainH + (noteLines.length > 0 ? noteLines.length * NOTE_LH + 6 : 0);
+        bEnsure(rowH + 4);
+
+        // Full row rect (includes note area)
+        const rowBg = auto ? rgb(0.97, 0.99, 0.97) : rgb(0.99, 0.99, 1);
+        page.drawRectangle({ x: BTL, y: y - rowH, width: BTW, height: rowH, color: rowBg });
+        page.drawLine({ start: { x: BTL, y: y - rowH }, end: { x: BTL + BTW, y: y - rowH }, thickness: 0.3, color: rgb(0.87, 0.87, 0.87) });
+
+        // Indicator lines — vertically centred within mainH
+        const indStartY = y - Math.round((mainH - indLines.length * 13) / 2) - 10;
+        for (let li = 0; li < indLines.length; li++) {
+          page.drawText(indLines[li], { x: BC1, y: indStartY - li * 13, size: SZ, font, color: TEXT });
+        }
+
+        // Value lines — vertically centred within mainH
+        const valColor = auto ? BLUE : rgb(0.5, 0.5, 0.52);
+        const valStartY = y - Math.round((mainH - valLines.length * 13) / 2) - 10;
+        for (let vi = 0; vi < valLines.length; vi++) {
+          page.drawText(valLines[vi], { x: BC2, y: valStartY - vi * 13, size: SZ, font: auto ? bold : font, color: valColor });
+        }
+
+        // Badge — vertically centred within mainH
+        const badgeY = y - Math.round(mainH / 2) - 7;
+        page.drawRectangle({ x: BC3, y: badgeY, width: BADGE_W, height: 14, color: auto ? BLUE : AMBER_BADGE });
+        const badgeStr = auto ? 'Auto-filled' : 'Needs input';
+        const badgeStrW = bold.widthOfTextAtSize(badgeStr, 7.5);
+        page.drawText(badgeStr, { x: BC3 + Math.round((BADGE_W - badgeStrW) / 2), y: badgeY + 3, size: 7.5, font: bold, color: rgb(1, 1, 1) });
+
+        // Note lines — drawn INSIDE the row rect, below the main content area
+        if (noteLines.length > 0) {
+          let noteY = y - mainH - 9;
+          for (const nl of noteLines) {
+            page.drawText(nl, { x: BC1 + 4, y: noteY, size: NOTE_SZ, font, color: rgb(0.5, 0.5, 0.52) });
+            noteY -= NOTE_LH;
+          }
+        }
+
+        y -= rowH + 2;
+      };
+
+      // ---- PAGE HEADER — matches all other section pages ----
+      page.drawText('7. BRSR Disclosure Summary', { x: 50, y, size: 18, font: bold, color: TEXT });
+      page.drawLine({ start: { x: 50, y: y - 6 }, end: { x: 545, y: y - 6 }, thickness: 1, color: BLUE });
+      y -= 28;
+      page.drawText('SEBI BRSR | Essential Indicators (auto-populated from Greenio data)', { x: 50, y, size: 10, font, color: rgb(0.45, 0.45, 0.47) });
+      y -= 22;
+
+      // Intro text — inline draw to avoid closure color ambiguity
+      {
+        const bDark = rgb(0.15, 0.15, 0.17);
+        const introStr = 'The following disclosures are formatted in accordance with SEBI\'s Business Responsibility and Sustainability Report (BRSR) framework. Values are auto-populated directly from Greenio data. Fields marked "Needs input" require additional input from your organisation.';
+        const introWords2 = introStr.split(' ');
+        let introLine2 = '';
+        for (const iw of introWords2) {
+          const test = introLine2 ? introLine2 + ' ' + iw : iw;
+          if (font.widthOfTextAtSize(test, 10) > 495) {
+            page.drawText(introLine2.trim(), { x: 50, y, size: 10, font, color: bDark });
+            y -= 15;
+            introLine2 = iw;
+          } else { introLine2 = test; }
+        }
+        if (introLine2.trim()) { page.drawText(introLine2.trim(), { x: 50, y, size: 10, font, color: bDark }); y -= 15; }
+        y -= 10;
+      }
+
+      // Column headers — BLACK, matching all other tables in the report
+      page.drawRectangle({ x: BTL, y: y - 18, width: BTW, height: 22, color: rgb(0, 0, 0) });
+      page.drawText('BRSR Essential Indicator', { x: BC1, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
+      page.drawText('Disclosed Value', { x: BC2, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
+      page.drawText('Status', { x: BC3 + 15, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
+      y -= 26;
+
+      // ===== GHG EMISSIONS =====
+      bGroupHdr('Principle 6 | Environment: GHG Emissions (Essential Indicators)');
+      bRow('Total Scope 1 emissions (metric tonnes CO2e)', `${scope1_t.toFixed(2)} tCO2e`, true);
+      bRow('Total Scope 2 emissions (metric tonnes CO2e)', `${scope2_t.toFixed(2)} tCO2e`, true);
+      bRow('Total Scope 3 emissions: selected categories (metric tonnes CO2e)', `${scope3_t.toFixed(2)} tCO2e`, true, 'Scope 3 is partial. Full value-chain inventory recommended for BRSR Core.');
+      bRow('Total GHG emissions, Scope 1+2+3 (metric tonnes CO2e)', `${bTotalCO2t.toFixed(2)} tCO2e`, true);
+      if (bGhgPerRev !== null) {
+        bRow('GHG emission intensity per rupee of turnover (tCO2e / INR)', `${bFmtI(bGhgPerRev)} tCO2e / INR`, true, 'Update revenue to INR in your profile for highest accuracy.');
+      } else {
+        bRow('GHG emission intensity per rupee of turnover (tCO2e / INR)', 'Not calculable', false, 'Add annual revenue in your Greenio profile to auto-calculate.');
+      }
+      if (bGhgPerEmp !== null) {
+        bRow('GHG emission intensity per employee (tCO2e / employee)', `${bGhgPerEmp.toFixed(4)} tCO2e / emp`, true);
+      } else {
+        bRow('GHG emission intensity per employee (tCO2e / employee)', 'Not calculable', false, 'Add employee headcount in your Greenio profile to auto-calculate.');
+      }
+      y -= 4;
+
+      // ===== ENERGY CONSUMPTION =====
+      bGroupHdr('Principle 6 | Environment: Energy Consumption (Essential Indicators)');
+      bRow('Total electricity consumption (kWh)', `${Math.round(totalElecKwh).toLocaleString()} kWh`, true);
+      bRow('Total fuel consumption (kWh equivalent)', `${Math.round(bFuelKwh).toLocaleString()} kWh`, true);
+      bRow('Total energy consumption (kWh)', `${Math.round(bTotalEnergyKwh).toLocaleString()} kWh`, true);
+      bRow('Total energy consumption (GJ)', `${bTotalEnergyGJ.toFixed(2)} GJ`, true, `Converted: ${Math.round(bTotalEnergyKwh).toLocaleString()} kWh x 0.0036 = ${bTotalEnergyGJ.toFixed(2)} GJ`);
+      if (bEnergyPerRev !== null) {
+        bRow('Energy intensity per rupee of turnover (GJ / INR)', `${bFmtI(bEnergyPerRev)} GJ / INR`, true);
+      } else {
+        bRow('Energy intensity per rupee of turnover (GJ / INR)', 'Not calculable', false, 'Add annual revenue in your Greenio profile.');
+      }
+      if (bEnergyPerEmp !== null) {
+        bRow('Energy intensity per employee (GJ / employee)', `${bEnergyPerEmp.toFixed(4)} GJ / emp`, true);
+      } else {
+        bRow('Energy intensity per employee (GJ / employee)', 'Not calculable', false, 'Add employee headcount in your Greenio profile.');
+      }
+      y -= 8;
+
+      // ===== ADDITIONAL DISCLOSURES =====
+      bEnsure(200);
+      bGroupHdr('Principle 6 | Environment: Additional Disclosures');
+      bRow('GHG emission reduction projects (Y/N)', 'Not provided', false, 'Declare any emission-reduction projects, fleet transitions, or renewable energy initiatives.');
+      bRow('Percentage of renewable energy in total energy mix (%)', 'Not provided', false, 'Add renewable electricity data to your Greenio account.');
+      bRow('Scope of reporting (operational boundary)', 'India (operational control)', true);
+      const bMethStr = methodologyConfirmed ? 'Confirmed (DEFRA 2025 / CEA 2026 / IPCC AR6)' : 'Not confirmed';
+      bRow('Emission calculation methodology confirmed by organisation', bMethStr, methodologyConfirmed, methodologyConfirmed ? undefined : 'Confirm your calculation methodology in your Greenio profile.');
+      y -= 12;
+
+      // ===== BRSR COMPLETENESS SCORECARD =====
+      bEnsure(200);
+      page.drawText('BRSR Completeness Scorecard', { x: 50, y, size: 12, font: bold, color: TEXT });
+      y -= 22;
+
+      const bGhgAuto = 4 + (bGhgPerRev !== null ? 1 : 0) + (bGhgPerEmp !== null ? 1 : 0);
+      const bEnergyAuto = 4 + (bEnergyPerRev !== null ? 1 : 0) + (bEnergyPerEmp !== null ? 1 : 0);
+      const bAddlAuto = 1 + (methodologyConfirmed ? 1 : 0);
+      const bOverallAuto = bGhgAuto + bEnergyAuto + bAddlAuto;
+      const bOverallTotal = 16;
+
+      // Scorecard table header — BLACK, matching all other tables
+      page.drawRectangle({ x: BTL, y: y - 18, width: BTW, height: 22, color: rgb(0, 0, 0) });
+      page.drawText('Indicator group', { x: BC1, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
+      page.drawText('Auto-filled', { x: 310, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
+      page.drawText('Needs input', { x: 388, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
+      page.drawText('Completeness', { x: 462, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
+      y -= 26;
+
+      let bScoreShade = false;
+      const bScoreRow = (group: string, auto: number, total: number) => {
+        const pct = Math.round(auto / total * 100);
+        const bg = bScoreShade ? rgb(0.96, 0.96, 0.97) : rgb(0.99, 0.99, 1);
+        bScoreShade = !bScoreShade;
+        page.drawRectangle({ x: BTL, y: y - 18, width: BTW, height: 22, color: bg });
+        page.drawLine({ start: { x: BTL, y: y - 18 }, end: { x: BTL + BTW, y: y - 18 }, thickness: 0.3, color: rgb(0.87, 0.87, 0.87) });
+        page.drawText(group, { x: BC1, y: y - 7, size: 9, font, color: TEXT });
+        page.drawText(`${auto} / ${total}`, { x: 320, y: y - 7, size: 9, font, color: TEXT });
+        page.drawText(`${total - auto} / ${total}`, { x: 398, y: y - 7, size: 9, font, color: TEXT });
+        const pctColor = pct >= 80 ? BLUE : pct >= 50 ? AMBER_BADGE : rgb(0.72, 0.15, 0.05);
+        page.drawText(`${pct}%`, { x: 487, y: y - 7, size: 9, font: bold, color: pctColor });
+        y -= 24;
+      };
+      bScoreRow('GHG Emissions (Scope 1, 2, 3)', bGhgAuto, 6);
+      bScoreRow('Energy Consumption', bEnergyAuto, 6);
+      bScoreRow('Additional disclosures', bAddlAuto, 4);
+
+      // Overall row — light green highlight (matches "Total GHG" row in energy table)
+      const bOverallPct = Math.round(bOverallAuto / bOverallTotal * 100);
+      page.drawRectangle({ x: BTL, y: y - 18, width: BTW, height: 22, color: rgb(0.92, 0.96, 0.92) });
+      page.drawLine({ start: { x: BTL, y: y - 18 }, end: { x: BTL + BTW, y: y - 18 }, thickness: 0.3, color: rgb(0.87, 0.87, 0.87) });
+      page.drawText('Overall BRSR Essential Indicators', { x: BC1, y: y - 7, size: 9, font: bold, color: TEXT });
+      page.drawText(`${bOverallAuto} / ${bOverallTotal}`, { x: 320, y: y - 7, size: 9, font: bold, color: TEXT });
+      page.drawText(`${bOverallTotal - bOverallAuto} / ${bOverallTotal}`, { x: 398, y: y - 7, size: 9, font: bold, color: TEXT });
+      const bOvColor = bOverallPct >= 80 ? BLUE : bOverallPct >= 50 ? AMBER_BADGE : rgb(0.72, 0.15, 0.05);
+      page.drawText(`${bOverallPct}%`, { x: 487, y: y - 7, size: 10, font: bold, color: bOvColor });
+      y -= 30;
+
+      // Tip box — amber accent, matching report's warning style
+      bEnsure(70);
+      const bMissing: string[] = [];
+      if (!empCount) bMissing.push('employee headcount');
+      if (revenue <= 0) bMissing.push('annual revenue (INR)');
+      bMissing.push('renewable energy %');
+      bMissing.push('GHG reduction project declaration');
+      if (!methodologyConfirmed) bMissing.push('methodology confirmation');
+      const tipText = `To reach 100% BRSR completeness: Add (${bMissing.map((m, i) => `${i + 1}) ${m}`).join(', ')}) to your Greenio profile. All remaining indicators will auto-populate in your next report.`;
+      const tipLines = bWrap(tipText, 484, 8.5);
+      const tipH = tipLines.length * 13 + 16;
+      page.drawRectangle({ x: BTL, y: y - tipH, width: BTW, height: tipH, color: rgb(0.98, 0.97, 0.88) });
+      page.drawRectangle({ x: BTL, y: y - tipH, width: 4, height: tipH, color: AMBER_BADGE });
+      for (let ti = 0; ti < tipLines.length; ti++) {
+        page.drawText(tipLines[ti], { x: BC1 + 4, y: y - 12 - ti * 13, size: 8.5, font: ti === 0 ? bold : font, color: rgb(0.45, 0.35, 0) });
+      }
+      y -= tipH + 12;
+
+      // Disclaimer — inline draw
+      {
+        const bDark = rgb(0.15, 0.15, 0.17);
+        const discStr = 'This BRSR summary is based solely on data entered into Greenio and does not constitute third-party assurance. For BRSR Core (top 250 listed companies), independent assurance is required from a SEBI-registered provider.';
+        const discWords = discStr.split(' ');
+        let discLine = '';
+        for (const dw of discWords) {
+          const test = discLine ? discLine + ' ' + dw : dw;
+          if (font.widthOfTextAtSize(test, 8.5) > 495) {
+            page.drawText(discLine.trim(), { x: 50, y, size: 8.5, font, color: bDark });
+            y -= 13;
+            discLine = dw;
+          } else { discLine = test; }
+        }
+        if (discLine.trim()) { page.drawText(discLine.trim(), { x: 50, y, size: 8.5, font, color: bDark }); y -= 13; }
+      }
+
+      // Footer
+      page.drawText(`Greenio · ${reportLabel} · Page ${brsrPageNum}`, { x: 180, y: 20, size: 9, font, color: TEXT });
+    }
+
     // ========================= RETURN PDF =========================
     const pdfBytes = await pdf.save();
+
+    const safeCompany = companyName.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    const today = new Date();
+    const fileDate = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
+    const pdfFilename = `${safeCompany}-${fileDate}.pdf`;
 
     return new NextResponse(pdfBytes.buffer as ArrayBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': 'attachment; filename=carbon-report.pdf',
+        'Content-Disposition': `attachment; filename="${pdfFilename}"`,
       },
     });
   } catch (err) {

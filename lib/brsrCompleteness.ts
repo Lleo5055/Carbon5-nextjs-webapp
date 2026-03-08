@@ -112,7 +112,7 @@ export function computeBrsrCompleteness(
       key: 'water',
       label: 'At least one water entry',
       complete: emissions.hasWater,
-      linkTo: '/dashboard/emissions/water',
+      linkTo: '/dashboard/emissions',
       onlyIfEnabled: 'water',
     });
   }
@@ -122,7 +122,7 @@ export function computeBrsrCompleteness(
       key: 'waste',
       label: 'At least one waste entry',
       complete: emissions.hasWaste,
-      linkTo: '/dashboard/emissions/waste',
+      linkTo: '/dashboard/emissions',
       onlyIfEnabled: 'waste',
     });
   }

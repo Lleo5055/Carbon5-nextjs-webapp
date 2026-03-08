@@ -13,6 +13,7 @@ import { Suspense } from 'react';
 // FIX 1: Safe default Scope 3 key
 // --------------------------------
 const DEFAULT_SCOPE3 = 'business_travel';
+const INDIA_FLAGS_CACHE_KEY = 'greenio_india_flags_v1';
 
 const MONTHS = [
   'January',
@@ -191,6 +192,40 @@ function EmissionsPageInner() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // India-specific feature flags
+  const [isIndia, setIsIndia] = useState(false);
+  const [indiaWaterEnabled, setIndiaWaterEnabled] = useState(false);
+  const [indiaWasteEnabled, setIndiaWasteEnabled] = useState(false);
+  const [indiaAirEnabled, setIndiaAirEnabled] = useState(false);
+
+  // Water form state
+  const [waterOpen, setWaterOpen] = useState(false);
+  const [waterSourceType, setWaterSourceType] = useState('municipal');
+  const [waterWithdrawnKl, setWaterWithdrawnKl] = useState('');
+  const [waterConsumedKl, setWaterConsumedKl] = useState('');
+  const [waterDischargedKl, setWaterDischargedKl] = useState('');
+  const [waterDischargeDestination, setWaterDischargeDestination] = useState('');
+
+  // Waste form state
+  const [wasteOpen, setWasteOpen] = useState(false);
+  const [wasteTotalKg, setWasteTotalKg] = useState('');
+  const [wasteLandfillKg, setWasteLandfillKg] = useState('');
+  const [wasteRecycledKg, setWasteRecycledKg] = useState('');
+  const [wasteIncineratedKg, setWasteIncineratedKg] = useState('');
+  const [wasteHazardousKg, setWasteHazardousKg] = useState('');
+
+  // Air form state (annual FY)
+  const [airOpen, setAirOpen] = useState(false);
+  const [airFY, setAirFY] = useState<number>(() => {
+    const now = new Date();
+    return now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  });
+  const [airNox, setAirNox] = useState('');
+  const [airSox, setAirSox] = useState('');
+  const [airPm, setAirPm] = useState('');
+  const [airOtherName, setAirOtherName] = useState('');
+  const [airOtherTonnes, setAirOtherTonnes] = useState('');
   // -------------------------------
   // Load existing row when editing
   // -------------------------------
@@ -274,6 +309,50 @@ useEffect(() => {
     });
 }, [isEditMode, editingId]); // ✅ correct
 
+// Load India feature flags — instant from cache, then refresh from DB
+useEffect(() => {
+  // Paint immediately from sessionStorage cache
+  try {
+    const cached = sessionStorage.getItem(INDIA_FLAGS_CACHE_KEY);
+    if (cached) {
+      const flags = JSON.parse(cached);
+      if (flags.isIndia) {
+        setIsIndia(true);
+        setIndiaWaterEnabled(!!flags.waterEnabled);
+        setIndiaWasteEnabled(!!flags.wasteEnabled);
+        setIndiaAirEnabled(!!flags.airEnabled);
+      }
+    }
+  } catch {}
+
+  // Refresh from DB in background (getSession reads localStorage — no network round-trip)
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    const user = session?.user;
+    if (!user) return;
+    supabase
+      .from('profiles')
+      .select('country, india_water_enabled, india_waste_enabled, india_air_enabled')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        const india = data?.country === 'IN';
+        try {
+          sessionStorage.setItem(INDIA_FLAGS_CACHE_KEY, JSON.stringify({
+            isIndia: india,
+            waterEnabled: !!data?.india_water_enabled,
+            wasteEnabled: !!data?.india_waste_enabled,
+            airEnabled:   !!data?.india_air_enabled,
+          }));
+        } catch {}
+        if (india) {
+          setIsIndia(true);
+          setIndiaWaterEnabled(!!data!.india_water_enabled);
+          setIndiaWasteEnabled(!!data!.india_waste_enabled);
+          setIndiaAirEnabled(!!data!.india_air_enabled);
+        }
+      });
+  });
+}, []);
 
   // -------------------------------------------
   // FIX 2: Safe Scope 3 config + calc block
@@ -597,8 +676,129 @@ await supabase.from('edit_history').insert({
 }
 
 
-      const combinedMsg = `${scope12MessagePart}${scope3MessagePart}`.trim();
+      // ----------------------------------
+      // WATER (India only)
+      // ----------------------------------
+      if (isIndia && indiaWaterEnabled && waterOpen && waterWithdrawnKl) {
+        const wWithdrawn = Number(waterWithdrawnKl) || 0;
+        const WATER_EF = 0.344;
+        const waterCo2e = wWithdrawn * WATER_EF;
+        const periodMonth = MONTHS.indexOf(monthName) + 1;
+
+        const { data: existingWater } = await supabase
+          .from('water_entries')
+          .select('id')
+          .eq('account_id', user.id)
+          .eq('period_month', periodMonth)
+          .eq('period_year', year)
+          .maybeSingle();
+
+        const waterPayload = {
+          account_id: user.id,
+          period_month: periodMonth,
+          period_year: year,
+          source_type: waterSourceType,
+          volume_withdrawn_kl: wWithdrawn,
+          volume_consumed_kl: Number(waterConsumedKl) || null,
+          volume_discharged_kl: Number(waterDischargedKl) || null,
+          discharge_destination: waterDischargeDestination || null,
+          co2e_kg: waterCo2e,
+          ef_version: 'DEFRA_2024',
+          data_source: 'manual',
+        };
+
+        if (existingWater) {
+          const { error: we } = await supabase.from('water_entries').update(waterPayload).eq('id', existingWater.id);
+          if (we) throw we;
+        } else {
+          const { error: we } = await supabase.from('water_entries').insert(waterPayload);
+          if (we) throw we;
+        }
+      }
+
+      // ----------------------------------
+      // WASTE (India only)
+      // ----------------------------------
+      if (isIndia && indiaWasteEnabled && wasteOpen && wasteTotalKg) {
+        const wLandfill = Number(wasteLandfillKg) || 0;
+        const wTotal = Number(wasteTotalKg) || 0;
+        const WASTE_EF = 0.587;
+        // If landfill split not provided, use total as CO₂e basis
+        const wasteCo2e = (wLandfill > 0 ? wLandfill : wTotal) * WASTE_EF;
+        const periodMonth = MONTHS.indexOf(monthName) + 1;
+
+        const { data: existingWaste } = await supabase
+          .from('waste_entries')
+          .select('id')
+          .eq('account_id', user.id)
+          .eq('period_month', periodMonth)
+          .eq('period_year', year)
+          .maybeSingle();
+
+        const wastePayload = {
+          account_id: user.id,
+          period_month: periodMonth,
+          period_year: year,
+          total_kg: Number(wasteTotalKg) || 0,
+          landfill_kg: wLandfill || null,
+          recycled_kg: Number(wasteRecycledKg) || null,
+          incinerated_kg: Number(wasteIncineratedKg) || null,
+          hazardous_kg: Number(wasteHazardousKg) || null,
+          co2e_kg: wasteCo2e,
+          ef_version: 'DEFRA_2024',
+          data_source: 'manual',
+        };
+
+        if (existingWaste) {
+          const { error: wse } = await supabase.from('waste_entries').update(wastePayload).eq('id', existingWaste.id);
+          if (wse) throw wse;
+        } else {
+          const { error: wse } = await supabase.from('waste_entries').insert(wastePayload);
+          if (wse) throw wse;
+        }
+      }
+
+      // ----------------------------------
+      // AIR (India only, annual)
+      // ----------------------------------
+      if (isIndia && indiaAirEnabled && airOpen && (airNox || airSox || airPm)) {
+        const { data: existingAir } = await supabase
+          .from('air_emissions')
+          .select('id')
+          .eq('account_id', user.id)
+          .eq('period_year', airFY)
+          .maybeSingle();
+
+        const airPayload = {
+          account_id: user.id,
+          period_year: airFY,
+          nox_tonnes: airNox ? parseFloat(airNox) : null,
+          sox_tonnes: airSox ? parseFloat(airSox) : null,
+          pm_tonnes:  airPm  ? parseFloat(airPm)  : null,
+          other_pollutant_name:   airOtherName || null,
+          other_pollutant_tonnes: airOtherTonnes ? parseFloat(airOtherTonnes) : null,
+          data_source: 'manual',
+          created_by: user.id,
+        };
+
+        if (existingAir) {
+          const { error: ae } = await supabase.from('air_emissions').update(airPayload).eq('id', existingAir.id);
+          if (ae) throw ae;
+        } else {
+          const { error: ae } = await supabase.from('air_emissions').insert(airPayload);
+          if (ae) throw ae;
+        }
+      }
+
+      const waterSavedPart = (isIndia && indiaWaterEnabled && waterOpen && waterWithdrawnKl) ? 'Water saved. ' : '';
+      const wasteSavedPart = (isIndia && indiaWasteEnabled && wasteOpen && wasteTotalKg) ? 'Waste saved. ' : '';
+      const airSavedPart   = (isIndia && indiaAirEnabled && airOpen && (airNox || airSox || airPm)) ? `Air FY${String(airFY).slice(2)}–${String(airFY + 1).slice(2)} saved. ` : '';
+      const combinedMsg = `${scope12MessagePart}${scope3MessagePart}${waterSavedPart}${wasteSavedPart}${airSavedPart}`.trim();
       setMessage(combinedMsg || 'Saved.');
+      // Invalidate India env cache so view-emissions shows fresh data
+      if (waterSavedPart || wasteSavedPart || airSavedPart) {
+        try { sessionStorage.removeItem('greenio_india_env_v1'); } catch {}
+      }
 
       if (!isEditMode) {
         setElectricityKwh('');
@@ -1085,6 +1285,254 @@ await supabase.from('edit_history').insert({
               )}
             </div>
 
+            {/* Water (India only) */}
+            {isIndia && indiaWaterEnabled && (
+              <div className="pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setWaterOpen(!waterOpen)}
+                  className="flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-slate-500 hover:text-slate-700"
+                >
+                  <span>Water (optional)</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className={`w-3 h-3 transition-transform ${waterOpen ? 'rotate-180' : ''}`}><path fillRule="evenodd" d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" /></svg>
+                </button>
+                {waterOpen && (
+                  <div className="mt-3 space-y-3">
+                    <p className="text-[11px] text-slate-500">Record monthly water consumption for BRSR reporting.</p>
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-700 mb-1">Source type</label>
+                        <select
+                          value={waterSourceType}
+                          onChange={(e) => setWaterSourceType(e.target.value)}
+                          className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
+                        >
+                          <option value="municipal">Municipal / piped</option>
+                          <option value="groundwater">Groundwater</option>
+                          <option value="rainwater">Rainwater harvested</option>
+                          <option value="surface">Surface water</option>
+                          <option value="treated_wastewater">Treated wastewater</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-700 mb-1">Withdrawn (kL)</label>
+                        <input
+                          type="number" step="0.01" min="0"
+                          value={waterWithdrawnKl}
+                          onChange={(e) => setWaterWithdrawnKl(e.target.value)}
+                          className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
+                          placeholder="e.g. 500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-700 mb-1">Consumed (kL)</label>
+                        <input
+                          type="number" step="0.01" min="0"
+                          value={waterConsumedKl}
+                          onChange={(e) => setWaterConsumedKl(e.target.value)}
+                          className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
+                          placeholder="optional"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-700 mb-1">Discharged (kL)</label>
+                        <input
+                          type="number" step="0.01" min="0"
+                          value={waterDischargedKl}
+                          onChange={(e) => setWaterDischargedKl(e.target.value)}
+                          className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
+                          placeholder="optional"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-[11px] font-medium text-slate-700 mb-1">Discharge destination</label>
+                        <input
+                          type="text"
+                          value={waterDischargeDestination}
+                          onChange={(e) => setWaterDischargeDestination(e.target.value)}
+                          className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
+                          placeholder="e.g. municipal sewage, river (optional)"
+                        />
+                      </div>
+                    </div>
+                    {Number(waterWithdrawnKl) > 0 && (
+                      <div className="text-[11px] text-slate-600 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
+                        Estimated CO₂e: <span className="font-semibold">{(Number(waterWithdrawnKl) * 0.344).toFixed(1)} kg</span>
+                        <span className="text-slate-400 ml-2">(0.344 kg/kL · DEFRA 2024)</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Waste (India only) */}
+            {isIndia && indiaWasteEnabled && (
+              <div className="pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setWasteOpen(!wasteOpen)}
+                  className="flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-slate-500 hover:text-slate-700"
+                >
+                  <span>Waste (optional)</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className={`w-3 h-3 transition-transform ${wasteOpen ? 'rotate-180' : ''}`}><path fillRule="evenodd" d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" /></svg>
+                </button>
+                {wasteOpen && (
+                  <div className="mt-3 space-y-3">
+                    <p className="text-[11px] text-slate-500">Record monthly waste disposal for BRSR reporting. CO₂e is calculated on landfilled waste only.</p>
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-700 mb-1">Total waste (kg)</label>
+                        <input
+                          type="number" step="0.01" min="0"
+                          value={wasteTotalKg}
+                          onChange={(e) => setWasteTotalKg(e.target.value)}
+                          className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
+                          placeholder="e.g. 200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-700 mb-1">Landfilled (kg)</label>
+                        <input
+                          type="number" step="0.01" min="0"
+                          value={wasteLandfillKg}
+                          onChange={(e) => setWasteLandfillKg(e.target.value)}
+                          className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
+                          placeholder="e.g. 80"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-700 mb-1">Recycled (kg)</label>
+                        <input
+                          type="number" step="0.01" min="0"
+                          value={wasteRecycledKg}
+                          onChange={(e) => setWasteRecycledKg(e.target.value)}
+                          className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
+                          placeholder="optional"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-700 mb-1">Incinerated (kg)</label>
+                        <input
+                          type="number" step="0.01" min="0"
+                          value={wasteIncineratedKg}
+                          onChange={(e) => setWasteIncineratedKg(e.target.value)}
+                          className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
+                          placeholder="optional"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-700 mb-1">Hazardous (kg)</label>
+                        <input
+                          type="number" step="0.01" min="0"
+                          value={wasteHazardousKg}
+                          onChange={(e) => setWasteHazardousKg(e.target.value)}
+                          className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
+                          placeholder="optional"
+                        />
+                      </div>
+                    </div>
+                    {(Number(wasteLandfillKg) > 0 || Number(wasteTotalKg) > 0) && (
+                      <div className="text-[11px] text-slate-600 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
+                        Estimated CO₂e: <span className="font-semibold">{((Number(wasteLandfillKg) > 0 ? Number(wasteLandfillKg) : Number(wasteTotalKg)) * 0.587).toFixed(1)} kg</span>
+                        <span className="text-slate-400 ml-2">{Number(wasteLandfillKg) > 0 ? '(0.587 kg/kg landfill · DEFRA 2024)' : '(0.587 kg/kg total · landfill assumed · DEFRA 2024)'}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Air (India only, annual) */}
+            {isIndia && indiaAirEnabled && (
+              <div className="pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setAirOpen(!airOpen)}
+                  className="flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-slate-500 hover:text-slate-700"
+                >
+                  <span>Air emissions (optional · annual)</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className={`w-3 h-3 transition-transform ${airOpen ? 'rotate-180' : ''}`}><path fillRule="evenodd" d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" /></svg>
+                </button>
+                {airOpen && (
+                  <div className="mt-3 space-y-3">
+                    <p className="text-[11px] text-slate-500">Annual air pollutant disclosure for BRSR Principle 6. No CO₂e — raw tonnes only.</p>
+                    <div className="flex items-center gap-3">
+                      <label className="text-[11px] font-medium text-slate-700">Financial year</label>
+                      <div className="flex items-center gap-1 text-xs font-medium text-slate-800">
+                        <span>FY</span>
+                        <input
+                          type="number"
+                          value={airFY}
+                          onChange={(e) => setAirFY(Number(e.target.value) || airFY)}
+                          className="w-20 border rounded-lg px-2 py-1.5 text-xs bg-white"
+                          min={2020}
+                          max={2040}
+                        />
+                        <span>– {String(airFY + 1).slice(2)}</span>
+                      </div>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-700 mb-1">NOx (tonnes)</label>
+                        <input
+                          type="number" step="0.001" min="0"
+                          value={airNox}
+                          onChange={(e) => setAirNox(e.target.value)}
+                          className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
+                          placeholder="e.g. 0.5"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-700 mb-1">SOx (tonnes)</label>
+                        <input
+                          type="number" step="0.001" min="0"
+                          value={airSox}
+                          onChange={(e) => setAirSox(e.target.value)}
+                          className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
+                          placeholder="e.g. 0.2"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-700 mb-1">Particulate matter / PM (tonnes)</label>
+                        <input
+                          type="number" step="0.001" min="0"
+                          value={airPm}
+                          onChange={(e) => setAirPm(e.target.value)}
+                          className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
+                          placeholder="e.g. 0.1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-700 mb-1">Other pollutant name</label>
+                        <input
+                          type="text"
+                          value={airOtherName}
+                          onChange={(e) => setAirOtherName(e.target.value)}
+                          className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
+                          placeholder="e.g. CO, VOC (optional)"
+                        />
+                      </div>
+                      {airOtherName && (
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-700 mb-1">{airOtherName} (tonnes)</label>
+                          <input
+                            type="number" step="0.001" min="0"
+                            value={airOtherTonnes}
+                            onChange={(e) => setAirOtherTonnes(e.target.value)}
+                            className="w-full border rounded-lg px-3 py-2 text-xs bg-white"
+                            placeholder="e.g. 0.05"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-slate-400">From annual stack tests, CPCB compliance reports or environmental audits. One entry per financial year.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Messages */}
             {(error || message) && (
               <div className="text-xs">
@@ -1112,8 +1560,8 @@ await supabase.from('edit_history').insert({
                 {loading
                   ? 'Saving…'
                   : isEditMode
-                  ? 'Update month'
-                  : 'Save month'}
+                  ? 'Update emissions'
+                  : 'Save emissions'}
               </button>
             </div>
           </form>

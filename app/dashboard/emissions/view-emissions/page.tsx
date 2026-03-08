@@ -16,6 +16,7 @@ import { logActivity } from '../../../../lib/logActivity';
 
 import RowActionsClient from './RowActionsClient';
 const EMISSIONS_CACHE_KEY = 'view_emissions_report_v1';
+const INDIA_ENV_CACHE_KEY  = 'greenio_india_env_v1';
 
 
 type ReportMonth = {
@@ -199,7 +200,7 @@ async function getEmissionsReport(
   const db = supabase;
 console.log('[VIEW-EMISSIONS] getEmissionsReport START');
 
-const { data: sessionData } = await supabase.auth.getSession();
+await supabase.auth.getSession();
 
   const { data, error } = await db
     .from('emissions')
@@ -576,6 +577,8 @@ function MonthlyTrendChart({ months }: { months: ReportMonth[] }) {
   );
 }
 
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
 /* ---------- MAIN PAGE ---------- */
 interface Props {
   searchParams?: {
@@ -622,6 +625,10 @@ const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
 
 const [userId, setUserId] = useState<string | null>(null);
+const [isIndia, setIsIndia] = useState(false);
+const [waterRows, setWaterRows] = useState<any[]>([]);
+const [wasteRows, setWasteRows] = useState<any[]>([]);
+const [airRows, setAirRows] = useState<any[]>([]);
 const [snapshotLoading, setSnapshotLoading] = useState(false);
 const [freeReportUsed, setFreeReportUsed] = useState(false);
 // -----------------------------
@@ -669,6 +676,65 @@ useEffect(() => {
   supabase.auth.getSession().then(({ data: { session } }) => {
     setUserId(session?.user?.id ?? null);
   });
+}, []);
+
+// Load India env data — instant from cache, refresh from DB independently
+useEffect(() => {
+  let mounted = true;
+
+  // Paint immediately from sessionStorage
+  try {
+    const cached = sessionStorage.getItem(INDIA_ENV_CACHE_KEY);
+    if (cached) {
+      const { isIndia: ci, waterRows: w, wasteRows: ws, airRows: a } = JSON.parse(cached);
+      if (ci) {
+        setIsIndia(true);
+        setWaterRows(w ?? []);
+        setWasteRows(ws ?? []);
+        setAirRows(a ?? []);
+      }
+    }
+  } catch {}
+
+  // Refresh from DB — getSession reads localStorage, no network round-trip
+  async function loadIndia() {
+    const { data: { session } } = await supabase.auth.getSession();
+    const uid = session?.user?.id;
+    if (!uid || !mounted) return;
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('country, india_water_enabled, india_waste_enabled, india_air_enabled')
+      .eq('id', uid)
+      .maybeSingle();
+    if (!mounted || profile?.country !== 'IN') return;
+
+    setIsIndia(true);
+    const [water, waste, air] = await Promise.all([
+      profile.india_water_enabled
+        ? supabase.from('water_entries').select('*').eq('account_id', uid).order('period_year', { ascending: true }).order('period_month', { ascending: true })
+        : Promise.resolve({ data: [] as any[] }),
+      profile.india_waste_enabled
+        ? supabase.from('waste_entries').select('*').eq('account_id', uid).order('period_year', { ascending: true }).order('period_month', { ascending: true })
+        : Promise.resolve({ data: [] as any[] }),
+      profile.india_air_enabled
+        ? supabase.from('air_emissions').select('*').eq('account_id', uid).order('period_year', { ascending: false })
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
+    if (!mounted) return;
+
+    const w = water.data ?? [];
+    const ws = waste.data ?? [];
+    const a = air.data ?? [];
+    setWaterRows(w);
+    setWasteRows(ws);
+    setAirRows(a);
+    try {
+      sessionStorage.setItem(INDIA_ENV_CACHE_KEY, JSON.stringify({ isIndia: true, waterRows: w, wasteRows: ws, airRows: a }));
+    } catch {}
+  }
+  loadIndia();
+  return () => { mounted = false; };
 }, []);
 
 // Seed plan + free report limit from sessionStorage for instant UI on revisit
@@ -787,8 +853,7 @@ useEffect(() => {
   // -----------------------------
   // REMAINING LOGIC (unchanged)
   // -----------------------------
-  const { totalElecKwh, totalDieselLitres, totalPetrolLitres, totalGasKwh } =
-    totals;
+  const { totalDieselLitres, totalPetrolLitres, totalGasKwh } = totals;
 
   const {
     electricitySharePercent,
@@ -1029,7 +1094,8 @@ useEffect(() => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'leadership-snapshot.pdf';
+      const snapshotCompany = (profile?.company_name ?? 'Greenio').replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      a.download = `${snapshotCompany}-snapshot.pdf`;
       a.click();
       URL.revokeObjectURL(url);
       logActivity('snapshot', 'report', { period: report.periodLabel });
@@ -1630,6 +1696,125 @@ useEffect(() => {
                 </div>
               )}
             </section>
+
+            {/* ============================== */}
+            {/* SECTION C — PRINCIPLE 6        */}
+            {/* ============================== */}
+            {isIndia && (waterRows.length > 0 || wasteRows.length > 0 || airRows.length > 0) && (
+              <section className="rounded-xl bg-white border p-6 shadow">
+                <div className="mb-5">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-emerald-700 font-semibold">BRSR — Section C</p>
+                  <h2 className="text-sm font-semibold text-slate-900 mt-0.5">Principle 6: Environmental Responsibility</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Water, Waste and Air data for BRSR reporting. Not included in CO₂e totals above.</p>
+                </div>
+
+                {/* WATER */}
+                {waterRows.length > 0 && (
+                  <div className="mb-6">
+                    <p className="text-[11px] font-semibold text-slate-700 mb-2">Water consumption</p>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-slate-50">
+                          <tr>
+                            <th className="p-2 text-left">Period</th>
+                            <th className="p-2 text-left">Source</th>
+                            <th className="p-2 text-left">Withdrawn (kL)</th>
+                            <th className="p-2 text-left">Consumed (kL)</th>
+                            <th className="p-2 text-left">Discharged (kL)</th>
+                            <th className="p-2 text-left">CO₂e (kg)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {waterRows.map((row, i) => (
+                            <tr key={row.id ?? i} className="border-b last:border-0 border-[rgb(240,240,240)]">
+                              <td className="p-2 font-medium text-slate-900">{MONTHS_SHORT[(row.period_month ?? 1) - 1]} {row.period_year}</td>
+                              <td className="p-2 capitalize text-slate-600">{(row.source_type ?? 0).replace(/_/g, ' ')}</td>
+                              <td className="p-2">{row.volume_withdrawn_kl?.toLocaleString() ?? 0}</td>
+                              <td className="p-2">{row.volume_consumed_kl?.toLocaleString() ?? 0}</td>
+                              <td className="p-2">{row.volume_discharged_kl?.toLocaleString() ?? 0}</td>
+                              <td className="p-2 font-medium">{row.co2e_kg?.toFixed(1) ?? 0}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* WASTE */}
+                {wasteRows.length > 0 && (
+                  <div className="mb-6">
+                    <p className="text-[11px] font-semibold text-slate-700 mb-2">Waste disposal</p>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-slate-50">
+                          <tr>
+                            <th className="p-2 text-left">Period</th>
+                            <th className="p-2 text-left">Total (kg)</th>
+                            <th className="p-2 text-left">Landfill (kg)</th>
+                            <th className="p-2 text-left">Recycled (kg)</th>
+                            <th className="p-2 text-left">Incinerated (kg)</th>
+                            <th className="p-2 text-left">Hazardous (kg)</th>
+                            <th className="p-2 text-left">CO₂e (kg)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {wasteRows.map((row, i) => (
+                            <tr key={row.id ?? i} className="border-b last:border-0 border-[rgb(240,240,240)]">
+                              <td className="p-2 font-medium text-slate-900">{MONTHS_SHORT[(row.period_month ?? 1) - 1]} {row.period_year}</td>
+                              <td className="p-2">{row.total_kg?.toLocaleString() ?? 0}</td>
+                              <td className="p-2">{row.landfill_kg?.toLocaleString() ?? 0}</td>
+                              <td className="p-2">{row.recycled_kg?.toLocaleString() ?? 0}</td>
+                              <td className="p-2">{row.incinerated_kg?.toLocaleString() ?? 0}</td>
+                              <td className="p-2">{row.hazardous_kg?.toLocaleString() ?? 0}</td>
+                              <td className="p-2 font-medium">{row.co2e_kg?.toFixed(1) ?? 0}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* AIR */}
+                {airRows.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-semibold text-slate-700 mb-2">Air emissions (annual)</p>
+                    <div className="overflow-x-auto">
+                      <table className="text-xs" style={{ tableLayout: 'fixed', width: '100%' }}>
+                        <colgroup>
+                          <col style={{ width: '20%' }} />
+                          <col style={{ width: '20%' }} />
+                          <col style={{ width: '20%' }} />
+                          <col style={{ width: '20%' }} />
+                          <col style={{ width: '20%' }} />
+                        </colgroup>
+                        <thead className="bg-slate-50">
+                          <tr>
+                            <th className="p-2 text-left">FY</th>
+                            <th className="p-2 text-left">NOx (t)</th>
+                            <th className="p-2 text-left">SOx (t)</th>
+                            <th className="p-2 text-left">PM (t)</th>
+                            <th className="p-2 text-left">Other</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {airRows.map((row, i) => (
+                            <tr key={row.id ?? i} className="border-b last:border-0 border-[rgb(240,240,240)]">
+                              <td className="p-2 font-medium text-slate-900">FY {row.period_year}–{String(row.period_year + 1).slice(2)}</td>
+                              <td className="p-2">{row.nox_tonnes ?? 0}</td>
+                              <td className="p-2">{row.sox_tonnes ?? 0}</td>
+                              <td className="p-2">{row.pm_tonnes ?? 0}</td>
+                              <td className="p-2">{row.other_pollutant_name ? `${row.other_pollutant_name}: ${row.other_pollutant_tonnes ?? 0} t` : '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
           </>
         )}
       </div>
