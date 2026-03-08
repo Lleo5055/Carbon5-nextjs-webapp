@@ -332,12 +332,14 @@ export default function BrsrProfilePage() {
 
 // ── India feature toggles component ───────────────────────────────────────────
 
+type IndiaFlags = {
+  india_water_enabled: boolean;
+  india_waste_enabled: boolean;
+  india_air_enabled: boolean;
+};
+
 function IndiaToggles() {
-  const [flags, setFlags] = useState<{
-    india_water_enabled: boolean;
-    india_waste_enabled: boolean;
-    india_air_enabled: boolean;
-  } | null>(null);
+  const [flags, setFlags] = useState<IndiaFlags | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -358,7 +360,7 @@ function IndiaToggles() {
     load();
   }, []);
 
-  async function toggle(key: keyof typeof flags, value: boolean) {
+  async function toggle(key: keyof IndiaFlags, value: boolean) {
     if (!flags) return;
     const next = { ...flags, [key]: value };
     setFlags(next);
