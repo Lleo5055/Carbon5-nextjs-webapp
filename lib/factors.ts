@@ -19,6 +19,7 @@ export type FactorSet = {
   diesel: number;
   petrol: number;
   gas: number;
+  lpg: number;
   refrigerants: Record<string, number>;
 };
 
@@ -46,6 +47,7 @@ export function getFactorsForCountry(countryCode: string): FactorSet {
     // calculateCo2e() receives gasKwh, so we convert here:
     // 1 kWh of natural gas ≈ 0.0344 m³ → factor per kWh = factor per m³ × 0.0344
     gas:          ef.naturalGasKgPerM3 * 0.0344,
+    lpg:          ef.lpgKgPerLitre,
     refrigerants: { ...ef.refrigerants },
   };
 }

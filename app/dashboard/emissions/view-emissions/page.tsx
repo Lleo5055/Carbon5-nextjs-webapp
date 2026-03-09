@@ -459,6 +459,8 @@ await supabase.auth.getSession();
 
 /* ---------- Trend Chart Component (unchanged) ---------- */
 function MonthlyTrendChart({ months }: { months: ReportMonth[] }) {
+  const [activeIdx, setActiveIdx] = useState<number | null>(null);
+
   if (!months || months.length === 0) {
     return (
       <div className="h-20 flex items-center justify-center text-[11px] text-slate-400">
@@ -499,8 +501,7 @@ function MonthlyTrendChart({ months }: { months: ReportMonth[] }) {
   const midY = padY + innerH / 2;
   const topY = padY;
 
-  const tooltipText = (m: ReportMonth) =>
-    `${m.monthLabel}: ${m.totalCo2eKg.toFixed(2)} kg CO₂e`;
+  const activeMonth = activeIdx !== null ? latest[activeIdx] : null;
 
   return (
     <div>
@@ -509,66 +510,46 @@ function MonthlyTrendChart({ months }: { months: ReportMonth[] }) {
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="none"
         className="text-emerald-700"
+        onMouseLeave={() => setActiveIdx(null)}
       >
         <rect width={width} height={height} rx={10} className="fill-slate-50" />
 
-        <line
-          x1={padX}
-          y1={topY}
-          x2={width - padX}
-          y2={topY}
-          className="stroke-slate-200/70"
-          strokeWidth={0.6}
-        />
-        <line
-          x1={padX}
-          y1={midY}
-          x2={width - padX}
-          y2={midY}
-          className="stroke-slate-200/80"
-          strokeWidth={0.6}
-          strokeDasharray="2 3"
-        />
-        <line
-          x1={padX}
-          y1={baselineY}
-          x2={width - padX}
-          y2={baselineY}
-          className="stroke-slate-200"
-          strokeWidth={0.8}
-        />
+        <line x1={padX} y1={topY} x2={width - padX} y2={topY} className="stroke-slate-200/70" strokeWidth={0.6} />
+        <line x1={padX} y1={midY} x2={width - padX} y2={midY} className="stroke-slate-200/80" strokeWidth={0.6} strokeDasharray="2 3" />
+        <line x1={padX} y1={baselineY} x2={width - padX} y2={baselineY} className="stroke-slate-200" strokeWidth={0.8} />
 
-        <polyline
-          points={points}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <polyline points={points} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
 
-        {latest.map((m) => {
-          const x = padX + latest.indexOf(m) * stepForPoints;
+        {latest.map((m, i) => {
+          const x = padX + i * stepForPoints;
           const y = padY + innerH - (m.totalCo2eKg / max) * innerH;
-
+          const isActive = activeIdx === i;
           return (
-            <g key={m.id}>
-              <circle
-                cx={x}
-                cy={y}
-                r={5}
-                fill="white"
-                stroke="currentColor"
-                strokeWidth={1.6}
-              >
-                <title>{tooltipText(m)}</title>
-              </circle>
+            <g key={m.id}
+              onMouseEnter={() => setActiveIdx(i)}
+              onTouchStart={(e) => { e.preventDefault(); setActiveIdx(activeIdx === i ? null : i); }}
+              style={{ cursor: 'pointer' }}
+            >
+              {/* Larger invisible hit area for touch */}
+              <circle cx={x} cy={y} r={16} fill="transparent" />
+              <circle cx={x} cy={y} r={isActive ? 6 : 5} fill="white" stroke="currentColor" strokeWidth={isActive ? 2.5 : 1.6} />
             </g>
           );
         })}
       </svg>
 
-      <div className="mt-2 flex justify-between text-[10px] text-slate-500">
+      {/* Tooltip bar — shown on hover (desktop) or tap (mobile) */}
+      <div className="mt-1 h-6 flex items-center justify-center">
+        {activeMonth ? (
+          <span className="text-[11px] font-medium text-slate-700 bg-slate-100 px-3 py-0.5 rounded-full">
+            {activeMonth.monthLabel}: {activeMonth.totalCo2eKg.toFixed(2)} kg CO₂e
+          </span>
+        ) : (
+          <span className="text-[10px] text-slate-400">Tap a dot for exact value</span>
+        )}
+      </div>
+
+      <div className="mt-1 flex justify-between text-[10px] text-slate-500">
         <span>{first}</span>
         <span>{mid}</span>
         <span>{last}</span>
@@ -625,6 +606,7 @@ const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
 
 const [userId, setUserId] = useState<string | null>(null);
+const [accessToken, setAccessToken] = useState<string | null>(null);
 const [isIndia, setIsIndia] = useState(false);
 const [waterRows, setWaterRows] = useState<any[]>([]);
 const [wasteRows, setWasteRows] = useState<any[]>([]);
@@ -675,6 +657,7 @@ useEffect(() => {
 useEffect(() => {
   supabase.auth.getSession().then(({ data: { session } }) => {
     setUserId(session?.user?.id ?? null);
+    setAccessToken(session?.access_token ?? null);
   });
 }, []);
 
@@ -1242,6 +1225,7 @@ useEffect(() => {
                     if (isFreePlan) setFreeReportUsed(true);
                   }}>
   <input type="hidden" name="userId" value={userId ?? ''} />
+  <input type="hidden" name="token" value={accessToken ?? ''} />
 
   <input
     type="hidden"
@@ -1470,7 +1454,7 @@ useEffect(() => {
                     Trend by month (CO₂e)
                   </h2>
                   <p className="mt-1 text-[11px] text-slate-500">
-                    Shows last 12 months. Hover dots for exact values.
+                    Shows last 12 months. Tap or hover a dot for exact values.
                   </p>
                   <div className="mt-4">
                     <MonthlyTrendChart months={months} />

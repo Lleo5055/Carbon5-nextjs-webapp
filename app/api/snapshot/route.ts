@@ -8,23 +8,23 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-// ── COLOURS ──
+// ── COLOURS — Greenio brand scheme ──
 const C = {
-  NAVY:    rgb(10/255,  25/255,  70/255),
-  ACCENT:  rgb(29/255,  78/255, 216/255),
-  SCOPE1:  rgb(220/255, 80/255,  20/255),
-  SCOPE2:  rgb(29/255,  78/255, 216/255),
-  SCOPE3:  rgb(109/255, 40/255, 217/255),
-  REFRIG:  rgb(5/255,  150/255, 105/255),
+  NAVY:    rgb(15/255,  55/255,  30/255),   // dark Greenio green (header)
+  ACCENT:  rgb(33/255, 140/255,  69/255),   // Greenio primary green
+  SCOPE1:  rgb(220/255, 80/255,  20/255),   // orange — fuel (kept distinct)
+  SCOPE2:  rgb(29/255,  78/255, 216/255),   // blue — electricity (kept distinct)
+  SCOPE3:  rgb(109/255, 40/255, 217/255),   // purple — value chain (kept distinct)
+  REFRIG:  rgb(5/255,  150/255, 105/255),   // teal — refrigerants (kept distinct)
   WHITE:   rgb(1, 1, 1),
-  BGCARD:  rgb(247/255, 249/255, 255/255),
-  DARK:    rgb(15/255,  23/255,  42/255),
-  MID:     rgb(71/255,  85/255, 105/255),
-  MUTED:   rgb(148/255,163/255, 184/255),
-  RULE:    rgb(220/255,230/255, 245/255),
-  GREEN:   rgb(5/255,  150/255,  90/255),
-  AMBER:   rgb(217/255,119/255,   6/255),
-  RED:     rgb(185/255, 28/255,  28/255),
+  BGCARD:  rgb(249/255, 251/255, 249/255),  // near-white with slight green tint
+  DARK:    rgb(15/255,  23/255,  42/255),   // dark charcoal text
+  MID:     rgb(71/255,  85/255,  90/255),   // mid grey-slate text
+  MUTED:   rgb(148/255,163/255, 160/255),   // muted grey text
+  RULE:    rgb(210/255, 225/255, 215/255),  // light grey-green borders
+  GREEN:   rgb(22/255, 120/255,  55/255),   // confirmed/positive green
+  AMBER:   rgb(217/255,119/255,   6/255),   // amber — warnings
+  RED:     rgb(185/255, 28/255,  28/255),   // red — alerts
 };
 
 const PW = 595; // page width
@@ -244,11 +244,11 @@ async function buildPdf(p: PdfInput): Promise<Uint8Array> {
   fillRect(page, 0, 782, PW, 60, C.NAVY);
   fillRect(page, 0, 782, 4, 60, C.ACCENT);
   label(page, "Leadership Snapshot", ML, 820, 21, bold, C.WHITE);
-  label(page, company, ML, 800, 9, font, rgb(180/255,200/255,240/255));
+  label(page, company, ML, 800, 9, font, rgb(160/255,210/255,175/255));
   const perStr = `Period: ${p.periodLabel}`;
-  label(page, perStr, MR - bold.widthOfTextAtSize(perStr, 8), 820, 8, bold, rgb(180/255,200/255,240/255));
+  label(page, perStr, MR - bold.widthOfTextAtSize(perStr, 8), 820, 8, bold, rgb(160/255,210/255,175/255));
   const metaStr = [p.industry, country].filter(Boolean).join("  |  ");
-  if (metaStr) label(page, metaStr, MR - font.widthOfTextAtSize(metaStr, 7.5), 800, 7.5, font, rgb(140/255,165/255,220/255));
+  if (metaStr) label(page, metaStr, MR - font.widthOfTextAtSize(metaStr, 7.5), 800, 7.5, font, rgb(130/255,185/255,150/255));
 
   // ── KPI CARDS ──
   const KPI_Y = 706; const KPI_H = 68; const KPI_W = (CW - 18) / 4;
@@ -402,7 +402,7 @@ async function buildPdf(p: PdfInput): Promise<Uint8Array> {
   bullets(page, font, bold, ML, 248, p.insights, CW);
 
   // ── FOOTER ──
-  fillRect(page, 0, 28, PW, 28, rgb(242/255,245/255,252/255));
+  fillRect(page, 0, 28, PW, 28, rgb(245/255,249/255,246/255));
   line(page, 0, 56, PW, 56, C.RULE, 0.5);
   const today = new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
   const FACTOR_LABELS: Record<string, string> = {
@@ -736,13 +736,13 @@ export async function GET(req: NextRequest) {
     fillRect(page, 0, 782, 4, 60, C.ACCENT); // left accent
 
     label(page, "Leadership Snapshot", ML, 820, 21, bold, C.WHITE);
-    label(page, company, ML, 800, 9, font, rgb(180/255,200/255,240/255));
+    label(page, company, ML, 800, 9, font, rgb(160/255,210/255,175/255));
 
     const perStr = `Period: ${periodLabel}`;
-    label(page, perStr, MR - bold.widthOfTextAtSize(perStr, 8), 820, 8, bold, rgb(180/255,200/255,240/255));
+    label(page, perStr, MR - bold.widthOfTextAtSize(perStr, 8), 820, 8, bold, rgb(160/255,210/255,175/255));
 
     const metaStr = [industry, country].filter(Boolean).join("  |  ");
-    if (metaStr) label(page, metaStr, MR - font.widthOfTextAtSize(metaStr, 7.5), 800, 7.5, font, rgb(140/255,165/255,220/255));
+    if (metaStr) label(page, metaStr, MR - font.widthOfTextAtSize(metaStr, 7.5), 800, 7.5, font, rgb(130/255,185/255,150/255));
 
     // ═══════════════════════════════════════════════
     // SECTION 2 — KPI CARDS  y=706–774  h=68
@@ -868,7 +868,7 @@ export async function GET(req: NextRequest) {
     // ═══════════════════════════════════════════════
     // SECTION 7 — FOOTER  y=28–56
     // ═══════════════════════════════════════════════
-    fillRect(page, 0, 28, PW, 28, rgb(242/255,245/255,252/255));
+    fillRect(page, 0, 28, PW, 28, rgb(245/255,249/255,246/255));
     line(page, 0, 56, PW, 56, C.RULE, 0.5);
     const today = new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
     label(page, `Generated: ${today}   |   Boundary: Operational Control   |   Factors: DEFRA 2025 / EU Eurostat 2026   |   Carbon5`,

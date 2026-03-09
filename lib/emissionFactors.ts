@@ -36,8 +36,8 @@ export interface CountryEmissionFactors {
   dieselKgPerLitre: number;
   /** kg CO₂e per litre of petrol (avg bio-blend) */
   petrolKgPerLitre: number;
-  /** kg CO₂e per kg of LPG */
-  lpgKgPerKg: number;
+  /** kg CO₂e per litre of LPG (DEFRA 2025) */
+  lpgKgPerLitre: number;
   /** Refrigerant GWPs (kg CO₂e / kg leaked) – IPCC AR6, global */
   refrigerants: {
     R410A: number;
@@ -67,7 +67,7 @@ const SHARED_REFRIGERANTS: CountryEmissionFactors['refrigerants'] = {
 const SHARED_FUELS = {
   dieselKgPerLitre: 2.68,
   petrolKgPerLitre: 2.31,
-  lpgKgPerKg:       1.50,
+  lpgKgPerLitre:    1.568,
 };
 
 const EU_FACTOR_VERSION =

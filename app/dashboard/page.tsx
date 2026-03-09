@@ -84,7 +84,24 @@ const UK_SME_BASELINES: Record<string, number> = {
   education: 1.5,
   healthcare: 2.0,
   technology: 1.4,
-  other: 1.82, // fallback
+  other: 1.82,
+};
+
+// India SME annual baseline emissions (tonnes CO₂e / year)
+// Based on India grid factor (0.82 kg/kWh) and BEE industry data
+const IN_SME_BASELINES: Record<string, number> = {
+  logistics: 6.0,
+  supply_chain: 4.5,
+  manufacturing: 7.0,
+  retail: 3.5,
+  hospitality: 4.0,
+  office: 2.2,
+  education: 2.5,
+  healthcare: 3.5,
+  technology: 2.2,
+  'it/software': 2.2,
+  'it_&_technology': 2.2,
+  other: 3.0,
 };
 
 function formatKg(v: number) {
@@ -575,11 +592,19 @@ export default function DashboardPage() {
     : 'all';
 
 // STEP 6.3 — LOAD DATA (CLIENT, SAME AS EMISSIONS HISTORY)
+// Initialise from sessionStorage for instant render (stale-while-revalidate)
 const [state, setState] = React.useState<{
   dashData: DashboardData;
   profile: any;
   finalActions: { title: string; description: string }[];
-} | null>(null);
+} | null>(() => {
+  try {
+    const cached = sessionStorage.getItem('dashboard_state');
+    if (!cached) return null;
+    const parsed = JSON.parse(cached);
+    return parsed ?? null;
+  } catch { return null; }
+});
 
 const [isTeamMember, setIsTeamMember] = React.useState(false);
 const [isPro, setIsPro] = React.useState(false);
@@ -776,31 +801,59 @@ supabase
   });
 
 
-    // 3️⃣ Load AI actions (non-blocking)
-    fetch('/api/ai/recommended-actions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        electricity: dashData.breakdownBySource.electricitySharePercent,
-        fuel: dashData.breakdownBySource.fuelSharePercent,
-        refrigerant: dashData.breakdownBySource.refrigerantSharePercent,
-        months: dashData.months.length,
-      }),
-    })
-      .then((res) => res.json())
-      .then((json) => {
-        if (!cancelled && json?.actions) {
-          setState((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  finalActions: json.actions,
-                }
-              : prev
-          );
+    // 3️⃣ Load AI actions — with localStorage cache keyed by data fingerprint
+    const aiCacheKey = `greenio_ai_recs_v1_${user.id}`;
+    const aiFingerprint = [
+      dashData.totalCo2eKg.toFixed(2),
+      dashData.months.length,
+      dashData.breakdownBySource.electricitySharePercent.toFixed(1),
+      dashData.breakdownBySource.fuelSharePercent.toFixed(1),
+      dashData.breakdownBySource.refrigerantSharePercent.toFixed(1),
+    ].join('|');
+
+    let cacheHit = false;
+    try {
+      const cached = JSON.parse(localStorage.getItem(aiCacheKey) ?? 'null');
+      if (cached?.fingerprint === aiFingerprint && Array.isArray(cached?.actions) && cached.actions.length > 0) {
+        cacheHit = true;
+        if (!cancelled) {
+          setState((prev) => {
+            if (!prev) return prev;
+            const next = { ...prev, finalActions: cached.actions };
+            try { sessionStorage.setItem('dashboard_state', JSON.stringify(next)); } catch {}
+            return next;
+          });
         }
+      }
+    } catch {}
+
+    if (!cacheHit) {
+      fetch('/api/ai/recommended-actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          electricity: dashData.breakdownBySource.electricitySharePercent,
+          fuel: dashData.breakdownBySource.fuelSharePercent,
+          refrigerant: dashData.breakdownBySource.refrigerantSharePercent,
+          months: dashData.months.length,
+        }),
       })
-      .catch(() => {});
+        .then((res) => res.json())
+        .then((json) => {
+          if (!cancelled && json?.actions) {
+            setState((prev) => {
+              if (!prev) return prev;
+              const next = { ...prev, finalActions: json.actions };
+              try { sessionStorage.setItem('dashboard_state', JSON.stringify(next)); } catch {}
+              return next;
+            });
+            try {
+              localStorage.setItem(aiCacheKey, JSON.stringify({ fingerprint: aiFingerprint, actions: json.actions }));
+            } catch {}
+          }
+        })
+        .catch(() => {});
+    }
   }
 
   load();
@@ -862,13 +915,12 @@ const { dashData, profile, finalActions } = state;
 
   const hotspot = dashData.hotspot;
   const scopeBreakdown = dashData.scopeBreakdown;
-const industryLabel =
+const industryLabel: string | null =
   profile?.industry
     ? profile.industry
         .replace(/_/g, ' ')
         .replace(/\b\w/g, (c: string) => c.toUpperCase())
-
-    : 'UK SME';
+    : null;
 
   // --------------------------------------
   // PERIOD LABEL
@@ -1247,16 +1299,16 @@ const youTonnes = dashData.totalCo2eKg / 1000;
               })}
             </div>
 
-            {/* EF transparency — hover for full source attribution */}
-            <p
-              className="mt-3 ml-4 inline-flex items-center gap-1 text-[10px] text-slate-400"
-              title={dashData.efVersion}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3 flex-shrink-0">
-                <path fillRule="evenodd" d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm-.75 4.75a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0v-3.5ZM8 10.5a.875.875 0 1 1 0 1.75.875.875 0 0 1 0-1.75Z" clipRule="evenodd" />
-              </svg>
-              Using {dashData.countryCode} emission factors
-            </p>
+            {/* EF transparency — tap/click to expand full source attribution */}
+            <details className="mt-3 ml-4">
+              <summary className="inline-flex items-center gap-1 text-[10px] text-slate-400 cursor-pointer list-none select-none">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3 flex-shrink-0">
+                  <path fillRule="evenodd" d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm-.75 4.75a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0v-3.5ZM8 10.5a.875.875 0 1 1 0 1.75.875.875 0 0 1 0-1.75Z" clipRule="evenodd" />
+                </svg>
+                Using {dashData.countryCode} emission factors
+              </summary>
+              <p className="mt-1 text-[10px] text-slate-500 leading-relaxed max-w-xs">{dashData.efVersion}</p>
+            </details>
           </div>
 
 
@@ -1330,19 +1382,19 @@ const youTonnes = dashData.totalCo2eKg / 1000;
           </div>
                 {/* BRSR COMPLETENESS — India accounts only */}
                 {brsrResult && (
-                  <section className="rounded-xl bg-white border border-emerald-100 p-5 shadow-sm space-y-3">
+                  <section className="rounded-xl bg-white border border-slate-200 p-5 shadow-sm space-y-3">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-emerald-700 font-semibold">BRSR Readiness</p>
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 font-semibold">BRSR Readiness</p>
                         <p className="mt-0.5 text-xs text-slate-500">{brsrResult.completedCount}/{brsrResult.totalCount} checks complete</p>
                       </div>
-                      <span className={`text-lg font-bold ${brsrResult.score >= 80 ? 'text-emerald-600' : brsrResult.score >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
+                      <span className="text-xs font-semibold text-slate-900">
                         {brsrResult.score}%
                       </span>
                     </div>
                     <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-[width] ${brsrResult.score >= 80 ? 'bg-emerald-500' : brsrResult.score >= 50 ? 'bg-amber-400' : 'bg-red-400'}`}
+                        className="h-full rounded-full bg-slate-900 transition-[width]"
                         style={{ width: `${brsrResult.score}%` }}
                       />
                     </div>
@@ -1367,8 +1419,8 @@ const youTonnes = dashData.totalCo2eKg / 1000;
 
                 {/* INDIA ENV CARD — Water / Waste / Air */}
                 {indiaEnvTotals && (
-                  <section className="rounded-xl bg-white border border-blue-100 p-5 shadow-sm space-y-3">
-                    <p className="text-[10px] uppercase tracking-[0.14em] text-blue-700 font-semibold">Sec. C · Principle 6</p>
+                  <section className="rounded-xl bg-white border border-slate-200 p-5 shadow-sm space-y-3">
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 font-semibold">Sec. C · Principle 6</p>
                     <div className="space-y-2.5">
                       {indiaEnvTotals.totalWaterKl > 0 && (
                         <div className="flex items-center justify-between gap-2">
@@ -1390,7 +1442,7 @@ const youTonnes = dashData.totalCo2eKg / 1000;
                       )}
                       {indiaEnvTotals.latestAirFY && (
                         <div className="flex items-start justify-between gap-2">
-                          <span className="text-xs text-slate-600">Air — FY{String(indiaEnvTotals.latestAirFY).slice(2)}–{String(indiaEnvTotals.latestAirFY + 1).slice(2)}</span>
+                          <span className="text-xs text-slate-600">Air emissions (FY{String(indiaEnvTotals.latestAirFY).slice(2)}–{String(indiaEnvTotals.latestAirFY + 1).slice(2)})</span>
                           <p className="text-xs font-semibold text-slate-800 text-right">
                             {[
                               indiaEnvTotals.noxT != null ? `NOx ${indiaEnvTotals.noxT}t` : null,
@@ -1763,17 +1815,19 @@ const youTonnes = dashData.totalCo2eKg / 1000;
   </h2>
 
   <p className="text-xs text-slate-600 mb-3">
-  Comparison against a typical {industryLabel} SME, scaled to the selected period.
-</p>
+    Comparison against a typical {industryLabel ? `${industryLabel} ` : ''}SME, scaled to the selected period.
+  </p>
 
 
   {months.length > 0 ? (() => {
-    // --- UK SME BASELINE (annual, tonnes CO2e) ---
+    // --- SME BASELINE (annual, tonnes CO2e) — country-aware ---
     const industryKey = normaliseIndustry(profile?.industry);
+    const smeBaselines = dashData.countryCode === 'IN' ? IN_SME_BASELINES : UK_SME_BASELINES;
+    const smeLabel = dashData.countryCode === 'IN' ? 'India' : 'UK';
 
 const annualBaselineTonnes =
-  UK_SME_BASELINES[industryKey] ??
-  UK_SME_BASELINES.other;
+  smeBaselines[industryKey] ??
+  smeBaselines.other;
 
 
     // --- YOUR EMISSIONS (period-based) ---
@@ -1815,7 +1869,7 @@ const annualBaselineTonnes =
             {diffPercent >= 0 ? '+' : ''}
             {diffPercent.toFixed(1)}%
           </span>{' '}
-          compared to a typical UK SME.
+          compared to a typical {smeLabel} SME.
         </p>
 
         <div className="space-y-3 mb-3">
