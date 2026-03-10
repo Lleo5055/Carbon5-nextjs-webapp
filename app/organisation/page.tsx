@@ -485,7 +485,7 @@ export default function OrganisationPage() {
                   </section>
 
                   {/* REGULATORY */}
-                  <section className={compliance.framework === 'BRSR' ? 'rounded-xl border-2 border-amber-300 bg-amber-50 p-4' : ''}>
+                  <section>
                     <div className="flex items-center justify-between mb-3">
                       <h2 className="text-sm font-semibold text-slate-700">
                         {compliance.sectionTitle}
@@ -496,8 +496,8 @@ export default function OrganisationPage() {
                         )}
                       </h2>
                       {compliance.framework === 'BRSR' && (
-                        <a href="/dashboard/brsr-profile" className="inline-flex items-center gap-1 rounded-full bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-800">
-                          BRSR company profile →
+                        <a href="/dashboard/brsr-profile" className="inline-flex items-center whitespace-nowrap rounded-full bg-red-100 border border-red-300 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-200">
+                          Complete BRSR profile →
                         </a>
                       )}
                     </div>
