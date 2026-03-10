@@ -35,13 +35,15 @@ export default function RowActions({ id, monthLabel }: Props) {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data } = await supabase
+      const { data: rows } = await supabase
         .from('report_locks')
         .select('locked')
         .eq('user_id', user.id)
         .eq('month', monthLabel)
-        .maybeSingle();
+        .order('id', { ascending: false })
+        .limit(1);
 
+      const data = rows?.[0] ?? null;
       if (!mounted || data?.locked === undefined) return;
 
 // 🔒 Enforce rule: only current month can be unlocked
@@ -67,11 +69,8 @@ if (monthLabel !== currentMonthLabel) {
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    await supabase.from('report_locks').upsert({
-      user_id: user.id,
-      month: monthLabel,
-      locked: nextLocked,
-    });
+    await supabase.from('report_locks').delete().eq('user_id', user.id).eq('month', monthLabel);
+    await supabase.from('report_locks').insert({ user_id: user.id, month: monthLabel, locked: nextLocked });
 
     await supabase.from('edit_history').insert({
       user_id: user.id,

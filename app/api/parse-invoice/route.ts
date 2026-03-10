@@ -44,9 +44,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    // Convert uploaded file to a data URL so GPT-4.1 can see it
+    // Detect file type
+    const isPdf = file.type === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf');
+
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+
+    // For PDFs: extract text and send as text prompt
+    // For images: send as base64 image_url (existing behaviour)
+    let extractedPdfText: string | null = null;
+    if (isPdf) {
+      // Dynamic import avoids the pdf-parse test-file issue in Next.js App Router
+      const pdfParse = (await import('pdf-parse')).default;
+      const pdfData = await pdfParse(buffer);
+      extractedPdfText = pdfData.text;
+      if (!extractedPdfText?.trim()) {
+        return NextResponse.json(
+          { error: 'Could not extract text from this PDF. If it is a scanned image, please upload a photo of the bill instead.' },
+          { status: 422 }
+        );
+      }
+    }
+
     const base64 = buffer.toString('base64');
     const dataUrl = `data:${
       file.type || 'application/octet-stream'
@@ -116,21 +135,22 @@ Return ONLY valid JSON with the exact fields:
 - refrigerant_type (string, can be "GENERIC_HFC" if not specified)
 `;
 
+    const userContent: OpenAI.Chat.ChatCompletionContentPart[] = extractedPdfText
+      ? [
+          { type: 'text', text: userPrompt },
+          { type: 'text', text: `\n\nExtracted bill text (all pages):\n\n${extractedPdfText}` },
+        ]
+      : [
+          { type: 'text', text: userPrompt },
+          { type: 'image_url', image_url: { url: dataUrl } },
+        ];
+
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4.1', // vision-capable; you can also use 'gpt-4o'
+      model: 'gpt-4.1',
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: userPrompt },
-            {
-              type: 'image_url',
-              image_url: { url: dataUrl },
-            },
-          ],
-        },
+        { role: 'user', content: userContent },
       ],
     });
 

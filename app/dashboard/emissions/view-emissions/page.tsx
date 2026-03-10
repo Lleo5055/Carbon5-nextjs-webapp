@@ -15,6 +15,7 @@ import { getFactorsForCountry } from '@/lib/factors';
 import { logActivity } from '../../../../lib/logActivity';
 
 import RowActionsClient from './RowActionsClient';
+import SectionCActions from './SectionCActions';
 const EMISSIONS_CACHE_KEY = 'view_emissions_report_v1';
 const INDIA_ENV_CACHE_KEY  = 'greenio_india_env_v1';
 
@@ -1706,6 +1707,7 @@ useEffect(() => {
                             <th className="p-2 text-left">Consumed (kL)</th>
                             <th className="p-2 text-left">Discharged (kL)</th>
                             <th className="p-2 text-left">CO₂e (kg)</th>
+                            <th className="p-2 text-left">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1717,6 +1719,7 @@ useEffect(() => {
                               <td className="p-2">{row.volume_consumed_kl?.toLocaleString() ?? 0}</td>
                               <td className="p-2">{row.volume_discharged_kl?.toLocaleString() ?? 0}</td>
                               <td className="p-2 font-medium">{row.co2e_kg?.toFixed(1) ?? 0}</td>
+                              <td className="p-2"><SectionCActions id={row.id} table="water_entries" label={`${MONTHS_SHORT[(row.period_month ?? 1) - 1]} ${row.period_year}`} /></td>
                             </tr>
                           ))}
                         </tbody>
@@ -1740,6 +1743,7 @@ useEffect(() => {
                             <th className="p-2 text-left">Incinerated (kg)</th>
                             <th className="p-2 text-left">Hazardous (kg)</th>
                             <th className="p-2 text-left">CO₂e (kg)</th>
+                            <th className="p-2 text-left">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1752,6 +1756,7 @@ useEffect(() => {
                               <td className="p-2">{row.incinerated_kg?.toLocaleString() ?? 0}</td>
                               <td className="p-2">{row.hazardous_kg?.toLocaleString() ?? 0}</td>
                               <td className="p-2 font-medium">{row.co2e_kg?.toFixed(1) ?? 0}</td>
+                              <td className="p-2"><SectionCActions id={row.id} table="waste_entries" label={`${MONTHS_SHORT[(row.period_month ?? 1) - 1]} ${row.period_year}`} /></td>
                             </tr>
                           ))}
                         </tbody>
@@ -1767,11 +1772,12 @@ useEffect(() => {
                     <div className="overflow-x-auto">
                       <table className="text-xs" style={{ tableLayout: 'fixed', width: '100%' }}>
                         <colgroup>
+                          <col style={{ width: '17%' }} />
+                          <col style={{ width: '15%' }} />
+                          <col style={{ width: '15%' }} />
+                          <col style={{ width: '15%' }} />
                           <col style={{ width: '20%' }} />
-                          <col style={{ width: '20%' }} />
-                          <col style={{ width: '20%' }} />
-                          <col style={{ width: '20%' }} />
-                          <col style={{ width: '20%' }} />
+                          <col style={{ width: '18%' }} />
                         </colgroup>
                         <thead className="bg-slate-50">
                           <tr>
@@ -1780,6 +1786,7 @@ useEffect(() => {
                             <th className="p-2 text-left">SOx (t)</th>
                             <th className="p-2 text-left">PM (t)</th>
                             <th className="p-2 text-left">Other</th>
+                            <th className="p-2 text-left">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1790,6 +1797,7 @@ useEffect(() => {
                               <td className="p-2">{row.sox_tonnes ?? 0}</td>
                               <td className="p-2">{row.pm_tonnes ?? 0}</td>
                               <td className="p-2">{row.other_pollutant_name ? `${row.other_pollutant_name}: ${row.other_pollutant_tonnes ?? 0} t` : '—'}</td>
+                              <td className="p-2"><SectionCActions id={row.id} table="air_emissions" label={`FY ${row.period_year}–${String(row.period_year + 1).slice(2)}`} /></td>
                             </tr>
                           ))}
                         </tbody>

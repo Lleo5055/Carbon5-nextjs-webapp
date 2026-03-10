@@ -956,13 +956,13 @@ await supabase.from('edit_history').insert({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-2">Bill image</label>
+                <label className="block text-xs font-medium text-slate-700 mb-2">Bill image or PDF</label>
                 <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 cursor-pointer hover:bg-slate-100">
-                  <span className="text-xs text-slate-500">Click to upload image</span>
-                  <span className="mt-1 text-[11px] text-slate-400">JPEG · PNG · WEBP supported (not PDF)</span>
+                  <span className="text-xs text-slate-500">Click to upload bill</span>
+                  <span className="mt-1 text-[11px] text-slate-400">PDF · JPEG · PNG · WEBP supported</span>
                   <input
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="application/pdf,image/jpeg,image/png,image/webp"
                     className="hidden"
                     onChange={(e) => {
                       setBillFile(e.target.files?.[0] ?? null);

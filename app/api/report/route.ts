@@ -2021,7 +2021,7 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       bRow('Total Scope 3 emissions: selected categories (metric tonnes CO2e)', `${scope3_t.toFixed(2)} tCO2e`, true, 'Scope 3 is partial. Full value-chain inventory recommended for BRSR Core.');
       bRow('Total GHG emissions, Scope 1+2+3 (metric tonnes CO2e)', `${bTotalCO2t.toFixed(2)} tCO2e`, true);
       if (bGhgPerRev !== null) {
-        bRow('GHG emission intensity per rupee of turnover (tCO2e / INR)', `${bFmtI(bGhgPerRev)} tCO2e / INR`, true, 'Update revenue to INR in your profile for highest accuracy.');
+        bRow('GHG emission intensity per rupee of turnover (tCO2e / INR)', `${bFmtI(bGhgPerRev)} tCO2e / INR`, true);
       } else {
         bRow('GHG emission intensity per rupee of turnover (tCO2e / INR)', 'Not calculable', false, 'Add annual revenue in your Greenio profile to auto-calculate.');
       }
