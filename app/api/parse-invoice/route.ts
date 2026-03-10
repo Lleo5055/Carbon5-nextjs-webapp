@@ -55,8 +55,10 @@ export async function POST(req: NextRequest) {
     let extractedPdfText: string | null = null;
     if (isPdf) {
       // Dynamic import avoids the pdf-parse test-file issue in Next.js App Router
-      const pdfParse = (await import('pdf-parse')).default;
-      const pdfData = await pdfParse(buffer);
+      // Cast to any — pdf-parse ESM types don't expose a callable default signature
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { default: pdfParse } = (await import('pdf-parse')) as any;
+      const pdfData = await pdfParse(buffer) as { text: string };
       extractedPdfText = pdfData.text;
       if (!extractedPdfText?.trim()) {
         return NextResponse.json(
