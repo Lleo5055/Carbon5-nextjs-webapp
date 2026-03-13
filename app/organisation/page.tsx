@@ -463,8 +463,8 @@ export default function OrganisationPage() {
                     <h2 className="text-sm font-semibold text-slate-700 mb-3">Compliance</h2>
                     <div className="space-y-3">
                       {compliance.framework ? (
-                        <label className="flex items-start gap-2 text-sm text-slate-700">
-                          <input type="checkbox" className="mt-0.5"
+                        <label className="flex w-full items-start gap-2 text-sm text-slate-700">
+                          <input type="checkbox" className="mt-0.5 shrink-0"
                             checked={form.secr_required} disabled={isTeamMember}
                             onChange={(e) => updateField('secr_required', e.target.checked)} />
                           <span>
@@ -475,11 +475,11 @@ export default function OrganisationPage() {
                       ) : (
                         <p className="text-xs text-slate-400">{compliance.description}</p>
                       )}
-                      <label className="flex items-center gap-2 text-sm text-slate-700">
-                        <input type="checkbox"
+                      <label className="flex w-full items-center gap-2 text-sm text-slate-700">
+                        <input type="checkbox" className="shrink-0"
                           checked={form.data_confirmed_by_user} disabled={isTeamMember}
                           onChange={(e) => updateField('data_confirmed_by_user', e.target.checked)} />
-                        I confirm the provided information is accurate.
+                        <span>I confirm the provided information is accurate.</span>
                       </label>
                     </div>
                   </section>
@@ -536,11 +536,11 @@ export default function OrganisationPage() {
                         {compliance.methodologyNote}
                       </p>
                     </div>
-                    <label className="flex items-center gap-2 text-sm text-slate-700 mt-4">
-                      <input type="checkbox"
+                    <label className="flex w-full items-center gap-2 text-sm text-slate-700 mt-4">
+                      <input type="checkbox" className="shrink-0"
                         checked={form.methodology_confirmed} disabled={isTeamMember}
                         onChange={(e) => updateField('methodology_confirmed', e.target.checked)} />
-                      I confirm that the calculation methodology used is correct.
+                      <span>I confirm that the calculation methodology used is correct.</span>
                     </label>
                   </section>
 
@@ -555,17 +555,17 @@ export default function OrganisationPage() {
                       <option value="progressing">Progressing</option>
                       <option value="advanced">Advanced</option>
                     </select>
-                    <label className="flex items-center gap-2 text-sm text-slate-700 mt-3">
-                      <input type="checkbox"
+                    <label className="flex w-full items-center gap-2 text-sm text-slate-700 mt-3">
+                      <input type="checkbox" className="shrink-0"
                         checked={form.has_company_vehicles} disabled={isTeamMember}
                         onChange={(e) => updateField('has_company_vehicles', e.target.checked)} />
-                      We operate company-owned vehicles.
+                      <span>We operate company-owned vehicles.</span>
                     </label>
-                    <label className="flex items-center gap-2 text-sm text-slate-700 mt-2">
-                      <input type="checkbox"
+                    <label className="flex w-full items-center gap-2 text-sm text-slate-700 mt-2">
+                      <input type="checkbox" className="shrink-0"
                         checked={form.renewable_energy_tariff} disabled={isTeamMember}
                         onChange={(e) => updateField('renewable_energy_tariff', e.target.checked)} />
-                      We use a renewable electricity tariff.
+                      <span>We use a renewable electricity tariff.</span>
                     </label>
                   </section>
 
