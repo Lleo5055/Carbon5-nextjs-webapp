@@ -2,6 +2,7 @@ type Shares = {
   electricity: number;
   fuel: number;
   refrigerant: number;
+  scope3: number;
 };
 
 /**
@@ -33,6 +34,7 @@ export function normaliseSharesTo100(raw: Shares): Shares {
     electricity: 0,
     fuel: 0,
     refrigerant: 0,
+    scope3: 0,
   };
 
   result[largestKey] = fixedLargest;

@@ -156,12 +156,13 @@ function miniChart(
     p.drawCircle({ x: px(i), y: py(vals[i]), size: 2.5, color: c });
   }
 
-  // X labels — show every 3rd month (quarterly: Jan, Apr, Jul, Oct …)
+  // X labels — show every 3rd month; clamp so labels never overflow chart edges
   lbls.forEach((l, i) => {
     if (i % 3 !== 0) return;
     const formatted = fmtMonthLbl(l);
     const lw = f.widthOfTextAtSize(formatted, 6);
-    label(p, formatted, px(i) - lw / 2, y + 2, 6, f, C.MUTED);
+    const lx = Math.min(Math.max(px(i) - lw / 2, x), x + w - lw);
+    label(p, formatted, lx, y + 2, 6, f, C.MUTED);
   });
 }
 
@@ -259,58 +260,8 @@ async function buildPdf(p: PdfInput): Promise<Uint8Array> {
     { t:"Scope 3",    v:`${fmt(p.scope3_t)} t`, s:"Value chain",                                               c:C.SCOPE3 },
   ].forEach((k, i) => kpiCard(page, font, bold, ML + i*(KPI_W+6), KPI_Y, KPI_W, KPI_H, k.t, k.v, k.s, k.c));
 
-  // ── TREND + SOURCES ──
-  // Badge moved inline with the section header (no longer floats between KPI cards and section)
-  const R2_BOT = 556; const R2_TOP = 686;
-  sectionHead(page, bold, ML, R2_TOP, "Emissions Trend", ML + 258);
-  if (p.trendPct !== null) {
-    const bc = p.trendUp ? C.RED : C.GREEN;
-    const bgC = p.trendUp ? rgb(254/255,242/255,242/255) : rgb(236/255,253/255,245/255);
-    const bs = `${p.trendUp?"+":""}${fmt(p.trendPct,1)}% vs prior period`;
-    const titleW = bold.widthOfTextAtSize("EMISSIONS TREND", 7);
-    const bw = bold.widthOfTextAtSize(bs, 6.5) + 8;
-    fillRect(page, ML + titleW + 6, R2_TOP - 2, bw, 10, bgC);
-    label(page, bs, ML + titleW + 10, R2_TOP + 2, 6.5, bold, bc);
-  }
-  sectionHead(page, bold, ML + 268, R2_TOP, "Emission Sources", MR);
-  line(page, ML+258, R2_BOT, ML+258, R2_TOP+2, C.RULE, 0.6);
-  miniChart(page, font, p.trendVals, p.trendLabels, ML + 34, R2_BOT + 8, 216, R2_TOP - R2_BOT - 20, C.ACCENT);
-
-  // Sources: bar starts at srcX + lblW(82), must leave room for value text (~58pt)
-  // Available width from srcX: MR - srcX = 247pt. Allocate: 82 label + 107 bar + 4 gap + 54 value = 247pt
-  const srcX = ML + 268;
-  const srcBarW = MR - srcX - 82 - 58; // 107pt — bar area only
-  [
-    { l:"Electricity", p:elecPct,   v:`${fmt(p.scope2_kg/1000,2)} t  ${fmt(elecPct,1)}%`,    c:C.SCOPE2 },
-    { l:"Fuel",        p:fuelPct,   v:`${fmt(p.scope1fuel_kg/1000,2)} t  ${fmt(fuelPct,1)}%`, c:C.SCOPE1 },
-    { l:"Refrigerants",p:refrigPct, v:`${fmt(p.refrigCo2eKg/1000,2)} t  ${fmt(refrigPct,1)}%`,c:C.REFRIG },
-    { l:"Scope 3",     p:s3Pct,     v:`${fmt(p.scope3_kg/1000,2)} t  ${fmt(s3Pct,1)}%`,       c:C.SCOPE3 },
-  ].forEach((b, i) => horizBar(page, font, srcX, R2_TOP - 18 - i * 22, srcBarW, b.p, b.l, b.v, b.c));
-
-  // ── INTENSITY + SCOPE 3 ──
-  const R3_TOP = 542; const R3_BOT = 444;
-  sectionHead(page, bold, ML, R3_TOP, "Intensity Metrics", ML + 218);
-  sectionHead(page, bold, ML + 268, R3_TOP, "Scope 3 Breakdown", MR);
-  line(page, ML+258, R3_BOT, ML+258, R3_TOP+2, C.RULE, 0.6);
-  const IT = R3_TOP - 18;
-  label(page, "tCO2e / employee", ML, IT, 7.5, font, C.MID);
-  label(page, p.intEmp !== null ? `${fmt(p.intEmp,2)} t` : "N/A", ML, IT - 16, 14, bold, p.intEmp !== null ? C.ACCENT : C.MUTED);
-  label(page, "tCO2e / M revenue", ML + 112, IT, 7.5, font, C.MID);
-  label(page, p.intRev !== null ? `${fmt(p.intRev,2)} t` : "N/A", ML + 112, IT - 16, 14, bold, p.intRev !== null ? C.ACCENT : C.MUTED);
-  label(page, "SME average: ~1.82 tCO2e per employee", ML, R3_BOT + 6, 6.5, font, C.MID);
-  // Scope 3 bars: lblW=72, bar starts at S3X+72; leave 40pt for value text
-  const S3X = ML + 268;
-  const s3BarW = MR - S3X - 72 - 44; // 131pt bar
-  if (p.s3Entries.length === 0) {
-    label(page, "No Scope 3 activities recorded yet", S3X, IT - 8, 8, font, C.MUTED);
-  } else {
-    const s3Total = p.s3Entries.reduce((s,[,v])=>s+v,0)||1;
-    p.s3Entries.forEach(([cat, val], i) =>
-      horizBar(page, font, S3X, IT - 8 - i*22, s3BarW, (val/s3Total)*100, CATL[cat]??cat, `${fmt(val/1000,2)} t`, C.SCOPE3, 72));
-  }
-
-  // ── PERFORMANCE ──
-  const PERF_TOP = 432; const PERF_BOT = 360;
+  // ── PERFORMANCE  y=616–688 ──
+  const PERF_TOP = 688; const PERF_BOT = 616;
   if (p.performance) {
     const perf = p.performance;
     const scoreStr = `Score: ${perf.score} / 100`;
@@ -327,7 +278,6 @@ async function buildPdf(p: PdfInput): Promise<Uint8Array> {
       const pillW = bold.widthOfTextAtSize(perf.statusLabel, 7) + 8;
       fillRect(page, ML, ROW_Y - 1, pillW, 11, pillBg);
       label(page, perf.statusLabel, ML + 4, ROW_Y + 1, 7, bold, pillC);
-      // Stars as filled/empty squares
       const starX0 = ML + pillW + 8;
       for (let i = 0; i < 5; i++) {
         if (i < perf.stars) fillRect(page, starX0 + i * 9, ROW_Y, 7, 7, C.AMBER);
@@ -365,25 +315,23 @@ async function buildPdf(p: PdfInput): Promise<Uint8Array> {
     label(page, 'Performance data not available.', ML, PERF_TOP - 18, 7.5, font, C.MUTED);
   }
 
-  // ── BENCHMARKING — two labelled rows (shifted down 82pt) ──
-  const BH_TOP = 350; const BH_BOT = 276;
+  // ── BENCHMARKING  y=524–598 ──
+  const BH_TOP = 598; const BH_BOT = 524;
   sectionHead(page, bold, ML, BH_TOP, "Benchmarking vs Industry Average", MR);
-  const BENCH_LBL_W = 108; // left column: label + value
-  const BENCH_BAR_W = CW - BENCH_LBL_W; // 407pt
+  const BENCH_LBL_W = 108;
+  const BENCH_BAR_W = CW - BENCH_LBL_W;
   const BENCH_BAR_H = 13;
   const ROW1_Y = BH_TOP - 30;
   const ROW2_Y = BH_TOP - 54;
   const BENCH_BAR_X = ML + BENCH_LBL_W;
   const maxBench = Math.max(p.total_t, IND_AVG, 0.01);
 
-  // Your bar
   fillRect(page, BENCH_BAR_X, ROW1_Y, BENCH_BAR_W, BENCH_BAR_H, C.RULE);
   const yourBarW = Math.min(p.total_t / maxBench, 1) * BENCH_BAR_W;
   if (yourBarW > 0) fillRect(page, BENCH_BAR_X, ROW1_Y, yourBarW, BENCH_BAR_H, C.ACCENT, 0.85);
   label(page, "Your total", ML, ROW1_Y + 10, 6.5, font, C.MID);
   label(page, `${fmt(p.total_t,2)} t`, ML, ROW1_Y + 0, 10, bold, C.ACCENT);
 
-  // SME bar
   fillRect(page, BENCH_BAR_X, ROW2_Y, BENCH_BAR_W, BENCH_BAR_H, C.RULE);
   const smeBarW = (IND_AVG / maxBench) * BENCH_BAR_W;
   if (smeBarW > 0) fillRect(page, BENCH_BAR_X, ROW2_Y, smeBarW, BENCH_BAR_H, C.AMBER, 0.85);
@@ -397,9 +345,55 @@ async function buildPdf(p: PdfInput): Promise<Uint8Array> {
       : `You are ${fmt(p.total_t-IND_AVG,2)} tCO2e above the SME average. Focus on Scope 1 and 2 to close the gap.`;
   label(page, p.aiSummary || ctxMsg, ML, BH_BOT + 8, 7.5, font, C.MID, CW);
 
-  // ── INSIGHTS (shifted down 82pt) ──
-  sectionHead(page, bold, ML, 266, "Key Insights & Recommendations", MR);
-  bullets(page, font, bold, ML, 248, p.insights, CW);
+  // ── TREND + SOURCES  y=376–506 ──
+  const R2_BOT = 376; const R2_TOP = 506;
+  sectionHead(page, bold, ML, R2_TOP, "Emissions Trend", ML + 258);
+  if (p.trendPct !== null) {
+    const bc = p.trendUp ? C.RED : C.GREEN;
+    const bgC = p.trendUp ? rgb(254/255,242/255,242/255) : rgb(236/255,253/255,245/255);
+    const bs = `${p.trendUp?"+":""}${fmt(p.trendPct,1)}% vs prior period`;
+    const titleW = bold.widthOfTextAtSize("EMISSIONS TREND", 7);
+    const bw = bold.widthOfTextAtSize(bs, 6.5) + 8;
+    fillRect(page, ML + titleW + 6, R2_TOP - 2, bw, 10, bgC);
+    label(page, bs, ML + titleW + 10, R2_TOP + 2, 6.5, bold, bc);
+  }
+  sectionHead(page, bold, ML + 268, R2_TOP, "Emission Sources", MR);
+  line(page, ML+258, R2_BOT, ML+258, R2_TOP+2, C.RULE, 0.6);
+  miniChart(page, font, p.trendVals, p.trendLabels, ML + 34, R2_BOT + 8, 216, R2_TOP - R2_BOT - 20, C.ACCENT);
+
+  const srcX = ML + 268;
+  const srcBarW = MR - srcX - 82 - 58;
+  [
+    { l:"Electricity", p:elecPct,   v:`${fmt(p.scope2_kg/1000,2)} t  ${fmt(elecPct,1)}%`,    c:C.SCOPE2 },
+    { l:"Fuel",        p:fuelPct,   v:`${fmt(p.scope1fuel_kg/1000,2)} t  ${fmt(fuelPct,1)}%`, c:C.SCOPE1 },
+    { l:"Refrigerants",p:refrigPct, v:`${fmt(p.refrigCo2eKg/1000,2)} t  ${fmt(refrigPct,1)}%`,c:C.REFRIG },
+    { l:"Scope 3",     p:s3Pct,     v:`${fmt(p.scope3_kg/1000,2)} t  ${fmt(s3Pct,1)}%`,       c:C.SCOPE3 },
+  ].forEach((b, i) => horizBar(page, font, srcX, R2_TOP - 18 - i * 22, srcBarW, b.p, b.l, b.v, b.c));
+
+  // ── INTENSITY + SCOPE 3  y=258–358 ──
+  const R3_TOP = 358; const R3_BOT = 260;
+  sectionHead(page, bold, ML, R3_TOP, "Intensity Metrics", ML + 218);
+  sectionHead(page, bold, ML + 268, R3_TOP, "Scope 3 Breakdown", MR);
+  line(page, ML+258, R3_BOT, ML+258, R3_TOP+2, C.RULE, 0.6);
+  const IT = R3_TOP - 18;
+  label(page, "tCO2e / employee", ML, IT, 7.5, font, C.MID);
+  label(page, p.intEmp !== null ? `${fmt(p.intEmp,2)} t` : "N/A", ML, IT - 16, 14, bold, p.intEmp !== null ? C.ACCENT : C.MUTED);
+  label(page, "tCO2e / M revenue", ML + 112, IT, 7.5, font, C.MID);
+  label(page, p.intRev !== null ? `${fmt(p.intRev,2)} t` : "N/A", ML + 112, IT - 16, 14, bold, p.intRev !== null ? C.ACCENT : C.MUTED);
+  label(page, "SME average: ~1.82 tCO2e per employee", ML, R3_BOT + 6, 6.5, font, C.MID);
+  const S3X = ML + 268;
+  const s3BarW = MR - S3X - 72 - 44;
+  if (p.s3Entries.length === 0) {
+    label(page, "No Scope 3 activities recorded yet", S3X, IT - 8, 8, font, C.MUTED);
+  } else {
+    const s3Total = p.s3Entries.reduce((s,[,v])=>s+v,0)||1;
+    p.s3Entries.forEach(([cat, val], i) =>
+      horizBar(page, font, S3X, IT - 8 - i*22, s3BarW, (val/s3Total)*100, CATL[cat]??cat, `${fmt(val/1000,2)} t`, C.SCOPE3, 72));
+  }
+
+  // ── INSIGHTS  y=242 ──
+  sectionHead(page, bold, ML, 242, "Key Insights & Recommendations", MR);
+  bullets(page, font, bold, ML, 224, p.insights, CW);
 
   // ── FOOTER ──
   fillRect(page, 0, 28, PW, 28, rgb(245/255,249/255,246/255));

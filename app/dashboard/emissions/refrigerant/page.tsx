@@ -26,6 +26,8 @@ type DashboardMonth = {
   dieselLitres?: number;
   petrolLitres?: number;
   gasKwh?: number;
+  lpgKg?: number;
+  cngKg?: number;
   refrigerantCode?: string | null;
 };
 
@@ -68,7 +70,10 @@ export default function RefrigerantInsightsPage({
 
   useEffect(() => {
     async function fetchRefrigerantInsights() {
-      const { data: rawData, error } = await supabase.from('emissions').select('*');
+      const [{ data: rawData, error }, { data: s3Data }] = await Promise.all([
+        supabase.from('emissions').select('*'),
+        supabase.from('scope3_activities').select('month, co2e_kg'),
+      ]);
       if (error || !rawData) {
         console.error('Error loading emissions for refrigerant insights', error);
         setLoading(false);
@@ -100,6 +105,8 @@ export default function RefrigerantInsightsPage({
           dieselLitres,
           petrolLitres,
           gasKwh,
+          lpgKg: Number(row.lpg_kg ?? 0),
+          cngKg: Number(row.cng_kg ?? 0),
           refrigerantCode,
         };
       });
@@ -129,7 +136,9 @@ export default function RefrigerantInsightsPage({
           s +
           (m.dieselLitres ?? 0) * ef.diesel +
           (m.petrolLitres ?? 0) * ef.petrol +
-          (m.gasKwh ?? 0) * ef.gas,
+          (m.gasKwh ?? 0) * ef.gas +
+          (m.lpgKg ?? 0) * ef.lpgKg +
+          (m.cngKg ?? 0) * ef.cngKg,
         0
       );
       const totalRef = periodMonths.reduce(
@@ -137,11 +146,17 @@ export default function RefrigerantInsightsPage({
         0
       );
 
-      const denom = totalElec + totalFuel + totalRef || 1;
+      const periodMonthLabels = new Set(periodMonths.map((m) => m.monthLabel));
+      const scope3Total = (s3Data ?? [])
+        .filter((r: any) => periodMonthLabels.has(r.month))
+        .reduce((s: number, r: any) => s + Number(r.co2e_kg ?? 0), 0);
+
+      const denom = totalElec + totalFuel + totalRef + scope3Total || 1;
       const normalisedShares = normaliseSharesTo100({
         electricity: (totalElec / denom) * 100,
         fuel: (totalFuel / denom) * 100,
         refrigerant: (totalRef / denom) * 100,
+        scope3: (scope3Total / denom) * 100,
       });
 
       setData({
@@ -218,8 +233,9 @@ export default function RefrigerantInsightsPage({
 
   const navItems = [
     { href: '/dashboard/emissions/electricity', label: 'Electricity Insights', active: false },
-    { href: '/dashboard/emissions/fuel', label: 'Fuel Insights', active: false },
+    { href: '/dashboard/emissions/fuel',        label: 'Fuel Insights',        active: false },
     { href: '/dashboard/emissions/refrigerant', label: 'Refrigerant Insights', active: true },
+    { href: '/dashboard/emissions/scope3',      label: 'Scope 3 Insights',     active: false },
   ];
 
   const periodPills: { key: PeriodKey; label: string }[] = [

@@ -90,6 +90,56 @@ function paragraphText(
   yRef.value -= 12;
 }
 
+function paragraphTextWithBoldPrefix(
+  page: PDFPage,
+  font: PDFFont,
+  boldFont: PDFFont,
+  TEXT: RGB,
+  prefix: string,
+  body: string,
+  yRef: { value: number }
+) {
+  const maxWidth = 480;
+  const fontSize = 11;
+  const x0 = 50;
+  const prefixW = boldFont.widthOfTextAtSize(prefix + ' ', fontSize);
+
+  const words = body.split(' ').filter(w => w.length > 0);
+  let firstLine = '';
+  let i = 0;
+
+  for (; i < words.length; i++) {
+    const test = firstLine + words[i] + ' ';
+    if (prefixW + font.widthOfTextAtSize(test, fontSize) > maxWidth) break;
+    firstLine = test;
+  }
+
+  page.drawText(prefix, { x: x0, y: yRef.value, size: fontSize, font: boldFont, color: TEXT });
+  if (firstLine.trim()) {
+    page.drawText(firstLine.trim(), { x: x0 + prefixW, y: yRef.value, size: fontSize, font, color: TEXT });
+  }
+  yRef.value -= 15;
+
+  let currentLine = '';
+  for (; i < words.length; i++) {
+    const test = currentLine + words[i] + ' ';
+    if (font.widthOfTextAtSize(test, fontSize) > maxWidth) {
+      page.drawText(currentLine.trim(), { x: x0, y: yRef.value, size: fontSize, font, color: TEXT });
+      yRef.value -= 15;
+      currentLine = words[i] + ' ';
+    } else {
+      currentLine = test;
+    }
+  }
+  if (currentLine.trim()) {
+    page.drawText(currentLine.trim(), { x: x0, y: yRef.value, size: fontSize, font, color: TEXT });
+    yRef.value -= 15;
+  }
+
+  yRef.value -= 12;
+}
+
+
 
   export async function GET(req: NextRequest) {
   console.log('REPORT URL:', req.url);
@@ -256,7 +306,7 @@ const brsrWasteTotal = (wasteEntriesRes.data ?? []).reduce((s: number, r: any) =
   const ym = (r.period_year ?? 0) * 12 + (r.period_month ?? 0);
   return (ym >= brsrStartYM && ym <= brsrEndYM) ? s + (r.total_kg ?? 0) : s;
 }, 0);
-// Air emissions are annual (period_year only) — pick the entry whose FY overlaps the report period
+// Air emissions are annual (period_year only):pick the entry whose FY overlaps the report period
 const reportStartYear = startMonth ? Number(startMonth.split('-')[0]) : 0;
 const reportEndYear   = endMonth   ? Number(endMonth.split('-')[0])   : 9999;
 const brsrLatestAir = (airEmissionsRes.data ?? [])
@@ -394,16 +444,21 @@ const values = list.map((r) => {
     const latestMonth = months[months.length - 1] || '-';
 
     // ======================== PRE-COMPUTE SIGNALS (used across pages) ========================
-    const total_t_pre = (scope1_fuel_kg + scope1_refrigerant_kg + scope2_kg + scope3_kg) / 1000;
-    const s1_share_pre = total_t_pre ? (scope1_fuel_kg + scope1_refrigerant_kg) / 1000 / total_t_pre : 0;
-    const s2_share_pre = total_t_pre ? scope2_kg / 1000 / total_t_pre : 0;
-    const s3_share_pre = total_t_pre ? scope3_kg / 1000 / total_t_pre : 0;
-    let dominant: 'fuel' | 'electricity' | 'scope3' = 'fuel';
-    if (s2_share_pre > s1_share_pre && s2_share_pre > s3_share_pre) dominant = 'electricity';
-    if (s3_share_pre > s1_share_pre && s3_share_pre > s2_share_pre) dominant = 'scope3';
-    const hotspotLabel = dominant === 'electricity' ? 'Electricity (Scope 2)' : dominant === 'scope3' ? 'Supply chain (Scope 3)' : 'Fuels (Scope 1)';
+    const total_kg_pre = scope1_fuel_kg + scope1_refrigerant_kg + scope2_kg + scope3_kg;
+    // Individual shares for hotspot label + blurb
+    const s2_share_pre  = total_kg_pre ? scope2_kg / total_kg_pre : 0;
+    const s3_share_pre  = total_kg_pre ? scope3_kg / total_kg_pre : 0;
+    // Individual-source dominant:for hotspot blurb and label (matches dashboard logic)
+    const s1fuel_share   = total_kg_pre ? scope1_fuel_kg        / total_kg_pre : 0;
+    const s1refrig_share = total_kg_pre ? scope1_refrigerant_kg / total_kg_pre : 0;
+    const indivMax = Math.max(s1fuel_share, s1refrig_share, s2_share_pre, s3_share_pre);
+    const hotspotDom: 'fuel' | 'electricity' | 'refrigerant' | 'scope3' =
+      s2_share_pre   === indivMax ? 'electricity' :
+      s3_share_pre   === indivMax ? 'scope3'       :
+      s1refrig_share === indivMax ? 'refrigerant'  : 'fuel';
+    const hotspotLabel = hotspotDom === 'electricity' ? 'Electricity (Scope 2)' : hotspotDom === 'scope3' ? 'Value chain (Scope 3)' : hotspotDom === 'refrigerant' ? 'Refrigerants (Scope 1)' : 'Fuels (Scope 1)';
 
-    // Identify the dominant Scope 1 sub-source from actual logged data — purely evidence-based.
+    // Identify the dominant Scope 1 sub-source from actual logged data:purely evidence-based.
     const s1DieselCo2e  = totalDieselLitres * ef.diesel;
     const s1PetrolCo2e  = totalPetrolLitres * ef.petrol;
     const s1GasCo2e     = totalGasKwh * ef.gas;
@@ -603,7 +658,7 @@ page.drawLine({
 y -= 32;
 
 // =========================
-// SCOPE BREAKDOWN — 3-column tiles
+// SCOPE BREAKDOWN:3-column tiles
 // =========================
 page.drawText('Emissions by scope', {
   x: 50, y, size: 13, font: bold, color: TEXT,
@@ -612,11 +667,11 @@ y -= 18;
 
 const tileW = 156, tileH = 52, tileGap = 11;
 const tileColors = [
-  rgb(0.87, 0.93, 0.88),   // S1 — light green
-  rgb(0.86, 0.92, 0.98),   // S2 — light blue
-  rgb(0.96, 0.92, 0.86),   // S3 — light amber
+  rgb(0.87, 0.93, 0.88),   // S1:light green
+  rgb(0.86, 0.92, 0.98),   // S2:light blue
+  rgb(0.96, 0.92, 0.86),   // S3:light amber
 ];
-const tileLabels = ['Scope 1: Fuels', 'Scope 2: Electricity', 'Scope 3: Supply chain'];
+const tileLabels = ['Scope 1: Fuels & Refrigerants', 'Scope 2: Electricity', 'Scope 3: Value chain'];
 const tileValues = [scope1_t, scope2_t, scope3_t];
 
 for (let i = 0; i < 3; i++) {
@@ -658,8 +713,7 @@ page.drawText('Organisation details', {
 });
 y -= 18;
 
-if (empCount) { drawText(page, `Employees: ${empCount}`, 50, y, 10, font, BLACK); y -= 14; }
-if (revenue > 0) { drawText(page, `Annual revenue: ${currencySymbol}${revenue.toLocaleString()}`, 50, y, 10, font, BLACK); y -= 14; }
+if (revenue > 0) { drawText(page, `Annual revenue: ${currencySymbol} ${revenue.toLocaleString()}`, 50, y, 10, font, BLACK); y -= 14; }
 if (outputUnits > 0) { drawText(page, `Annual output units: ${outputUnits.toLocaleString()}`, 50, y, 10, font, BLACK); y -= 14; }
 
 // =========================
@@ -698,9 +752,9 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
 
       const execRows: Array<{ label: string; value: string; highlight?: boolean }> = [
         { label: 'Total emissions', value: `${(totalCO2kg / 1000).toFixed(2)} tCO2e`, highlight: true },
-        { label: 'Scope 1 (direct emissions)', value: `${((scope1_fuel_kg + scope1_refrigerant_kg) / 1000).toFixed(3)} tCO2e` },
-        { label: 'Scope 2 (electricity)', value: `${(scope2_kg / 1000).toFixed(3)} tCO2e` },
-        { label: 'Scope 3 (selected categories)', value: `${scope3_t.toFixed(3)} tCO2e` },
+        { label: 'Scope 1: Fuels & Refrigerants', value: `${((scope1_fuel_kg + scope1_refrigerant_kg) / 1000).toFixed(3)} tCO2e` },
+        { label: 'Scope 2: Electricity', value: `${(scope2_kg / 1000).toFixed(3)} tCO2e` },
+        { label: 'Scope 3: Value chain', value: `${scope3_t.toFixed(3)} tCO2e` },
       ];
       let exShade = false;
       for (const row of execRows) {
@@ -758,7 +812,7 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
 
     y -= 30;
 
-    // Chart layout — leave 42px on the left for Y-axis labels
+    // Chart layout:leave 42px on the left for Y-axis labels
     const cLeft   = 92;
     const cRight  = 545;
     const cWidth  = cRight - cLeft;
@@ -796,7 +850,7 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
     // Y-axis vertical line
     page.drawLine({ start: { x: cLeft, y: cBottom }, end: { x: cLeft, y: cTop }, thickness: 0.5, color: AXIS_COLOR });
 
-    // Y-axis unit label (rotated text not supported in pdf-lib — draw sideways label above)
+    // Y-axis unit label (rotated text not supported in pdf-lib:draw sideways label above)
     page.drawText('tCO2e', { x: 50, y: cTop + 2, size: 7, font, color: LBL_COLOR });
 
     // Data line
@@ -814,7 +868,7 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       page.drawCircle({ x: sx(values.length - 1), y: syT(valuesT[values.length - 1]), size: 3, color: BLUE });
     }
 
-    // X-axis labels — "Jan 26" format, smart skip for >6 months
+    // X-axis labels:"Jan 26" format, smart skip for >6 months
     const fmtChartLbl = (ym: string) => {
       const parts = ym.split('-');
       if (parts.length !== 2) return ym;
@@ -950,21 +1004,21 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
     {
       const scopeBoxDefs = [
         {
-          label: 'Scope 1: Direct fuel emissions',
+          label: 'Scope 1: Fuels & Refrigerants',
           value: `${scope1_t.toFixed(2)} tCO2e`,
           desc: 'Includes emissions from combustion of diesel, petrol, natural gas, LPG and CNG in company-operated vehicles or equipment, plus refrigerant fugitive emissions.',
           leftBg: rgb(0.84, 0.93, 0.86),
           rightBg: rgb(0.93, 0.97, 0.94),
         },
         {
-          label: 'Scope 2: Purchased electricity',
+          label: 'Scope 2: Electricity',
           value: `${scope2_t.toFixed(2)} tCO2e`,
           desc: `Calculated using national grid emission factors for ${countryName} (${ef.electricity} kg CO2e per kWh).`,
           leftBg: rgb(0.84, 0.91, 0.98),
           rightBg: rgb(0.93, 0.95, 0.99),
         },
         {
-          label: 'Scope 3: Selected categories',
+          label: 'Scope 3: Value chain',
           value: `${scope3_t.toFixed(2)} tCO2e`,
           desc: 'Scope 3 values represent only categories recorded in Greenio. This is not a complete Scope 3 inventory.',
           leftBg: rgb(0.97, 0.93, 0.84),
@@ -1002,7 +1056,7 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
     y -= 40;
 
     // ---- Scope 3 SUMMARY TABLE ----
-    page.drawText('Scope 3 (selected categories – summary)', {
+    page.drawText('Scope 3: Value chain (summary)', {
       x: 50,
       y,
       size: 12,
@@ -1048,7 +1102,7 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
     const s3_total_t = s3.reduce((s, r) => s + safe(r.co2e_kg), 0) / 1000;
 
     for (const r of s3) {
-      // Page overflow — start a continuation page before this row falls off
+      // Page overflow:start a continuation page before this row falls off
       if (y < 80) {
         page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
         page = addPage();
@@ -1120,16 +1174,16 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
     y -= 20;
 
     {
-      const hotspotText = dominant === 'electricity'
-        ? 'Electricity consumption is the dominant emissions source. Facilities, equipment and operational hours drive most carbon intensity.'
-        : dominant === 'scope3'
-        ? 'Supply chain activities (Scope 3) are the dominant emissions source. Upstream procurement and logistics represent the main reduction levers.'
+      const hotspotText = hotspotDom === 'electricity'
+        ? 'Electricity consumption is the single largest emissions source. Facilities, equipment and operational hours drive most carbon intensity.'
+        : hotspotDom === 'scope3'
+        ? 'Value chain activities (Scope 3) are the dominant emissions source. Upstream procurement and logistics represent the main reduction levers.'
+        : hotspotDom === 'refrigerant'
+        ? 'Refrigerant leakage (Scope 1 fugitive emissions) is the single largest individual emissions source. Equipment leaks or aging cooling systems are the primary area for intervention.'
         : fuelSource === 'petrol'
           ? 'Fuel combustion (Scope 1) is the dominant emissions source. Petrol consumption indicates company vehicle use as the primary reduction lever.'
           : fuelSource === 'gas'
           ? 'Fuel combustion (Scope 1) is the dominant emissions source. Natural gas consumption for heating or process energy is the primary area for intervention.'
-          : fuelSource === 'refrigerant'
-          ? 'Refrigerant leakage (Scope 1 fugitive emissions) is the dominant emissions source. Equipment leaks or aging cooling systems are the primary area for intervention.'
           : 'Fuel combustion (Scope 1) is the dominant emissions source. Diesel consumption indicates generator operation, diesel vehicles or on-site equipment as the primary reduction lever.';
       const yRef = { value: y };
       paragraph(page, hotspotText, 50, 480, 11, yRef);
@@ -1210,7 +1264,8 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       }
       if (revenue > 0) {
         const perRevenue = totalCO2kg / 1000 / revenue;
-        const perRevenueStr = perRevenue < 0.001 ? perRevenue.toExponential(3) : perRevenue.toFixed(6);
+        const fmtDecimal = (v: number) => { const d = Math.max(0, -Math.floor(Math.log10(v)) + 2); return v.toFixed(d); };
+        const perRevenueStr = fmtDecimal(perRevenue);
         intensityDefs.push({ label: `tCO2e per ${currencySymbol} revenue`, value: `${perRevenueStr} tCO2e / ${currencySymbol}`, available: true });
       } else {
         intensityDefs.push({ label: `tCO2e per ${currencySymbol} revenue`, value: 'Not provided (add annual revenue)', available: false });
@@ -1289,134 +1344,138 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
     });
     y -= 26;
 
-    // Build per-source content library and prioritised source list for all fuel insights/actions
-    const s1TotalForPct = s1DieselCo2e + s1PetrolCo2e + s1GasCo2e + s1LpgCo2e + s1CngCo2e + s1RefrigCo2e || 1;
-    const pctOf = (v: number) => Math.round(v / s1TotalForPct * 100);
-    const sigSources = ([
-      { key: 'refrigerant' as FuelSource, co2e: s1RefrigCo2e },
-      { key: 'diesel'      as FuelSource, co2e: s1DieselCo2e },
-      { key: 'petrol'      as FuelSource, co2e: s1PetrolCo2e },
-      { key: 'gas'         as FuelSource, co2e: s1GasCo2e    },
-      { key: 'lpg'         as FuelSource, co2e: s1LpgCo2e    },
-      { key: 'cng'         as FuelSource, co2e: s1CngCo2e    },
-    ]).filter(s => s.co2e > 0).sort((a, b) => b.co2e - a.co2e);
+    // ── UNIFIED RANKED SOURCE LIST:all scopes, all sources, ordered by tCO2e ──
+    const totalForPct = totalCO2kg || 1;
+    const pctT = (v: number) => { const p = v / totalForPct * 100; return p > 0 && p < 0.1 ? '<0.1' : p.toFixed(1); }; // % of total
+    type AllSource = 'electricity' | 'refrigerant' | 'diesel' | 'petrol' | 'gas' | 'lpg' | 'cng' | 'scope3';
+    const allSourceData: Array<{ key: AllSource; co2e: number }> = [
+      { key: 'electricity', co2e: scope2_kg     },
+      { key: 'refrigerant', co2e: s1RefrigCo2e  },
+      { key: 'diesel',      co2e: s1DieselCo2e  },
+      { key: 'petrol',      co2e: s1PetrolCo2e  },
+      { key: 'gas',         co2e: s1GasCo2e     },
+      { key: 'lpg',         co2e: s1LpgCo2e     },
+      { key: 'cng',         co2e: s1CngCo2e     },
+      { key: 'scope3',      co2e: scope3_kg     },
+    ].filter(s => s.co2e > 0).sort((a, b) => b.co2e - a.co2e);
 
-    const srcLib: Record<FuelSource, { name: string; operational: string; longTerm: string; action: string; immediate: string; medTerm: string }> = {
+    const allSrcLib: Record<AllSource, { name: string; scope: string; operational: string; longTermPhrase: string; action: string; immediate: string; medTerm: string }> = {
+      electricity: {
+        name: 'Electricity', scope: 'Scope 2',
+        operational: 'electricity consumption for lighting, HVAC, equipment and IT infrastructure. Facility utilisation, equipment efficiency and operational hours are the key variables',
+        longTermPhrase: 'switch to a renewable electricity tariff or PPA and invest in on-site solar generation',
+        action: 'Conduct a full energy audit of facility equipment, lighting, HVAC and IT infrastructure to identify the largest consumption sources.',
+        immediate: 'Analyse peak-load consumption patterns and introduce equipment-shutdown routines during low-activity periods to cut baseload.',
+        medTerm: 'Upgrade to high-efficiency equipment, explore smart building-management systems, and evaluate on-site renewable generation or a green-electricity contract.',
+      },
       refrigerant: {
-        name: 'refrigerant leakage',
-        operational: 'refrigerant leakage is typically caused by equipment age, inadequate maintenance or under-inspected HVAC systems. It is often invisible without active monitoring',
-        longTerm: 'phase out high-GWP refrigerants, transition to natural or lower-impact alternatives and implement a refrigerant lifecycle management programme',
-        action: 'Commission a refrigerant leak audit across all cooling and HVAC equipment and implement a log tracking all purchases, top-ups and disposals.',
-        immediate: 'Schedule a certified refrigerant leak detection survey and record top-up volumes per unit to identify the worst offenders.',
+        name: 'Refrigerant leakage', scope: 'Scope 1, fugitive',
+        operational: 'fugitive emissions from cooling and HVAC systems. Equipment age, maintenance frequency and refrigerant type are the primary variables',
+        longTermPhrase: 'phase out high-GWP refrigerants and adopt low-impact alternatives',
+        action: 'Commission a refrigerant leak audit across all cooling and HVAC equipment and implement a log tracking all top-ups and disposals.',
+        immediate: 'Schedule a certified leak detection survey and record top-up volumes per unit to identify the worst offenders.',
         medTerm: 'Develop an equipment replacement roadmap prioritising units with the highest leak rates or oldest high-GWP refrigerant profiles.',
       },
       diesel: {
-        name: 'diesel combustion',
-        operational: 'diesel combustion from vehicles, generators or on-site equipment, where usage patterns, run-hours and maintenance practices drive most of this impact',
-        longTerm: 'reduce diesel dependency through usage tracking, cleaner backup power alternatives and a phased vehicle electrification plan',
-        action: 'Audit diesel consumption to identify whether usage originates from vehicles, generators or equipment, then set reduction targets for each category.',
+        name: 'Diesel combustion', scope: 'Scope 1',
+        operational: 'diesel combustion from vehicles, generators or on-site equipment. Usage patterns, run-hours and maintenance practices drive most of this impact',
+        longTermPhrase: 'electrify diesel vehicles and replace generators with solar-plus-storage',
+        action: 'Audit diesel consumption by source (vehicles, generators or equipment) and set monthly reduction targets for each category.',
         immediate: 'Begin logging diesel consumption and generator run-hours monthly to establish a reliable baseline.',
-        medTerm: 'Evaluate battery UPS or solar-plus-storage as cleaner backup power alternatives and assess EV options for any diesel vehicles.',
+        medTerm: 'Evaluate battery UPS or solar-plus-storage as cleaner backup power alternatives and assess EV options for diesel vehicles.',
       },
       petrol: {
-        name: 'petrol combustion',
-        operational: 'petrol combustion from company vehicles, where journey frequency, routing efficiency and driver behaviour are the primary variables',
-        longTerm: 'electrify the company vehicle fleet through a managed, phased transition plan',
-        action: 'Introduce a journey approval and mileage tracking policy to eliminate unnecessary vehicle trips and reduce petrol consumption.',
-        immediate: 'Set monthly fuel consumption targets per vehicle and review actual usage patterns against them.',
-        medTerm: 'Design an EV transition roadmap for company vehicles, prioritising highest-mileage units first.',
+        name: 'Petrol combustion', scope: 'Scope 1',
+        operational: 'petrol combustion from company vehicles. Journey frequency, route efficiency and vehicle age determine most of the impact',
+        longTermPhrase: 'electrify the fleet aligned with lease renewal cycles',
+        action: 'Introduce a journey approval and mileage tracking policy to eliminate unnecessary trips and reduce petrol consumption.',
+        immediate: 'Begin recording petrol consumption by vehicle monthly to establish a clear usage baseline.',
+        medTerm: 'Assess EV suitability for highest-mileage vehicles and evaluate whether a salary-sacrifice EV scheme would accelerate fleet transition.',
       },
       gas: {
-        name: 'natural gas combustion',
-        operational: 'natural gas combustion for heating or process energy, where building thermal efficiency and equipment performance are the key variables',
-        longTerm: 'phase out gas-based heating through heat pump adoption, improved building fabric and, where viable, renewable gas alternatives',
+        name: 'Natural gas combustion', scope: 'Scope 1',
+        operational: 'natural gas combustion for heating or process energy. Building thermal efficiency and equipment performance are the key variables',
+        longTermPhrase: 'replace gas heating with heat pumps and improved insulation',
         action: 'Commission a boiler and heating system audit to assess efficiency ratings and replacement viability.',
-        immediate: 'Review gas consumption by month to identify seasonal peaks and optimise boiler controls for current occupancy levels.',
+        immediate: 'Review gas consumption by month to identify seasonal peaks and optimise boiler controls for current occupancy.',
         medTerm: 'Evaluate heat pump suitability for your building type and commission insulation upgrades where the return justifies investment.',
       },
       lpg: {
-        name: 'LPG combustion',
-        operational: 'LPG combustion for heating, cooking or on-site equipment, where cylinder consumption tracking and appliance efficiency are the primary variables',
-        longTerm: 'replace LPG-fired equipment with electric or solar alternatives as part of a phased decarbonisation of stationary fuel use',
+        name: 'LPG combustion', scope: 'Scope 1',
+        operational: 'LPG combustion for heating, cooking or on-site equipment. Cylinder consumption tracking and appliance efficiency are the primary variables',
+        longTermPhrase: 'replace LPG appliances with electric or solar alternatives',
         action: 'Audit all LPG-consuming appliances and equipment to identify high-usage sources and assess electrification feasibility.',
         immediate: 'Begin tracking LPG cylinder consumption monthly by appliance or location to establish a reliable baseline.',
         medTerm: 'Evaluate electric or induction alternatives for cooking and heating applications and assess solar thermal or heat pump options.',
       },
       cng: {
-        name: 'CNG combustion',
-        operational: 'CNG combustion from vehicles or on-site generators, where fleet utilisation, route efficiency and maintenance standards are the primary variables',
-        longTerm: 'transition CNG vehicles and equipment to electric alternatives as battery technology and infrastructure mature',
-        action: 'Map CNG consumption by vehicle or equipment type and set monthly consumption reduction targets for each category.',
+        name: 'CNG combustion', scope: 'Scope 1',
+        operational: 'CNG combustion from vehicles or generators. Fleet utilisation, route efficiency and maintenance standards are the primary variables',
+        longTermPhrase: 'transition CNG fleet to electric as infrastructure matures',
+        action: 'Map CNG consumption by vehicle or equipment type and set monthly reduction targets for each category.',
         immediate: 'Begin logging CNG fill-ups or dispenser records monthly to establish an accurate consumption baseline.',
         medTerm: 'Assess EV or electric equipment options for the highest CNG-consuming assets and model the transition economics.',
       },
+      scope3: {
+        name: 'Value-chain activities', scope: 'Scope 3',
+        operational: 'upstream and downstream value-chain activities including employee commuting, business travel, purchased goods and waste. Activity levels and supplier choices drive emissions',
+        longTermPhrase: 'build a full Scope 3 inventory and engage key suppliers on carbon targets',
+        action: 'Expand Scope 3 data capture to cover all material categories (commuting, business travel, purchased goods, waste and logistics).',
+        immediate: 'Survey employees on commute modes and distances to build a reliable commuting baseline.',
+        medTerm: 'Develop a supplier engagement programme targeting the highest-emission procurement categories.',
+      },
     };
 
-    // Insight 1 — comprehensive breakdown of ALL significant Scope 1 sources
+    // ── INSIGHT 1: Analysis — top 3 dominant + bottom 2 minor sources ──
     {
-      let i1Text: string;
-      if (dominant === 'fuel') {
-        const parts = sigSources.map(s => `${srcLib[s.key].name} (${pctOf(s.co2e)}%)`);
-        const breakdown = parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0] ?? 'fuel combustion';
-        i1Text = `Scope 1 (direct) emissions are driven by ${breakdown}. ${sigSources.length > 1 ? 'Each source represents a distinct reduction opportunity and should be addressed in priority order.' : 'This is the primary area for intervention.'}`;
-      } else if (dominant === 'electricity') {
-        i1Text = 'Electricity consumption accounts for the largest emissions share, indicating that facilities, equipment and operational hours drive most carbon intensity.';
-      } else {
-        i1Text = 'Scope 3 activities represent the dominant emissions contributors, indicating upstream supply chain processes and purchased goods have the strongest influence on organisational carbon impact.';
+      const top3 = allSourceData.slice(0, 3);
+      const bottom2 = allSourceData.length > 3 ? allSourceData.slice(-2) : [];
+      const top3Pct = top3.reduce((s, r) => s + r.co2e, 0) / totalForPct * 100;
+      const top3Parts = top3.map(s => `${allSrcLib[s.key].name} (${pctT(s.co2e)}%)`);
+      const topList = top3Parts.length > 1 ? top3Parts.slice(0, -1).join(', ') + ' and ' + top3Parts[top3Parts.length - 1] : top3Parts[0] ?? '';
+      let i1Text = `${topList} together account for ${top3Pct.toFixed(0)}% of total emissions and are the priority reduction areas.`;
+      if (bottom2.length > 0) {
+        const botParts = bottom2.map(s => `${allSrcLib[s.key].name} (${pctT(s.co2e)}%)`);
+        i1Text += ` ${botParts.join(' and ')} ${bottom2.length === 1 ? 'contributes' : 'contribute'} minimally but should not be ignored.`;
       }
       const yRef = { value: y };
       paragraphText(page, font, TEXT, i1Text, yRef);
       y = yRef.value;
     }
 
-    // Insight 2 — operational implications of the top two sources
+    // ── INSIGHT 2: Operational context for top 2 sources (one sentence each) ──
     {
-      let i2Text: string;
-      if (dominant === 'fuel') {
-        const top2 = sigSources.slice(0, 2).map(s => srcLib[s.key].operational);
-        i2Text = top2.length === 1
-          ? `The emissions reflect ${top2[0]}.`
-          : `The emissions profile reflects ${top2[0]}, alongside ${top2[1]}.`;
-      } else if (dominant === 'electricity') {
-        i2Text = 'Electricity-driven emissions suggest opportunities in equipment efficiency, load control, heating and cooling optimisation and facility utilisation.';
-      } else {
-        i2Text = 'A Scope 3-heavy profile highlights the need for deeper supplier engagement, data collection and value-chain transparency to build a complete emissions baseline.';
+      const top2 = allSourceData.slice(0, 2);
+      for (const src of top2) {
+        const lib = allSrcLib[src.key];
+        const yRef = { value: y };
+        paragraphTextWithBoldPrefix(page, font, bold, TEXT, `${lib.name} (${lib.scope}):`, lib.operational + '.', yRef);
+        y = yRef.value;
       }
+    }
+
+    // ── INSIGHT 3: Trend ──
+    {
+      const trendBody =
+        trend === 'rising'  ? 'emissions are rising, signalling increased operational load or reduced efficiency. Immediate investigation is recommended.' :
+        trend === 'falling' ? 'emissions are declining, reflecting operational improvements. Continue monitoring to maintain progress.' :
+                              'no consistent direction detected. Review data completeness and operational patterns.';
+      const suffix = missingData ? ' Some monthly entries are incomplete or zero.' : '';
       const yRef = { value: y };
-      paragraphText(page, font, TEXT, i2Text, yRef);
+      paragraphTextWithBoldPrefix(page, font, bold, TEXT, 'Trend:', trendBody + suffix, yRef);
       y = yRef.value;
     }
 
-    // INSIGHT 3
+    // ── INSIGHT 4: Long-term pathway for top 3 sources only ──
     {
-      let trendParagraph =
-        trend === 'rising'
-          ? 'Recent emissions indicate an upward trajectory, signalling increased operational load or reduced efficiency. This trend warrants immediate diagnostic analysis.'
-          : trend === 'falling'
-          ? 'Emissions have declined over recent months, reflecting early improvements or reduced operational intensity. Continued monitoring can help maintain momentum.'
-          : 'Month-to-month fluctuations show no consistent trend, suggesting varying operational patterns or inconsistent data logging.';
-      if (missingData)
-        trendParagraph +=
-          ' Some entries appear incomplete or zero, reducing analytical confidence.';
-
+      const phrases = allSourceData.slice(0, 3).map(s => allSrcLib[s.key].longTermPhrase);
+      const i4Body = phrases.length === 1
+        ? `${phrases[0]}.`
+        : phrases.length === 2
+          ? `${phrases[0]}, and ${phrases[1]}.`
+          : `${phrases[0]}, ${phrases[1]}, and ${phrases[2]}.`;
       const yRef = { value: y };
-      paragraphText(page, font, TEXT, trendParagraph, yRef);
-      y = yRef.value;
-    }
-
-    // Insight 4 — long-term decarbonisation covering all significant sources
-    {
-      let i4Text: string;
-      if (dominant === 'fuel') {
-        const top2lt = sigSources.slice(0, 2).map(s => srcLib[s.key].longTerm);
-        i4Text = `Long-term decarbonisation will require a multi-strand approach: ${top2lt.join('; and ')}.`;
-      } else if (dominant === 'electricity') {
-        i4Text = 'Strategic reductions will require integrated energy-efficiency planning, equipment upgrades and a shift towards renewable or lower-carbon electricity procurement.';
-      } else {
-        i4Text = 'Meaningful reductions require supply-chain collaboration, sustainability requirements in procurement, data transparency and prioritisation of high-impact suppliers.';
-      }
-      const yRef = { value: y };
-      paragraphText(page, font, TEXT, i4Text, yRef);
+      paragraphTextWithBoldPrefix(page, font, bold, TEXT, 'Long-term:', i4Body, yRef);
       y = yRef.value;
     }
 
@@ -1428,31 +1487,16 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
     });
     y -= 22;
 
-    // Top 3 actions — one per significant source, ranked by CO2e contribution
-    let actions: string[];
-    if (dominant === 'fuel') {
-      actions = sigSources.slice(0, 3).map(s => srcLib[s.key].action);
-      while (actions.length < 3) actions.push('Strengthen monthly emissions data logging to build a complete baseline for year-on-year tracking and future target-setting.');
-    } else if (dominant === 'electricity') {
-      actions = [
-        'Conduct a full energy-efficiency assessment of facility equipment, lighting and HVAC performance.',
-        'Introduce automated controls or smart-metering analytics to reduce off-peak and baseload consumption.',
-        'Explore equipment upgrades and renewable-electricity procurement for sustained long-term reductions.',
-      ];
-    } else {
-      actions = [
-        'Expand Scope 3 data capture across upstream procurement, waste, logistics and downstream activities.',
-        'Engage strategic suppliers to build shared data-transparency processes and reduction initiatives.',
-        'Embed sustainability requirements into procurement frameworks to influence supply-chain emissions.',
-      ];
-    }
+    // One action per top-3 ranked sources across all scopes
+    const actions = allSourceData.slice(0, 3).map(s => allSrcLib[s.key].action);
+    while (actions.length < 3) actions.push('Strengthen monthly emissions data logging to build a complete baseline for year-on-year tracking and future target-setting.');
 
     {
       const AMBER_ACT = rgb(218 / 255, 128 / 255, 0 / 255);
       const actImpacts = ['High', 'Medium', 'Medium'];
       const actColNum = 55, actColAct = 88, actColImp = 460, actMaxW = 360;
 
-      // Table header — BLACK, matching all other tables
+      // Table header:BLACK, matching all other tables
       page.drawRectangle({ x: 45, y: y - 18, width: 510, height: 22, color: rgb(0, 0, 0) });
       page.drawText('#', { x: actColNum, y: y - 10, size: 10, font: bold, color: rgb(1, 1, 1) });
       page.drawText('Action', { x: actColAct, y: y - 10, size: 10, font: bold, color: rgb(1, 1, 1) });
@@ -1504,16 +1548,9 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
     });
     y -= 26;
 
-    // Immediate actions — top 2 significant sources
-    let imm: string[];
-    if (dominant === 'fuel') {
-      imm = sigSources.slice(0, 2).map(s => srcLib[s.key].immediate);
-      if (imm.length < 2) imm.push('Ensure all fuel and refrigerant consumption is logged monthly to maintain data quality.');
-    } else if (dominant === 'electricity') {
-      imm = ['Analyse peak-load consumption to identify avoidable energy spikes.', 'Introduce equipment-shutdown and low-activity control routines.'];
-    } else {
-      imm = ['Expand Scope 3 activity-data collection to improve baseline accuracy.', 'Engage top suppliers to establish emissions-data submission processes.'];
-    }
+    // Immediate actions:top 2 ranked sources across all scopes
+    const imm = allSourceData.slice(0, 2).map(s => allSrcLib[s.key].immediate);
+    if (imm.length < 2) imm.push('Ensure all emission sources are logged monthly to maintain data quality and support year-on-year comparison.');
 
     for (const a of imm) {
       const yRef = { value: y };
@@ -1524,6 +1561,12 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
     y -= 10;
 
     // ---------------- MEDIUM-TERM ----------------
+    // New page if not enough room for heading + 2 paragraphs
+    if (y < 140) {
+      page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
+      page = addPage();
+      y = 780;
+    }
     page.drawText('Medium term opportunities (6–36 months)', {
       x: 50,
       y,
@@ -1533,22 +1576,9 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
     });
     y -= 26;
 
-    // Medium-term — top 2 significant sources
-    let med: string[];
-    if (dominant === 'fuel') {
-      med = sigSources.slice(0, 2).map(s => srcLib[s.key].medTerm);
-      if (med.length < 2) med.push('Explore renewable energy procurement or Power Purchase Agreements (PPAs) to reduce site-level fossil fuel dependency.');
-    } else if (dominant === 'electricity') {
-      med = [
-        'Upgrade to high-efficiency equipment and explore advanced building-management systems.',
-        'Evaluate on-site renewable generation or longer-term renewable-electricity contracts.',
-      ];
-    } else {
-      med = [
-        'Develop a supplier-focused decarbonisation roadmap prioritising high-impact categories.',
-        'Integrate emissions-scoring into procurement decisions to incentivise lower-carbon options.',
-      ];
-    }
+    // Medium-term:top 2 ranked sources across all scopes
+    const med = allSourceData.slice(0, 2).map(s => allSrcLib[s.key].medTerm);
+    if (med.length < 2) med.push('Explore renewable energy procurement or on-site generation to reduce fossil fuel and grid electricity dependency.');
 
     for (const a of med) {
       const yRef = { value: y };
@@ -1607,7 +1637,7 @@ paragraphText(
   page,
   font,
   TEXT,
-  'Scope 1 reflects direct combustion of fuels. Scope 2 reflects purchased electricity. Scope 3 reflects only the categories reported during this period and does not constitute a complete value-chain inventory. Data gaps may exist where Scope 3 information has not been collected.',
+  'Scope 1 reflects direct combustion of fuels and fugitive refrigerant emissions. Scope 2 reflects purchased electricity. Scope 3 reflects only the categories reported during this period and does not constitute a complete value-chain inventory. Data gaps may exist where Scope 3 information has not been collected.',
   yRef
 );
 
@@ -1780,22 +1810,18 @@ page.drawLine({
 y -= 40;
 
 // Intro paragraph
-{
-  const yRef = { value: y };
-  paragraphText(
-    page,
-    font,
-    TEXT,
-    `All calculations use the national GHG conversion factors for ${countryName}. Source: ${ef.version}. These factors cover Scope 1, Scope 2 and Scope 3 (selected categories).`,
-    yRef
-  );
-  y = yRef.value;
+page.drawText(`All calculations use the national GHG conversion factors for ${countryName}.`, { x: 50, y, size: 11, font, color: TEXT }); y -= 17;
+page.drawText('Sources:', { x: 50, y, size: 11, font: bold, color: TEXT }); y -= 17;
+for (const src of ef.version.split(' | ')) {
+  page.drawText(src.trim(), { x: 60, y, size: 11, font, color: TEXT }); y -= 16;
 }
+y -= 6;
+page.drawText('These factors cover Scope 1, Scope 2 and Scope 3 (value chain).', { x: 50, y, size: 11, font, color: TEXT }); y -= 16;
 
-y -= 10;
+y -= 14;
 
 // --------------------------- SCOPE 1 ---------------------------
-page.drawText('Scope 1: Direct emissions factors (fuel combustion)', {
+page.drawText('Scope 1: Direct emissions factors (fuels & refrigerants)', {
   x: 50,
   y,
   size: 12,
@@ -1804,11 +1830,18 @@ page.drawText('Scope 1: Direct emissions factors (fuel combustion)', {
 });
 y -= 22;
 
-page.drawText(`Diesel: ${ef.diesel} kg CO2e per litre`, { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText(`Petrol: ${ef.petrol} kg CO2e per litre`, { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText(`Natural gas / PNG: ${ef.gas.toFixed(4)} kg CO2e per kWh`, { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText(`LPG: ${ef.lpgKg.toFixed(2)} kg CO2e per kg (IPCC 2019 / BEE India)`, { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText(`CNG: ${ef.cngKg.toFixed(2)} kg CO2e per kg (IPCC 2019 / BEE India)`, { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
+page.drawText(`Diesel: ${ef.diesel} kg CO2e per litre`, { x: 60, y, size: 11, font, color: TEXT }); y -= 17;
+page.drawText(`Petrol: ${ef.petrol} kg CO2e per litre`, { x: 60, y, size: 11, font, color: TEXT }); y -= 17;
+page.drawText(`Natural gas / PNG: ${ef.gas.toFixed(4)} kg CO2e per kWh`, { x: 60, y, size: 11, font, color: TEXT }); y -= 17;
+page.drawText(`LPG: ${ef.lpgKg.toFixed(2)} kg CO2e per kg (IPCC 2019 / BEE India)`, { x: 60, y, size: 11, font, color: TEXT }); y -= 17;
+page.drawText(`CNG: ${ef.cngKg.toFixed(2)} kg CO2e per kg (IPCC 2019 / BEE India)`, { x: 60, y, size: 11, font, color: TEXT }); y -= 24;
+page.drawText('Refrigerant leakage (fugitive), GWP values per IPCC AR6:', { x: 60, y, size: 11, font: bold, color: TEXT }); y -= 17;
+page.drawText('R-410A: 2,088 kg CO2e per kg', { x: 70, y, size: 11, font, color: TEXT }); y -= 16;
+page.drawText('R-32: 675 kg CO2e per kg',      { x: 70, y, size: 11, font, color: TEXT }); y -= 16;
+page.drawText('R-134A: 1,430 kg CO2e per kg',  { x: 70, y, size: 11, font, color: TEXT }); y -= 16;
+page.drawText('R-407C: 1,774 kg CO2e per kg',  { x: 70, y, size: 11, font, color: TEXT }); y -= 16;
+page.drawText('R-404A: 3,922 kg CO2e per kg',  { x: 70, y, size: 11, font, color: TEXT }); y -= 16;
+page.drawText('Generic HFC: 1,650 kg CO2e per kg', { x: 70, y, size: 11, font, color: TEXT }); y -= 30;
 
 // --------------------------- SCOPE 2 ---------------------------
 page.drawText('Scope 2: Purchased electricity (location-based)', {
@@ -1838,80 +1871,71 @@ page.drawText(isGB ? 'Market-based factors are not used for SECR.' : 'Market-bas
 });
 y -= 25;
 
-// --------------------------- SCOPE 3 ---------------------------
-page.drawText('Scope 3: Selected categories', {
-  x: 50,
-  y,
-  size: 12,
-  font: bold,
-  color: TEXT,
+// --------------------------- ENERGY CONVERSION ---------------------------
+y -= 10;
+page.drawText(`Energy conversion factors${isGB ? ' (SECR requirement)' : ''}`, {
+  x: 50, y, size: 12, font: bold, color: TEXT,
 });
 y -= 22;
+page.drawText('Diesel: 10.9 kWh per litre', { x: 60, y, size: 11, font, color: TEXT }); y -= 17;
+page.drawText('Petrol: 9.4 kWh per litre',  { x: 60, y, size: 11, font, color: TEXT }); y -= 17;
+page.drawText('LPG: 12.88 kWh per kg',      { x: 60, y, size: 11, font, color: TEXT }); y -= 17;
+page.drawText('CNG: 13.9 kWh per kg',       { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
+
+// Always start Scope 3 on a new page
+page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
+page = addPage();
+y = 780;
+
+// --------------------------- SCOPE 3 ---------------------------
+page.drawText('Scope 3: Value chain', {
+  x: 50, y, size: 12, font: bold, color: TEXT,
+});
+y -= 30;
 
 // Business Travel
-page.drawText('Business travel factors:', { x: 50, y, size: 11, font: bold, color: TEXT }); 
-y -= 18;
-
-page.drawText('Car (diesel): 0.171 kg CO2e per km', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText('Car (petrol): 0.140 kg CO2e per km', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText('Taxi: 0.153 kg CO2e per km', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText('Rail: 0.036 kg CO2e per km', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText('Domestic flight: 0.254 kg CO2e per km', { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
+page.drawText('Business travel factors:', { x: 50, y, size: 11, font: bold, color: TEXT });
+y -= 20;
+page.drawText('Car (diesel): 0.171 kg CO2e per km',   { x: 60, y, size: 11, font, color: TEXT }); y -= 16;
+page.drawText('Car (petrol): 0.140 kg CO2e per km',   { x: 60, y, size: 11, font, color: TEXT }); y -= 16;
+page.drawText('Taxi: 0.153 kg CO2e per km',           { x: 60, y, size: 11, font, color: TEXT }); y -= 16;
+page.drawText('Rail: 0.036 kg CO2e per km',           { x: 60, y, size: 11, font, color: TEXT }); y -= 16;
+page.drawText('Domestic flight: 0.254 kg CO2e per km',{ x: 60, y, size: 11, font, color: TEXT }); y -= 30;
 
 // Employee commuting
 page.drawText('Employee commuting:', { x: 50, y, size: 11, font: bold, color: TEXT });
-y -= 18;
-
-page.drawText('Average commuter: 0.109 kg CO2e per km', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText('Car (unspecified): 0.163 kg CO2e per km', { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
+y -= 20;
+page.drawText('Average commuter: 0.109 kg CO2e per km', { x: 60, y, size: 11, font, color: TEXT }); y -= 16;
+page.drawText('Car (unspecified): 0.163 kg CO2e per km',{ x: 60, y, size: 11, font, color: TEXT }); y -= 30;
 
 // Waste
 page.drawText('Waste factors:', { x: 50, y, size: 11, font: bold, color: TEXT });
-y -= 18;
-
-page.drawText('General waste to landfill: 0.466 kg CO2e per kg', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText('Mixed recycling: 0.021 kg CO2e per kg', { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
+y -= 20;
+page.drawText('General waste to landfill: 0.466 kg CO2e per kg', { x: 60, y, size: 11, font, color: TEXT }); y -= 16;
+page.drawText('Mixed recycling: 0.021 kg CO2e per kg',            { x: 60, y, size: 11, font, color: TEXT }); y -= 30;
 
 // Water
 page.drawText('Water supply & treatment:', { x: 50, y, size: 11, font: bold, color: TEXT });
-y -= 18;
-
-page.drawText('Water supply: 0.344 kg CO2e per m3', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText('Water treatment: 0.708 kg CO2e per m3', { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
-
-// --------------------------- ENERGY CONVERSION ---------------------------
-page.drawText(`Energy conversion factors${isGB ? ' (SECR requirement)' : ''}`, {
-  x: 50,
-  y,
-  size: 12,
-  font: bold,
-  color: TEXT,
-});
-y -= 22;
-
-page.drawText('Diesel: 10.9 kWh per litre', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText('Petrol: 9.4 kWh per litre', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText('LPG: 12.88 kWh per kg', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText('CNG: 13.9 kWh per kg', { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
+y -= 20;
+page.drawText('Water supply: 0.344 kg CO2e per m3',   { x: 60, y, size: 11, font, color: TEXT }); y -= 16;
+page.drawText('Water treatment: 0.708 kg CO2e per m3',{ x: 60, y, size: 11, font, color: TEXT }); y -= 30;
 
 // Review paragraph
 {
   const yRef = { value: y };
   paragraphText(
-    page,
-    font,
-    TEXT,
+    page, font, TEXT,
     `Emission factors are updated annually following publication of new national GHG conversion factors. Greenio automatically applies the latest factors for ${countryName} for each reporting period.`,
     yRef
   );
-  y = yRef.value;  
+  y = yRef.value;
 }
 
 // Footer
 page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
 
 
-    // ========================= PAGE 7 — BRSR Disclosure Summary (India only) =========================
+    // ========================= PAGE 7:BRSR Disclosure Summary (India only) =========================
     if (countryCode === 'IN') {
       page = addPage();
       y = 780;
@@ -1933,7 +1957,7 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       const bEnergyPerRev = revenue > 0 ? bTotalEnergyGJ / revenue : null;
       const bGhgPerEmp = empCount > 0 ? bTotalCO2t / empCount : null;
       const bEnergyPerEmp = empCount > 0 ? bTotalEnergyGJ / empCount : null;
-      const bFmtI = (v: number) => v < 0.0001 ? v.toExponential(3) : v.toFixed(8);
+      const bFmtI = (v: number) => { const d = Math.max(0, -Math.floor(Math.log10(v)) + 2); return v.toFixed(d); };
 
       // Word-wrap helper (shared for indicator and value columns)
       const bWrap = (text: string, maxW: number, sz: number): string[] => {
@@ -1960,7 +1984,7 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
         }
       };
 
-      // Group header — uses BLUE (Greenio green) to match report accent, same feel as scope boxes
+      // Group header:uses BLUE (Greenio green) to match report accent, same feel as scope boxes
       const bGroupHdr = (text: string) => {
         bEnsure(50);
         page.drawRectangle({ x: BTL, y: y - 18, width: BTW, height: 22, color: BLUE });
@@ -1968,7 +1992,7 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
         y -= 26;
       };
 
-      // Data row — notes rendered INSIDE the row background rect (no floating text)
+      // Data row:notes rendered INSIDE the row background rect (no floating text)
       const bRow = (indicator: string, value: string, auto: boolean, note?: string) => {
         const SZ = 8.5;
         const NOTE_SZ = 7.5;
@@ -1985,27 +2009,27 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
         page.drawRectangle({ x: BTL, y: y - rowH, width: BTW, height: rowH, color: rowBg });
         page.drawLine({ start: { x: BTL, y: y - rowH }, end: { x: BTL + BTW, y: y - rowH }, thickness: 0.3, color: rgb(0.87, 0.87, 0.87) });
 
-        // Indicator lines — vertically centred within mainH
+        // Indicator lines:vertically centred within mainH
         const indStartY = y - Math.round((mainH - indLines.length * 13) / 2) - 10;
         for (let li = 0; li < indLines.length; li++) {
           page.drawText(indLines[li], { x: BC1, y: indStartY - li * 13, size: SZ, font, color: TEXT });
         }
 
-        // Value lines — vertically centred within mainH
+        // Value lines:vertically centred within mainH
         const valColor = auto ? BLUE : rgb(0.5, 0.5, 0.52);
         const valStartY = y - Math.round((mainH - valLines.length * 13) / 2) - 10;
         for (let vi = 0; vi < valLines.length; vi++) {
           page.drawText(valLines[vi], { x: BC2, y: valStartY - vi * 13, size: SZ, font: auto ? bold : font, color: valColor });
         }
 
-        // Badge — vertically centred within mainH
+        // Badge:vertically centred within mainH
         const badgeY = y - Math.round(mainH / 2) - 7;
         page.drawRectangle({ x: BC3, y: badgeY, width: BADGE_W, height: 14, color: auto ? BLUE : AMBER_BADGE });
         const badgeStr = auto ? 'Auto-filled' : 'Needs input';
         const badgeStrW = bold.widthOfTextAtSize(badgeStr, 7.5);
         page.drawText(badgeStr, { x: BC3 + Math.round((BADGE_W - badgeStrW) / 2), y: badgeY + 3, size: 7.5, font: bold, color: rgb(1, 1, 1) });
 
-        // Note lines — drawn INSIDE the row rect, below the main content area
+        // Note lines:drawn INSIDE the row rect, below the main content area
         if (noteLines.length > 0) {
           let noteY = y - mainH - 9;
           for (const nl of noteLines) {
@@ -2017,14 +2041,14 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
         y -= rowH + 2;
       };
 
-      // ---- PAGE HEADER — matches all other section pages ----
+      // ---- PAGE HEADER:matches all other section pages ----
       page.drawText('7. BRSR Disclosure Summary', { x: 50, y, size: 18, font: bold, color: TEXT });
       page.drawLine({ start: { x: 50, y: y - 6 }, end: { x: 545, y: y - 6 }, thickness: 1, color: BLUE });
       y -= 28;
       page.drawText('SEBI BRSR | Essential Indicators (auto-populated from Greenio data)', { x: 50, y, size: 10, font, color: rgb(0.45, 0.45, 0.47) });
       y -= 22;
 
-      // Intro text — inline draw to avoid closure color ambiguity
+      // Intro text:inline draw to avoid closure color ambiguity
       {
         const bDark = rgb(0.15, 0.15, 0.17);
         const introStr = 'The following disclosures are formatted in accordance with SEBI\'s Business Responsibility and Sustainability Report (BRSR) framework. Values are auto-populated directly from Greenio data. Fields marked "Needs input" require additional input from your organisation.';
@@ -2042,7 +2066,7 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
         y -= 10;
       }
 
-      // Column headers — BLACK, matching all other tables in the report
+      // Column headers:BLACK, matching all other tables in the report
       page.drawRectangle({ x: BTL, y: y - 18, width: BTW, height: 22, color: rgb(0, 0, 0) });
       page.drawText('BRSR Essential Indicator', { x: BC1, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
       page.drawText('Disclosed Value', { x: BC2, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
@@ -2053,7 +2077,7 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       bGroupHdr('Principle 6 | Environment: GHG Emissions (Essential Indicators)');
       bRow('Total Scope 1 emissions (metric tonnes CO2e)', `${scope1_t.toFixed(2)} tCO2e`, true);
       bRow('Total Scope 2 emissions (metric tonnes CO2e)', `${scope2_t.toFixed(2)} tCO2e`, true);
-      bRow('Total Scope 3 emissions: selected categories (metric tonnes CO2e)', `${scope3_t.toFixed(2)} tCO2e`, true, 'Scope 3 is partial. Full value-chain inventory recommended for BRSR Core.');
+      bRow('Total Scope 3 emissions: value chain (metric tonnes CO2e)', `${scope3_t.toFixed(2)} tCO2e`, true, 'Scope 3 is partial. Full value-chain inventory recommended for BRSR Core.');
       bRow('Total GHG emissions, Scope 1+2+3 (metric tonnes CO2e)', `${bTotalCO2t.toFixed(2)} tCO2e`, true);
       if (bGhgPerRev !== null) {
         bRow('GHG emission intensity per rupee of turnover (tCO2e / INR)', `${bFmtI(bGhgPerRev)} tCO2e / INR`, true);
@@ -2122,7 +2146,7 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       const bOverallAuto = bGhgAuto + bEnergyAuto + bAddlAuto + bWwaAuto;
       const bOverallTotal = 19; // +3 for Water, Waste, Air
 
-      // Scorecard table header — BLACK, matching all other tables
+      // Scorecard table header:BLACK, matching all other tables
       page.drawRectangle({ x: BTL, y: y - 18, width: BTW, height: 22, color: rgb(0, 0, 0) });
       page.drawText('Indicator group', { x: BC1, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
       page.drawText('Auto-filled', { x: 310, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
@@ -2149,7 +2173,7 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       bScoreRow('Water, Waste and Air', bWwaAuto, 3);
       bScoreRow('Additional disclosures', bAddlAuto, 4);
 
-      // Overall row — light green highlight (matches "Total GHG" row in energy table)
+      // Overall row:light green highlight (matches "Total GHG" row in energy table)
       const bOverallPct = Math.round(bOverallAuto / bOverallTotal * 100);
       page.drawRectangle({ x: BTL, y: y - 18, width: BTW, height: 22, color: rgb(0.92, 0.96, 0.92) });
       page.drawLine({ start: { x: BTL, y: y - 18 }, end: { x: BTL + BTW, y: y - 18 }, thickness: 0.3, color: rgb(0.87, 0.87, 0.87) });
@@ -2160,7 +2184,7 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       page.drawText(`${bOverallPct}%`, { x: 487, y: y - 7, size: 10, font: bold, color: bOvColor });
       y -= 30;
 
-      // Tip box — amber when items missing, green when 100% complete
+      // Tip box:amber when items missing, green when 100% complete
       bEnsure(70);
       const bMissing: string[] = [];
       if (!empCount) bMissing.push('employee headcount');
@@ -2186,7 +2210,7 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       }
       y -= tipH + 12;
 
-      // Disclaimer — inline draw
+      // Disclaimer:inline draw
       {
         const bDark = rgb(0.15, 0.15, 0.17);
         const discStr = 'This BRSR summary is based solely on data entered into Greenio and does not constitute third-party assurance. For BRSR Core (top 250 listed companies), independent assurance is required from a SEBI-registered provider.';

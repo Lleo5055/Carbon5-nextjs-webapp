@@ -2,7 +2,9 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+// useLayoutEffect fires before paint (client only); fall back to useEffect on server to avoid SSR warning
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 import Link from 'next/link';
 
@@ -48,6 +50,7 @@ type EmissionsReport = {
     lpgSharePercent: number;
     cngSharePercent: number;
     refrigerantSharePercent: number;
+    scope3SharePercent: number;
   };
   suggestions: string[];
   availableMonths: string[];
@@ -62,6 +65,8 @@ type EmissionsReport = {
     totalLpgKg: number;
     totalCngKg: number;
     totalRefKg: number;
+    totalScope1Co2eKg: number;
+    totalScope2Co2eKg: number;
   };
   scope3Rows?: any[] | null;
 };
@@ -156,42 +161,29 @@ const FREE_REPORT_CACHE_KEY = `greenio_free_report_used_${new Date().getFullYear
 
 /* ---------- FIXED: Safe Supabase ---------- */
 async function getCurrentPlan(): Promise<Plan> {
-  // If user is an active team member, the owner must be on Growth+ (required
-  // to add team members), so inherit at least 'growth'.
-  const { data: { user } } = await supabase.auth.getUser();
-  if (user) {
-    const { data: membership } = await supabase
-      .from('team_members')
-      .select('owner_id')
-      .eq('member_user_id', user.id)
-      .eq('status', 'active')
-      .maybeSingle();
+  const { data: { session } } = await supabase.auth.getSession(); // local, no network
+  const user = session?.user;
+  if (!user) return 'free';
 
-    if (membership?.owner_id) {
-      // Owner is guaranteed Growth+; try to read their exact plan, fall back to 'growth'
-      const { data: ownerProfile } = await supabase
-        .from('user_plans')
-        .select('plan')
-        .eq('user_id', membership.owner_id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const plan = (ownerProfile?.plan as Plan | null) ?? 'growth';
-      try { sessionStorage.setItem(PLAN_CACHE_KEY, plan); } catch {}
-      return plan;
-    }
-  }
-
-  const { data, error } = await supabase
-    .from('user_plans')
-    .select('plan')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Fire own plan + team membership lookup in parallel
+  const [{ data: ownPlan, error }, { data: membership }] = await Promise.all([
+    supabase.from('user_plans').select('plan').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('team_members').select('owner_id').eq('member_user_id', user.id).eq('status', 'active').maybeSingle(),
+  ]);
 
   if (error) console.error('View-emissions: error loading user plan', error);
 
-  const plan = (data?.plan as Plan | null) ?? 'free';
+  if (membership?.owner_id && membership.owner_id !== user.id) {
+    // Team member — owner's plan takes precedence (owner must be Growth+)
+    const { data: ownerProfile } = await supabase
+      .from('user_plans').select('plan').eq('user_id', membership.owner_id)
+      .order('created_at', { ascending: false }).limit(1).maybeSingle();
+    const plan = (ownerProfile?.plan as Plan | null) ?? 'growth';
+    try { sessionStorage.setItem(PLAN_CACHE_KEY, plan); } catch {}
+    return plan;
+  }
+
+  const plan = (ownPlan?.plan as Plan | null) ?? 'free';
   try { sessionStorage.setItem(PLAN_CACHE_KEY, plan); } catch {}
   return plan;
 }
@@ -203,21 +195,10 @@ async function getEmissionsReport(
   customStart?: string | null,
   customEnd?: string | null
 ): Promise<EmissionsReport> {
-  // ✅ FIX: use supabase directly
-  const db = supabase;
-console.log('[VIEW-EMISSIONS] getEmissionsReport START');
-
-await supabase.auth.getSession();
-
-  const { data, error } = await db
-    .from('emissions')
-    .select('*')
-    .order('month', { ascending: true });
-
-  const { data: scope3Rows, error: scope3Error } = await db
-    .from('scope3_activities')
-    .select('*')
-    .order('month', { ascending: true });
+  const [{ data, error }, { data: scope3Rows, error: scope3Error }] = await Promise.all([
+    supabase.from('emissions').select('*').order('month', { ascending: true }),
+    supabase.from('scope3_activities').select('*').order('month', { ascending: true }),
+  ]);
 
   if (error || !data) {
     if (error) console.error('Error loading emissions for report', error);
@@ -233,6 +214,7 @@ await supabase.auth.getSession();
         lpgSharePercent: 0,
         cngSharePercent: 0,
         refrigerantSharePercent: 0,
+        scope3SharePercent: 0,
       },
       suggestions: [],
       availableMonths: [],
@@ -247,6 +229,8 @@ await supabase.auth.getSession();
         totalLpgKg: 0,
         totalCngKg: 0,
         totalRefKg: 0,
+        totalScope1Co2eKg: 0,
+        totalScope2Co2eKg: 0,
       },
     };
   }
@@ -396,7 +380,8 @@ await supabase.auth.getSession();
       totalGasCo2 +
       totalLpgCo2 +
       totalCngCo2 +
-      totalRefCo2 || 1;
+      totalRefCo2 +
+      totalScope3Co2eKg || 1;
 
   const breakdownBySource = {
     electricitySharePercent: Math.round((totalElecCo2 / denom) * 1000) / 10,
@@ -406,6 +391,7 @@ await supabase.auth.getSession();
     lpgSharePercent: Math.round((totalLpgCo2 / denom) * 1000) / 10,
     cngSharePercent: Math.round((totalCngCo2 / denom) * 1000) / 10,
     refrigerantSharePercent: Math.round((totalRefCo2 / denom) * 1000) / 10,
+    scope3SharePercent: Math.round((totalScope3Co2eKg / denom) * 1000) / 10,
   };
 
   const suggestions: string[] = [];
@@ -417,6 +403,7 @@ await supabase.auth.getSession();
     lpgSharePercent,
     cngSharePercent,
     refrigerantSharePercent,
+    scope3SharePercent,
   } = breakdownBySource;
 
   if (electricitySharePercent > 25) {
@@ -454,6 +441,11 @@ await supabase.auth.getSession();
       'Refrigerant leakage / top-ups are significant. Prioritise leak checks and preventative servicing.'
     );
   }
+  if (scope3SharePercent > 15) {
+    suggestions.push(
+      'Scope 3 is a material part of your footprint. Engage key suppliers and review business travel policy.'
+    );
+  }
 
   if (suggestions.length === 0) {
     suggestions.push(
@@ -467,6 +459,8 @@ await supabase.auth.getSession();
 
   const totalCo2eKg = months.reduce((s, m) => s + m.totalCo2eKg, 0);
   const totalScope1and2Co2eKg = totalCo2eKg - totalScope3Co2eKg;
+  const totalScope1Co2eKg = totalDieselCo2 + totalPetrolCo2 + totalGasCo2 + totalLpgCo2 + totalCngCo2 + totalRefCo2;
+  const totalScope2Co2eKg = totalElecCo2;
 
   const totalElecKwh = months.reduce((s, m) => s + m.electricityKwh, 0);
   const totalDieselLitres = months.reduce(
@@ -499,6 +493,8 @@ await supabase.auth.getSession();
       totalLpgKg,
       totalCngKg,
       totalRefKg,
+      totalScope1Co2eKg,
+      totalScope2Co2eKg,
     },
     scope3Rows,
   };
@@ -635,6 +631,7 @@ export default function ViewEmissionsPage({ searchParams }: Props) {
     lpgSharePercent: 0,
     cngSharePercent: 0,
     refrigerantSharePercent: 0,
+    scope3SharePercent: 0,
   },
   suggestions: [],
   availableMonths: [],
@@ -649,6 +646,8 @@ export default function ViewEmissionsPage({ searchParams }: Props) {
     totalLpgKg: 0,
     totalCngKg: 0,
     totalRefKg: 0,
+    totalScope1Co2eKg: 0,
+    totalScope2Co2eKg: 0,
   },
   scope3Rows: [],
 });
@@ -658,16 +657,48 @@ const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
 const [userId, setUserId] = useState<string | null>(null);
 const [accessToken, setAccessToken] = useState<string | null>(null);
-const [isIndia, setIsIndia] = useState(false);
+const [isIndia, setIsIndia] = useState<boolean | null>(null); // null = not yet determined
 const [waterRows, setWaterRows] = useState<any[]>([]);
 const [wasteRows, setWasteRows] = useState<any[]>([]);
 const [airRows, setAirRows] = useState<any[]>([]);
+type BrsrScorecardData = {
+  rows: Array<{ group: string; auto: number; total: number }>;
+  overallAuto: number;
+  overallTotal: number;
+};
+type BrsrExtraData = {
+  hasGhgPlan: boolean;
+  hasRenew: boolean;
+  hasRevenue: boolean;
+  hasEmpCount: boolean;
+  methodConfirmed: boolean;
+};
+const [brsrExtra, setBrsrExtra] = useState<BrsrExtraData | null>(null);
+
+const brsrScorecard = useMemo<BrsrScorecardData | null>(() => {
+  if (!isIndia || !brsrExtra) return null;
+  const { hasGhgPlan, hasRenew, hasRevenue, hasEmpCount, methodConfirmed } = brsrExtra;
+  const bGhgAuto    = 4 + (hasRevenue ? 1 : 0) + (hasEmpCount ? 1 : 0);
+  const bEnergyAuto = 4 + (hasRevenue ? 1 : 0) + (hasEmpCount ? 1 : 0);
+  const bWwaAuto    = (waterRows.length > 0 ? 1 : 0) + (wasteRows.length > 0 ? 1 : 0) + (airRows.length > 0 ? 1 : 0);
+  const bAddlAuto   = 1 + (methodConfirmed ? 1 : 0) + (hasGhgPlan ? 1 : 0) + (hasRenew ? 1 : 0);
+  return {
+    rows: [
+      { group: 'GHG Emissions (Scope 1, 2, 3)', auto: bGhgAuto,    total: 6 },
+      { group: 'Energy Consumption',             auto: bEnergyAuto, total: 6 },
+      { group: 'Water, Waste and Air',            auto: bWwaAuto,   total: 3 },
+      { group: 'Additional disclosures',          auto: bAddlAuto,  total: 4 },
+    ],
+    overallAuto: bGhgAuto + bEnergyAuto + bWwaAuto + bAddlAuto,
+    overallTotal: 19,
+  };
+}, [isIndia, brsrExtra, waterRows, wasteRows, airRows]);
 const [snapshotLoading, setSnapshotLoading] = useState(false);
 const [freeReportUsed, setFreeReportUsed] = useState(false);
 // -----------------------------
-// RESTORE CACHED REPORT (INSTANT PAINT)
+// RESTORE CACHED REPORT (INSTANT PAINT — runs before browser paint)
 // -----------------------------
-useEffect(() => {
+useIsomorphicLayoutEffect(() => {
   try {
     const cached = sessionStorage.getItem(EMISSIONS_CACHE_KEY);
     if (cached) {
@@ -712,49 +743,57 @@ useEffect(() => {
   });
 }, []);
 
-// Load India env data — instant from cache, refresh from DB independently
-useEffect(() => {
-  let mounted = true;
-
-  // Paint immediately from sessionStorage
+// Restore India cache before paint so isIndia is known on frame 1
+useIsomorphicLayoutEffect(() => {
   try {
     const cached = sessionStorage.getItem(INDIA_ENV_CACHE_KEY);
     if (cached) {
-      const { isIndia: ci, waterRows: w, wasteRows: ws, airRows: a } = JSON.parse(cached);
+      const { isIndia: ci, waterRows: w, wasteRows: ws, airRows: a, brsrExtra: be } = JSON.parse(cached);
       if (ci) {
         setIsIndia(true);
         setWaterRows(w ?? []);
         setWasteRows(ws ?? []);
         setAirRows(a ?? []);
+        if (be) setBrsrExtra(be);
+      } else {
+        setIsIndia(false);
       }
     }
   } catch {}
+}, []);
 
-  // Refresh from DB — getSession reads localStorage, no network round-trip
+// Load India env data — refresh from DB independently
+useEffect(() => {
+  let mounted = true;
+
+  // Refresh from DB in background — single parallel round-trip for India users
   async function loadIndia() {
     const { data: { session } } = await supabase.auth.getSession();
     const uid = session?.user?.id;
     if (!uid || !mounted) return;
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('country, india_water_enabled, india_waste_enabled, india_air_enabled')
-      .eq('id', uid)
-      .maybeSingle();
-    if (!mounted || profile?.country !== 'IN') return;
+    // Fire all queries at once — discard India-specific results if not IN
+    const [profileRes, waterRes, wasteRes, airRes, brsrRes, profileExtraRes] = await Promise.all([
+      supabase.from('profiles').select('country, india_water_enabled, india_waste_enabled, india_air_enabled').eq('id', uid).maybeSingle(),
+      supabase.from('water_entries').select('*').eq('account_id', uid).order('period_year', { ascending: true }).order('period_month', { ascending: true }),
+      supabase.from('waste_entries').select('*').eq('account_id', uid).order('period_year', { ascending: true }).order('period_month', { ascending: true }),
+      supabase.from('air_emissions').select('*').eq('account_id', uid).order('period_year', { ascending: false }),
+      supabase.from('brsr_profile').select('has_ghg_reduction_plan,renewable_elec_pct').eq('account_id', uid).maybeSingle(),
+      supabase.from('profiles').select('employee_count,annual_revenue,methodology_confirmed').eq('id', uid).maybeSingle(),
+    ]);
+    if (!mounted) return;
+
+    const profile = profileRes.data;
+    if (profile?.country !== 'IN') {
+      setIsIndia(false);
+      try { sessionStorage.setItem(INDIA_ENV_CACHE_KEY, JSON.stringify({ isIndia: false })); } catch {}
+      return;
+    }
 
     setIsIndia(true);
-    const [water, waste, air] = await Promise.all([
-      profile.india_water_enabled
-        ? supabase.from('water_entries').select('*').eq('account_id', uid).order('period_year', { ascending: true }).order('period_month', { ascending: true })
-        : Promise.resolve({ data: [] as any[] }),
-      profile.india_waste_enabled
-        ? supabase.from('waste_entries').select('*').eq('account_id', uid).order('period_year', { ascending: true }).order('period_month', { ascending: true })
-        : Promise.resolve({ data: [] as any[] }),
-      profile.india_air_enabled
-        ? supabase.from('air_emissions').select('*').eq('account_id', uid).order('period_year', { ascending: false })
-        : Promise.resolve({ data: [] as any[] }),
-    ]);
+    const water  = { data: profile.india_water_enabled ? (waterRes.data ?? []) : [] };
+    const waste  = { data: profile.india_waste_enabled ? (wasteRes.data ?? []) : [] };
+    const air    = { data: profile.india_air_enabled   ? (airRes.data   ?? []) : [] };
     if (!mounted) return;
 
     const w = water.data ?? [];
@@ -763,8 +802,21 @@ useEffect(() => {
     setWaterRows(w);
     setWasteRows(ws);
     setAirRows(a);
+
+    // Store raw BRSR/profile fields — scorecard is derived via useMemo
+    const brsrProf = brsrRes.data;
+    const profData = profileExtraRes.data;
+    const be: BrsrExtraData = {
+      hasGhgPlan:      !!brsrProf?.has_ghg_reduction_plan,
+      hasRenew:        Number(brsrProf?.renewable_elec_pct ?? 0) > 0,
+      hasRevenue:      Number(profData?.annual_revenue ?? 0) > 0,
+      hasEmpCount:     Number(profData?.employee_count ?? 0) > 0,
+      methodConfirmed: !!profData?.methodology_confirmed,
+    };
+    setBrsrExtra(be);
+
     try {
-      sessionStorage.setItem(INDIA_ENV_CACHE_KEY, JSON.stringify({ isIndia: true, waterRows: w, wasteRows: ws, airRows: a }));
+      sessionStorage.setItem(INDIA_ENV_CACHE_KEY, JSON.stringify({ isIndia: true, waterRows: w, wasteRows: ws, airRows: a, brsrExtra: be }));
     } catch {}
   }
   loadIndia();
@@ -887,7 +939,7 @@ useEffect(() => {
   // -----------------------------
   // REMAINING LOGIC (unchanged)
   // -----------------------------
-  const { totalDieselLitres, totalPetrolLitres, totalGasKwh, totalLpgKg, totalCngKg } = totals;
+  const { totalDieselLitres, totalPetrolLitres, totalGasKwh, totalLpgKg, totalCngKg, totalScope1Co2eKg, totalScope2Co2eKg } = totals;
 
   const {
     electricitySharePercent,
@@ -897,6 +949,7 @@ useEffect(() => {
     lpgSharePercent,
     cngSharePercent,
     refrigerantSharePercent,
+    scope3SharePercent,
   } = breakdownBySource;
 
   type Hotspot = 'Electricity' | 'Diesel' | 'Petrol' | 'Gas' | 'Refrigerant';
@@ -1421,101 +1474,200 @@ useEffect(() => {
           </section>
         ) : (
           <>
-            {/* MAIN CONTENT */}
-            <section className="grid lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-5">
-                <div className="grid sm:grid-cols-3 gap-5 items-stretch">
-                  {/* TOTAL */}
-                  <article className="rounded-xl bg-white border p-6 shadow flex flex-col justify-between h-full">
-                    <p className="text-[10px] uppercase text-slate-500 flex items-center gap-1">
-                      <span className="text-[11px]">📊</span>
-                      <span>Total CO₂e</span>
-                    </p>
-                    <div>
-                      <p className="text-3xl font-semibold mt-3">
-                        {formatKg(totalCo2e)}
-                      </p>
-                      <p className="text-[11px] text-slate-500 mt-1">
-                        Across {months.length} reported {months.length === 1 ? 'month' : 'months'}.
-                      </p>
-
-                      {hasScope3InPeriod && (
-                        <p className="text-[11px] text-slate-400 mt-1">
-                          Includes {formatKg(totalScope3)} Scope 3 in this
-                          period.
-                        </p>
-                      )}
-                    </div>
-                  </article>
-
-                  {/* LATEST */}
-                  <article className="rounded-xl bg-white border p-6 shadow flex flex-col justify-between h-full">
-                    <p className="text-[10px] uppercase text-slate-500 flex items-center gap-1">
-                      <span className="text-[11px]">🗓️</span>
-                      <span>Latest month</span>
-                    </p>
-                    <div>
-                      <p className="text-sm font-medium mt-3">
-                        {latest.monthLabel}
-                      </p>
-                      <p className="text-xl font-semibold mt-1">
-                        {formatTonnes(latest.totalCo2eKg)}
-                      </p>
-                      <p className="text-[11px] text-slate-500 mt-1">
-                        Avg: {formatKgValue(avg)} kg/month
-                      </p>
-                    </div>
-                  </article>
-
-                  {/* HOTSPOT */}
-                  <article className="rounded-xl bg-white border p-6 shadow flex flex-col justify-between h-full">
-                    <p className="text-[10px] uppercase text-slate-500 flex items-center gap-1">
-                      <span className="text-[11px]">🔥</span>
-                      <span>Main hotspot</span>
-                    </p>
-                    <div>
-                      {hotspotSharePercent === 0 && hasScope3InPeriod ? (
-                        <>
-                          <p className="text-lg font-medium mt-3">Scope 3 Activities</p>
-                          <p className="text-[11px] text-slate-500 mt-1">
-                            No Scope 1 &amp; 2 emissions logged yet.
-                          </p>
-                          <p className="text-[11px] text-slate-500 mt-1">
-                            Scope 3 accounts for 100% of emissions this period.
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-lg font-medium mt-3">{hotspot}</p>
-                          <p className="text-[11px] text-slate-500 mt-1">
-                            Electricity: {electricitySharePercent}% · Diesel:{' '}
-                            {dieselSharePercent}% · Petrol: {petrolSharePercent}% ·
-                            Gas: {gasSharePercent}%{isIndia && lpgSharePercent > 0 ? ` · LPG: ${lpgSharePercent}%` : ''}{isIndia && cngSharePercent > 0 ? ` · CNG: ${cngSharePercent}%` : ''} · Refrigerant:{' '}
-                            {refrigerantSharePercent}%
-                          </p>
-                          <p className="text-[11px] text-slate-500 mt-1">
-                            {hotspotContext} caused {hotspotSharePercent}% of
-                            emissions.
-                          </p>
-                        </>
-                      )}
-                    </div>
-                  </article>
-                </div>
-
-                {/* TREND */}
-                <article className="rounded-xl bg-white border p-6 shadow">
-                  <h2 className="text-sm font-semibold">
-                    Trend by month (CO₂e)
-                  </h2>
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    Shows last 12 months. Tap or hover a dot for exact values.
+            {/* KPI CARDS — full width */}
+            <div className="grid sm:grid-cols-3 gap-5 items-stretch">
+              {/* TOTAL */}
+              <article className="rounded-xl bg-white border p-6 shadow flex flex-col justify-between h-full">
+                <p className="text-[10px] uppercase text-slate-500 flex items-center gap-1">
+                  <span className="text-[11px]">📊</span>
+                  <span>Total CO₂e</span>
+                </p>
+                <div>
+                  <p className="text-3xl font-semibold mt-3">
+                    {formatKg(totalCo2e)}
                   </p>
-                  <div className="mt-4">
-                    <MonthlyTrendChart months={months} />
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Across {months.length} reported {months.length === 1 ? 'month' : 'months'}.
+                  </p>
+                  {hasScope3InPeriod && (
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Includes {formatKg(totalScope3)} Scope 3 in this period.
+                    </p>
+                  )}
+                </div>
+              </article>
+
+              {/* LATEST */}
+              <article className="rounded-xl bg-white border p-6 shadow flex flex-col justify-between h-full">
+                <p className="text-[10px] uppercase text-slate-500 flex items-center gap-1">
+                  <span className="text-[11px]">🗓️</span>
+                  <span>Latest month</span>
+                </p>
+                <div>
+                  <p className="text-sm font-medium mt-3">
+                    {latest.monthLabel}
+                  </p>
+                  <p className="text-xl font-semibold mt-1">
+                    {formatTonnes(latest.totalCo2eKg)}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Avg: {formatKgValue(avg)} kg/month
+                  </p>
+                </div>
+              </article>
+
+              {/* HOTSPOT */}
+              <article className="rounded-xl bg-white border p-6 shadow flex flex-col justify-between h-full">
+                <p className="text-[10px] uppercase text-slate-500 flex items-center gap-1">
+                  <span className="text-[11px]">🔥</span>
+                  <span>Main hotspot</span>
+                </p>
+                <div>
+                  {hotspotSharePercent === 0 && hasScope3InPeriod ? (
+                    <>
+                      <p className="text-lg font-medium mt-3">Scope 3 Activities</p>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        No Scope 1 &amp; 2 emissions logged yet.
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Scope 3 accounts for 100% of emissions this period.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-lg font-medium mt-3">{hotspot}</p>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Electricity: {electricitySharePercent}% · Diesel:{' '}
+                        {dieselSharePercent}% · Petrol: {petrolSharePercent}% ·
+                        Gas: {gasSharePercent}%{isIndia && lpgSharePercent > 0 ? ` · LPG: ${lpgSharePercent}%` : ''}{isIndia && cngSharePercent > 0 ? ` · CNG: ${cngSharePercent}%` : ''} · Refrigerant:{' '}
+                        {refrigerantSharePercent}%
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        {hotspotContext} caused {hotspotSharePercent}% of emissions.
+                      </p>
+                    </>
+                  )}
+                </div>
+              </article>
+            </div>
+
+            {/* TREND + SIDEBAR */}
+            <section className="grid lg:grid-cols-3 gap-6 items-start">
+              {/* LEFT COL: Trend + BRSR Scorecard (India only) */}
+              <div className="lg:col-span-2 flex flex-col gap-6">
+              {/* TREND */}
+              <article className="rounded-xl bg-white border p-6 shadow">
+                <h2 className="text-sm font-semibold">
+                  Trend by month (CO₂e)
+                </h2>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Shows last 12 months. Tap or hover a dot for exact values.
+                </p>
+                <div className="mt-4">
+                  <MonthlyTrendChart months={months} />
+                </div>
+                <div className="mt-5 pt-4 border-t border-slate-100">
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-slate-400 mb-3 text-center">Explore by source</p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {[
+                      { href: '/dashboard/emissions/electricity', label: 'Electricity', color: '#0EA5E9' },
+                      { href: '/dashboard/emissions/fuel',        label: 'Fuel',        color: '#F97316' },
+                      { href: '/dashboard/emissions/refrigerant', label: 'Refrigerant', color: '#22C55E' },
+                      { href: '/dashboard/emissions/scope3',      label: 'Scope 3',     color: '#A855F7' },
+                    ].map(({ href, label, color }) => (
+                      <Link
+                        key={href}
+                        href={href}
+                        className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium transition-all hover:opacity-80 hover:shadow-sm"
+                        style={{ backgroundColor: `${color}18`, color, border: `1px solid ${color}40` }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+                        {label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </article>
+
+              {/* EMISSIONS BY SCOPE — non-India only (null = unknown, so hide until resolved) */}
+              {isIndia === false && (hasData || !hasLoadedOnce) && (
+                <article className="rounded-xl bg-white border p-6 shadow">
+                  <h2 className="text-sm font-semibold text-slate-900 mb-4">Emissions by scope</h2>
+                  <div className="grid grid-cols-3 gap-3">
+                    {hasData ? (
+                      <>
+                        <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-4">
+                          <p className="text-lg font-semibold text-emerald-900">{(totalScope1Co2eKg / 1000).toFixed(2)} tCO₂e</p>
+                          <p className="text-[11px] text-emerald-700 mt-1">Scope 1: Direct emissions</p>
+                          <p className="text-[10px] text-emerald-600 mt-0.5 opacity-75">Fuel &amp; refrigerant</p>
+                        </div>
+                        <div className="rounded-lg bg-sky-50 border border-sky-100 p-4">
+                          <p className="text-lg font-semibold text-sky-900">{(totalScope2Co2eKg / 1000).toFixed(2)} tCO₂e</p>
+                          <p className="text-[11px] text-sky-700 mt-1">Scope 2: Indirect</p>
+                          <p className="text-[10px] text-sky-600 mt-0.5 opacity-75">Purchased electricity</p>
+                        </div>
+                        <div className="rounded-lg bg-amber-50 border border-amber-100 p-4">
+                          <p className="text-lg font-semibold text-amber-900">{(totalScope3 / 1000).toFixed(2)} tCO₂e</p>
+                          <p className="text-[11px] text-amber-700 mt-1">Scope 3: Value chain</p>
+                          <p className="text-[10px] text-amber-600 mt-0.5 opacity-75">Supply chain &amp; travel</p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {(['bg-emerald-50 border-emerald-100', 'bg-sky-50 border-sky-100', 'bg-amber-50 border-amber-100'] as const).map((cls, i) => (
+                          <div key={i} className={`rounded-lg border p-4 animate-pulse ${cls}`}>
+                            <div className="h-5 w-24 rounded bg-slate-200" />
+                            <div className="h-3 w-32 rounded bg-slate-200 mt-2" />
+                            <div className="h-2.5 w-20 rounded bg-slate-200 mt-1.5" />
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
                 </article>
-              </div>
+              )}
+
+              {/* BRSR COMPLETENESS SCORECARD — India only */}
+              {isIndia && brsrScorecard && (
+                <article className="rounded-xl bg-white border p-6 shadow">
+                  <h2 className="text-sm font-semibold text-slate-900 mb-4">BRSR Completeness Scorecard</h2>
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-slate-900 text-white">
+                        <th className="py-2 px-3 text-left font-medium rounded-tl-lg">Indicator group</th>
+                        <th className="py-2 px-3 text-center font-medium">Auto-filled</th>
+                        <th className="py-2 px-3 text-center font-medium">Needs input</th>
+                        <th className="py-2 px-3 text-center font-medium rounded-tr-lg">Completeness</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {brsrScorecard.rows.map((row, i) => {
+                        const pct = Math.round((row.auto / row.total) * 100);
+                        const pctColor = pct === 100 ? 'text-emerald-600' : pct >= 50 ? 'text-amber-600' : 'text-red-600';
+                        return (
+                          <tr key={row.group} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                            <td className="py-2 px-3 text-slate-700">{row.group}</td>
+                            <td className="py-2 px-3 text-center tabular-nums text-slate-700">{row.auto} / {row.total}</td>
+                            <td className="py-2 px-3 text-center tabular-nums text-slate-500">{row.total - row.auto} / {row.total}</td>
+                            <td className={`py-2 px-3 text-center font-semibold tabular-nums ${pctColor}`}>{pct}%</td>
+                          </tr>
+                        );
+                      })}
+                      <tr className="bg-emerald-50 border-t border-emerald-100">
+                        <td className="py-2 px-3 font-semibold text-slate-900">Overall BRSR Essential Indicators</td>
+                        <td className="py-2 px-3 text-center font-semibold tabular-nums text-slate-900">{brsrScorecard.overallAuto} / {brsrScorecard.overallTotal}</td>
+                        <td className="py-2 px-3 text-center font-semibold tabular-nums text-slate-700">{brsrScorecard.overallTotal - brsrScorecard.overallAuto} / {brsrScorecard.overallTotal}</td>
+                        {(() => {
+                          const p = Math.round((brsrScorecard.overallAuto / brsrScorecard.overallTotal) * 100);
+                          const c = p === 100 ? 'text-emerald-600' : p >= 50 ? 'text-amber-600' : 'text-red-600';
+                          return <td className={`py-2 px-3 text-center font-semibold tabular-nums ${c}`}>{p}%</td>;
+                        })()}
+                      </tr>
+                    </tbody>
+                  </table>
+                </article>
+              )}
+              </div>{/* end left col */}
 
               {/* Sidebar */}
               <div className="space-y-5">
@@ -1528,36 +1680,23 @@ useEffect(() => {
                     </p>
                   ) : (
                     <div className="mt-4 space-y-2 text-xs leading-relaxed">
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-slate-600">Electricity</span>
-                        <span className="text-right tabular-nums min-w-[3ch]">
-                          {electricitySharePercent}%
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-slate-600">Diesel</span>
-                        <span className="text-right tabular-nums min-w-[3ch]">
-                          {dieselSharePercent}%
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-slate-600">Petrol</span>
-                        <span className="text-right tabular-nums min-w-[3ch]">
-                          {petrolSharePercent}%
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-slate-600">Gas</span>
-                        <span className="text-right tabular-nums min-w-[3ch]">
-                          {gasSharePercent}%
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-slate-600">Refrigerant</span>
-                        <span className="text-right tabular-nums min-w-[3ch]">
-                          {refrigerantSharePercent}%
-                        </span>
-                      </div>
+                      {[
+                        { label: 'Electricity', pct: electricitySharePercent, has: totals.totalElecKwh > 0 },
+                        { label: 'Diesel',      pct: dieselSharePercent,      has: totals.totalDieselLitres > 0 },
+                        { label: 'Petrol',      pct: petrolSharePercent,      has: totals.totalPetrolLitres > 0 },
+                        { label: 'Gas',         pct: gasSharePercent,         has: totalGasKwh > 0 },
+                        { label: 'LPG',         pct: lpgSharePercent,         has: totalLpgKg > 0 },
+                        { label: 'CNG',         pct: cngSharePercent,         has: totalCngKg > 0 },
+                        { label: 'Refrigerant', pct: refrigerantSharePercent, has: totals.totalRefKg > 0 },
+                        { label: 'Scope 3',     pct: scope3SharePercent,      has: totalScope3 > 0 },
+                      ].filter(r => r.has).map(({ label, pct, has }) => (
+                        <div key={label} className="flex justify-between items-baseline">
+                          <span className="text-slate-600">{label}</span>
+                          <span className="text-right tabular-nums min-w-[3ch]">
+                            {has && pct === 0 ? '< 0.1%' : `${pct}%`}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </article>

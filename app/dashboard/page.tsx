@@ -23,11 +23,6 @@ const baseUrl = process.env.VERCEL_URL
 
 
 
-console.log(
-  '[DASHBOARD MODULE LOADED]',
-  new Date().toISOString()
-);
-
 type DashboardMonth = {
   monthLabel: string;
   electricityKwh: number;
@@ -56,6 +51,7 @@ type DashboardData = {
     electricitySharePercent: number;
     fuelSharePercent: number;
     refrigerantSharePercent: number;
+    scope3SharePercent: number;
   };
   hotspot: 'Electricity' | 'Fuel' | 'Refrigerant' | null;
   scopeBreakdown: {
@@ -136,6 +132,7 @@ async function getDashboardData(
         electricitySharePercent: 0,
         fuelSharePercent: 0,
         refrigerantSharePercent: 0,
+        scope3SharePercent: 0,
       },
       hotspot: null,
       scopeBreakdown: {
@@ -147,40 +144,15 @@ async function getDashboardData(
     };
   }
 
-  console.log(
-    '[DASHBOARD RUN]',
-    new Date().toISOString(),
-    'period=',
-    period
-  );
-
-console.log(
-  '[DASHBOARD RENDER]',
-  new Date().toISOString()
-);
-
-
-  // 1. Load emissions
-  const { data: emissionsData, error: emissionsError } = await supabase
-    .from('emissions')
-.select('*')
-
-    .order('month', { ascending: true });
-
-  // 1B. Load latest AI insight
-  const { data: latestInsight } = await supabase
-    .from('ai_insights')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  // 2. Load Scope 3
-  const { data: scope3Data, error: scope3Error } = await supabase
-    .from('scope3_activities')
-.select('*')
-
-
+  const [
+    { data: emissionsData, error: emissionsError },
+    { data: scope3Data, error: scope3Error },
+    { data: latestInsight },
+  ] = await Promise.all([
+    supabase.from('emissions').select('*').order('month', { ascending: true }),
+    supabase.from('scope3_activities').select('*'),
+    supabase.from('ai_insights').select('*').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+  ]);
 
   if (emissionsError) {
     console.error('Error loading emissions for dashboard', emissionsError);
@@ -206,6 +178,7 @@ console.log(
         electricitySharePercent: 0,
         fuelSharePercent: 0,
         refrigerantSharePercent: 0,
+        scope3SharePercent: 0,
       },
       hotspot: null,
       scopeBreakdown: {
@@ -370,21 +343,23 @@ console.log(
     0
   );
 
-  const denom = totalElec + totalFuel + totalRef || 1;
+  const denom = totalElec + totalFuel + totalRef + scope3TotalCo2eKg || 1;
 
   const rawShares = {
-  electricity: (totalElec / denom) * 100,
-  fuel: (totalFuel / denom) * 100,
-  refrigerant: (totalRef / denom) * 100,
-};
+    electricity: (totalElec / denom) * 100,
+    fuel: (totalFuel / denom) * 100,
+    refrigerant: (totalRef / denom) * 100,
+    scope3: (scope3TotalCo2eKg / denom) * 100,
+  };
 
-const normalised = normaliseSharesTo100(rawShares);
+  const normalised = normaliseSharesTo100(rawShares);
 
-const breakdownBySource = {
-  electricitySharePercent: normalised.electricity,
-  fuelSharePercent: normalised.fuel,
-  refrigerantSharePercent: normalised.refrigerant,
-};
+  const breakdownBySource = {
+    electricitySharePercent: normalised.electricity,
+    fuelSharePercent: normalised.fuel,
+    refrigerantSharePercent: normalised.refrigerant,
+    scope3SharePercent: normalised.scope3,
+  };
 
 
   let hotspot: DashboardData['hotspot'] = null;
@@ -417,6 +392,7 @@ const breakdownBySource = {
       electricitySharePercent,
       fuelSharePercent,
       refrigerantSharePercent,
+      scope3SharePercent: normalised.scope3,
     },
     hotspot,
     scopeBreakdown: {
@@ -675,40 +651,31 @@ React.useEffect(() => {
   let cancelled = false;
 
   async function load() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
+    const { data: { session } } = await supabase.auth.getSession(); // local, no network
+    const user = session?.user;
     if (!user || cancelled) return;
 
-    // Check if this user is a team member (not an owner)
-    const { data: memberRow } = await supabase
-      .from('team_members')
-      .select('id, owner_id')
-      .eq('member_user_id', user.id)
-      .eq('status', 'active')
-      .maybeSingle();
+    // Fire team membership, own plan, and dashboard data all at once
+    const [{ data: memberRow }, { data: ownPlanRow }, dashData] = await Promise.all([
+      supabase.from('team_members').select('id, owner_id').eq('member_user_id', user.id).eq('status', 'active').maybeSingle(),
+      supabase.from('user_plans').select('plan').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      getDashboardData(supabase, period, user.id),
+    ]);
+    if (cancelled) return;
+
     if (memberRow) setIsTeamMember(true);
 
     // Resolve plan — team members inherit owner's plan
-    const planUserId = (memberRow as any)?.owner_id ?? user.id;
-    const { data: planRow } = await supabase
-      .from('user_plans')
-      .select('plan')
-      .eq('user_id', planUserId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    let planRow = ownPlanRow;
+    if (memberRow?.owner_id && memberRow.owner_id !== user.id) {
+      const { data: ownerPlan } = await supabase
+        .from('user_plans').select('plan').eq('user_id', memberRow.owner_id)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+      planRow = ownerPlan;
+    }
     const proUser = ['pro', 'enterprise'].includes(planRow?.plan ?? '');
     if (proUser) setIsPro(true);
     try { sessionStorage.setItem('greenio_is_pro', proUser ? '1' : '0'); } catch {}
-
-    // 1️⃣ Load dashboard data first (fast path)
-    const dashData = await getDashboardData(
-      supabase,
-      period,
-      user.id
-    );
 
     if (!cancelled) {
       setState({

@@ -8,9 +8,10 @@ type BreakdownBySource = {
   electricitySharePercent: number;
   fuelSharePercent: number;
   refrigerantSharePercent: number;
+  scope3SharePercent: number;
 };
 
-type SliceKey = 'electricity' | 'fuel' | 'refrigerant';
+type SliceKey = 'electricity' | 'fuel' | 'refrigerant' | 'scope3';
 
 interface HotspotPieChartProps {
   breakdown: BreakdownBySource;
@@ -47,7 +48,14 @@ export default function HotspotPieChart({ breakdown }: HotspotPieChartProps) {
       color: '#22C55E', // green-500
       href: '/dashboard/emissions/refrigerant',
     },
-  ];
+    {
+      key: 'scope3',
+      label: 'Scope 3',
+      value: breakdown.scope3SharePercent || 0,
+      color: '#A855F7', // purple-500
+      href: '/dashboard/emissions/scope3',
+    },
+  ].filter(s => s.value > 0);
 
   const total = slices.reduce((sum, s) => sum + (s.value || 0), 0) || 1;
 

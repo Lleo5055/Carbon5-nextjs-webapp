@@ -47,17 +47,13 @@ type ElectricityInsightsData = {
 async function getElectricityInsights(
   period: PeriodKey
 ): Promise<ElectricityInsightsData> {
-  const { data, error } = await supabase.from('emissions').select('*');
+  const [{ data, error }, { data: s3Data }] = await Promise.all([
+    supabase.from('emissions').select('*'),
+    supabase.from('scope3_activities').select('month, co2e_kg'),
+  ]);
   if (error || !data) {
     console.error('Error loading emissions for electricity insights', error);
-    return {
-      months: [],
-      totalKwh: 0,
-      totalCo2eKg: 0,
-      lastMonth: null,
-      prevMonth: null,
-      shareOfFootprintPercent: 0,
-    };
+    return { months: [], totalKwh: 0, totalCo2eKg: 0, lastMonth: null, prevMonth: null, shareOfFootprintPercent: 0 };
   }
 
   const countryCode = data[0]?.country_code ?? 'GB';
@@ -69,35 +65,27 @@ async function getElectricityInsights(
     const petrolFromNew = Number(row.petrol_litres ?? 0);
     const gasKwh = Number(row.gas_kwh ?? 0);
     const legacyFuelLitres = Number(row.fuel_liters ?? 0);
-
-    const hasNewFuel =
-      dieselFromNew !== 0 || petrolFromNew !== 0 || gasKwh !== 0;
-
+    const hasNewFuel = dieselFromNew !== 0 || petrolFromNew !== 0 || gasKwh !== 0;
     const dieselLitres = hasNewFuel ? dieselFromNew : legacyFuelLitres;
     const petrolLitres = hasNewFuel ? petrolFromNew : 0;
-
-    const refrigerantKg = Number(row.refrigerant_kg ?? 0);
-    const refrigerantCode = (row.refrigerant_code as string | null) ?? 'GENERIC_HFC';
-
     return {
       monthLabel: row.month ?? 'Unknown month',
       electricityKwh,
       fuelLitres: dieselLitres + petrolLitres,
-      refrigerantKg,
+      refrigerantKg: Number(row.refrigerant_kg ?? 0),
       totalCo2eKg: Number(row.total_co2e ?? 0),
       dieselLitres,
       petrolLitres,
       gasKwh,
-      refrigerantCode,
+      lpgKg: Number(row.lpg_kg ?? 0),
+      cngKg: Number(row.cng_kg ?? 0),
+      refrigerantCode: (row.refrigerant_code as string | null) ?? 'GENERIC_HFC',
     };
   });
 
   baseMonths = baseMonths.sort((a, b) => new Date(a.monthLabel).getTime() - new Date(b.monthLabel).getTime());
   const latestFirst = baseMonths.slice().reverse();
-
-  const limit =
-    period === '3m' ? 3 : period === '6m' ? 6 : period === '12m' ? 12 : latestFirst.length;
-
+  const limit = period === '3m' ? 3 : period === '6m' ? 6 : period === '12m' ? 12 : latestFirst.length;
   const periodMonths = latestFirst.slice(0, limit);
 
   const insightsMonths: InsightsMonth[] = periodMonths.map((m) => ({
@@ -112,28 +100,32 @@ async function getElectricityInsights(
   const prevMonth = insightsMonths.length > 1 ? insightsMonths[1] : null;
 
   const totalElec = periodMonths.reduce((s, m) => s + m.electricityKwh * ef.electricity, 0);
-  const totalFuel = periodMonths.reduce(
-    (s, m) =>
-      s +
-      (m.dieselLitres ?? 0) * ef.diesel +
-      (m.petrolLitres ?? 0) * ef.petrol +
-      (m.gasKwh ?? 0) * ef.gas,
-    0
-  );
+  const totalFuel = periodMonths.reduce((s, m) =>
+    s + (m.dieselLitres ?? 0) * ef.diesel + (m.petrolLitres ?? 0) * ef.petrol +
+    (m.gasKwh ?? 0) * ef.gas + ((m as any).lpgKg ?? 0) * ef.lpgKg + ((m as any).cngKg ?? 0) * ef.cngKg, 0);
   const totalRef = periodMonths.reduce((s, m) => s + calcRefrigerantCo2e(m.refrigerantKg ?? 0, m.refrigerantCode ?? 'GENERIC_HFC'), 0);
 
-  const denom = totalElec + totalFuel + totalRef || 1;
-  const rawShares = { electricity: (totalElec / denom) * 100, fuel: (totalFuel / denom) * 100, refrigerant: (totalRef / denom) * 100 };
-  const normalisedShares = normaliseSharesTo100(rawShares);
+  // Scope 3 for period
+  let scope3Total = 0;
+  if (s3Data) {
+    const filtered = period === 'all' ? s3Data : s3Data.filter((r: any) => {
+      const n = period === '3m' ? 3 : period === '6m' ? 6 : 12;
+      const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - n);
+      const cutoffStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,'0')}`;
+      return r.month && r.month >= cutoffStr;
+    });
+    scope3Total = filtered.reduce((s: number, r: any) => s + Number(r.co2e_kg ?? 0), 0);
+  }
 
-  return {
-    months: insightsMonths,
-    totalKwh,
-    totalCo2eKg,
-    lastMonth,
-    prevMonth,
-    shareOfFootprintPercent: normalisedShares.electricity,
-  };
+  const denom = totalElec + totalFuel + totalRef + scope3Total || 1;
+  const normalisedShares = normaliseSharesTo100({
+    electricity: (totalElec / denom) * 100,
+    fuel: (totalFuel / denom) * 100,
+    refrigerant: (totalRef / denom) * 100,
+    scope3: (scope3Total / denom) * 100,
+  });
+
+  return { months: insightsMonths, totalKwh, totalCo2eKg, lastMonth, prevMonth, shareOfFootprintPercent: normalisedShares.electricity };
 }
 
 function formatTonnes(v: number) {
@@ -213,8 +205,9 @@ export default function ElectricityInsightsPage({ searchParams }: { searchParams
 
   const navItems = [
     { href: '/dashboard/emissions/electricity', label: 'Electricity Insights', active: true },
-    { href: '/dashboard/emissions/fuel', label: 'Fuel Insights', active: false },
+    { href: '/dashboard/emissions/fuel',        label: 'Fuel Insights',        active: false },
     { href: '/dashboard/emissions/refrigerant', label: 'Refrigerant Insights', active: false },
+    { href: '/dashboard/emissions/scope3',      label: 'Scope 3 Insights',     active: false },
   ];
 
   const periodPills: { key: PeriodKey; label: string }[] = [
