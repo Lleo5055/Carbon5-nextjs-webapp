@@ -1348,16 +1348,16 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
     const totalForPct = totalCO2kg || 1;
     const pctT = (v: number) => { const p = v / totalForPct * 100; return p > 0 && p < 0.1 ? '<0.1' : p.toFixed(1); }; // % of total
     type AllSource = 'electricity' | 'refrigerant' | 'diesel' | 'petrol' | 'gas' | 'lpg' | 'cng' | 'scope3';
-    const allSourceData: Array<{ key: AllSource; co2e: number }> = [
-      { key: 'electricity', co2e: scope2_kg     },
-      { key: 'refrigerant', co2e: s1RefrigCo2e  },
-      { key: 'diesel',      co2e: s1DieselCo2e  },
-      { key: 'petrol',      co2e: s1PetrolCo2e  },
-      { key: 'gas',         co2e: s1GasCo2e     },
-      { key: 'lpg',         co2e: s1LpgCo2e     },
-      { key: 'cng',         co2e: s1CngCo2e     },
-      { key: 'scope3',      co2e: scope3_kg     },
-    ].filter(s => s.co2e > 0).sort((a, b) => b.co2e - a.co2e);
+    const allSourceData: Array<{ key: AllSource; co2e: number }> = ([
+      { key: 'electricity' as AllSource, co2e: Number(scope2_kg)     },
+      { key: 'refrigerant' as AllSource, co2e: Number(s1RefrigCo2e)  },
+      { key: 'diesel'      as AllSource, co2e: Number(s1DieselCo2e)  },
+      { key: 'petrol'      as AllSource, co2e: Number(s1PetrolCo2e)  },
+      { key: 'gas'         as AllSource, co2e: Number(s1GasCo2e)     },
+      { key: 'lpg'         as AllSource, co2e: Number(s1LpgCo2e)     },
+      { key: 'cng'         as AllSource, co2e: Number(s1CngCo2e)     },
+      { key: 'scope3'      as AllSource, co2e: Number(scope3_kg)     },
+    ] as Array<{ key: AllSource; co2e: number }>).filter(s => s.co2e > 0).sort((a, b) => b.co2e - a.co2e);
 
     const allSrcLib: Record<AllSource, { name: string; scope: string; operational: string; longTermPhrase: string; action: string; immediate: string; medTerm: string }> = {
       electricity: {
