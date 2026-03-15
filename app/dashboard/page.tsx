@@ -501,7 +501,7 @@ function getFieldChangeForIndex(
   if (index === months.length - 1) return null; // no older month
   const current = months[index][field];
   const prev = months[index + 1][field];
-  if (!prev || prev === 0) return null;
+  if (!prev || prev === 0 || current == null) return null;
   return ((current - prev) / prev) * 100;
 }
 

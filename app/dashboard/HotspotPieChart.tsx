@@ -55,7 +55,7 @@ export default function HotspotPieChart({ breakdown }: HotspotPieChartProps) {
       color: '#A855F7', // purple-500
       href: '/dashboard/emissions/scope3',
     },
-  ].filter(s => s.value > 0);
+  ].filter(s => s.value > 0) as { key: SliceKey; label: string; value: number; color: string; href: string; }[];
 
   const total = slices.reduce((sum, s) => sum + (s.value || 0), 0) || 1;
 
