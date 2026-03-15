@@ -38,6 +38,10 @@ export interface CountryEmissionFactors {
   petrolKgPerLitre: number;
   /** kg CO₂e per litre of LPG (DEFRA 2025) */
   lpgKgPerLitre: number;
+  /** kg CO₂e per kg of LPG (DEFRA 2024) — used for cylinder-based input (India) */
+  lpgKgPerKg: number;
+  /** kg CO₂e per kg of CNG (IPCC 2019 / natural gas basis, 2.03 kgCO2e/m³ ÷ 0.717 kg/m³) */
+  cngKgPerKg: number;
   /** Refrigerant GWPs (kg CO₂e / kg leaked) – IPCC AR6, global */
   refrigerants: {
     R410A: number;
@@ -68,6 +72,8 @@ const SHARED_FUELS = {
   dieselKgPerLitre: 2.68,
   petrolKgPerLitre: 2.31,
   lpgKgPerLitre:    1.568,
+  lpgKgPerKg:       2.94,   // IPCC 2019 / BEE India — kg CO₂e per kg LPG
+  cngKgPerKg:       2.83,   // IPCC 2019 / BEE India — kg CO₂e per kg CNG (2.03 kgCO2e/m³ ÷ 0.717 kg/m³)
 };
 
 const EU_FACTOR_VERSION =
@@ -186,7 +192,7 @@ export const COUNTRY_EMISSION_FACTORS: Record<SupportedCountryCode, CountryEmiss
     ...SHARED_FUELS,
     refrigerants: SHARED_REFRIGERANTS,
     factorVersion:
-      'Electricity: 2026 CEA / IEA | Gas: IPCC 2019 / BEE India | Fuels: DEFRA 2025 | Refrigerants: IPCC AR6',
+      'Electricity: 2026 CEA / IEA | Gas / LPG / CNG: IPCC 2019 / BEE India | Road fuels: DEFRA 2025 | Refrigerants: IPCC AR6',
   },
 };
 

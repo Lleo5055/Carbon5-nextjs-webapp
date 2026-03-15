@@ -38,6 +38,9 @@ type DashboardMonth = {
   dieselLitres?: number;
   petrolLitres?: number;
   gasKwh?: number;
+  lpgKg?: number;
+  cngKg?: number;
+  fuelCo2eKg?: number;
   refrigerantCode?: string | null;
   // Scope-aware fields
   scope1and2Co2eKg?: number;
@@ -225,6 +228,8 @@ console.log(
       const dieselFromNew = Number(row.diesel_litres ?? 0);
       const petrolFromNew = Number(row.petrol_litres ?? 0);
       const gasKwh = Number(row.gas_kwh ?? 0);
+      const lpgKg = Number(row.lpg_kg ?? 0);
+      const cngKg = Number(row.cng_kg ?? 0);
       const legacyFuelLitres = Number(row.fuel_liters ?? 0);
 
       const hasNewFuel =
@@ -239,11 +244,16 @@ console.log(
         (row.refrigerant_code as string | null) ?? 'GENERIC_HFC';
 
       const monthLabel = row.month ?? 'Unknown month';
-      const baseTotalCo2e =
-        electricityKwh * ef.electricity +
+      const fuelCo2eKg =
         dieselLitres * ef.diesel +
         petrolLitres * ef.petrol +
         gasKwh * ef.gas +
+        lpgKg * ef.lpgKg +
+        cngKg * ef.cngKg;
+
+      const baseTotalCo2e =
+        electricityKwh * ef.electricity +
+        fuelCo2eKg +
         calcRefrigerantCo2e(refrigerantKg, refrigerantCode);
 
       monthMap.set(monthLabel, {
@@ -255,6 +265,9 @@ console.log(
         dieselLitres,
         petrolLitres,
         gasKwh,
+        lpgKg,
+        cngKg,
+        fuelCo2eKg,
         refrigerantCode,
         scope1and2Co2eKg: baseTotalCo2e,
         scope3Co2eKg: 0,
@@ -337,7 +350,13 @@ console.log(
   );
 
   const totalFuel = periodMonths.reduce(
-    (s, m) => s + (m.dieselLitres ?? 0) * ef.diesel + (m.petrolLitres ?? 0) * ef.petrol + (m.gasKwh ?? 0) * ef.gas,
+    (s, m) =>
+      s +
+      (m.dieselLitres ?? 0) * ef.diesel +
+      (m.petrolLitres ?? 0) * ef.petrol +
+      (m.gasKwh ?? 0) * ef.gas +
+      (m.lpgKg ?? 0) * ef.lpgKg +
+      (m.cngKg ?? 0) * ef.cngKg,
     0
   );
 
@@ -494,6 +513,7 @@ function Sparkline({ values }: { values: number[] }) {
 type NumericFieldKey =
   | 'electricityKwh'
   | 'fuelLitres'
+  | 'fuelCo2eKg'
   | 'refrigerantKg'
   | 'totalCo2eKg';
 
@@ -1555,7 +1575,7 @@ const youTonnes = dashData.totalCo2eKg / 1000;
                             Electricity (kWh)
                           </th>
                           <th className="p-2 text-right font-medium text-slate-500">
-                            Fuel (litres)
+                            Fuel CO₂e (kg)
                           </th>
                           <th className="p-2 text-right font-medium text-slate-500">
                             Refrigerant (kg)
@@ -1575,7 +1595,7 @@ const youTonnes = dashData.totalCo2eKg / 1000;
                           const fuelChange = getFieldChangeForIndex(
                             months,
                             row.index,
-                            'fuelLitres'
+                            'fuelCo2eKg'
                           );
                           const refChange = getFieldChangeForIndex(
                             months,
@@ -1607,7 +1627,7 @@ const youTonnes = dashData.totalCo2eKg / 1000;
                               </td>
                               <td className="p-2 text-right">
                                 {renderValueWithTrend(
-                                  row.fuelLitres,
+                                  row.fuelCo2eKg ?? 0,
                                   fuelChange,
                                   0
                                 )}

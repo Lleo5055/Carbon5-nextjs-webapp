@@ -160,6 +160,8 @@ function EmissionsPageInner() {
   const [dieselLitres, setDieselLitres] = useState<string>('');
   const [petrolLitres, setPetrolLitres] = useState<string>('');
   const [gasKwh, setGasKwh] = useState<string>('');
+  const [lpgKg, setLpgKg] = useState<string>('');
+  const [cngKg, setCngKg] = useState<string>('');
   const [refrigerantKg, setRefrigerantKg] = useState<string>('');
   const [refrigerantCode, setRefrigerantCode] =
     useState<string>('GENERIC_HFC');
@@ -262,6 +264,8 @@ function EmissionsPageInner() {
           data.petrol_litres != null ? String(data.petrol_litres) : ''
         );
         setGasKwh(data.gas_kwh != null ? String(data.gas_kwh) : '');
+        setLpgKg(data.lpg_kg != null ? String(data.lpg_kg) : '');
+        setCngKg(data.cng_kg != null ? String(data.cng_kg) : '');
         setRefrigerantKg(
           data.refrigerant_kg != null ? String(data.refrigerant_kg) : ''
         );
@@ -423,11 +427,13 @@ useEffect(() => {
     const diesel = Number(dieselLitres) || 0;
     const petrol = Number(petrolLitres) || 0;
     const gas = Number(gasKwh) || 0;
+    const lpg = Number(lpgKg) || 0;
+    const cng = Number(cngKg) || 0;
     const ref = Number(refrigerantKg) || 0;
     const refCode = refrigerantCode || 'GENERIC_HFC';
 
     const hasScope12Activity =
-      elec !== 0 || diesel !== 0 || petrol !== 0 || gas !== 0 || ref !== 0;
+      elec !== 0 || diesel !== 0 || petrol !== 0 || gas !== 0 || lpg !== 0 || cng !== 0 || ref !== 0;
 
     const hasScope3Activity = scope3Enabled && calculatedScope3Kg > 0;
 
@@ -470,7 +476,9 @@ if (lock?.locked) {
     const fuelCo2 =
       diesel * ef.diesel +
       petrol * ef.petrol +
-      gas * ef.gas;
+      gas * ef.gas +
+      lpg * ef.lpgKg +
+      cng * ef.cngKg;
 
     const elecCo2 = elec * ef.electricity;
     const refCo2 = calcRefrigerantCo2e(ref, refCode);
@@ -510,6 +518,14 @@ const updatedGas = isEditMode
   ? gas
   : (existing.gas_kwh ?? 0) + gas;
 
+const updatedLpg = isEditMode
+  ? lpg
+  : (existing.lpg_kg ?? 0) + lpg;
+
+const updatedCng = isEditMode
+  ? cng
+  : (existing.cng_kg ?? 0) + cng;
+
 const updatedRefrigerant = isEditMode
   ? ref
   : (existing.refrigerant_kg ?? 0) + ref;
@@ -517,7 +533,9 @@ const updatedRefrigerant = isEditMode
 const updatedFuelCo2 =
   updatedDiesel * ef.diesel +
   updatedPetrol * ef.petrol +
-  updatedGas * ef.gas;
+  updatedGas * ef.gas +
+  updatedLpg * ef.lpgKg +
+  updatedCng * ef.cngKg;
 
 const updatedElecCo2 = updatedElectricity * ef.electricity;
 
@@ -536,6 +554,8 @@ const updatedTotalCo2e =
 diesel_litres: updatedDiesel,
 petrol_litres: updatedPetrol,
 gas_kwh: updatedGas,
+lpg_kg: updatedLpg,
+cng_kg: updatedCng,
 refrigerant_kg: updatedRefrigerant,
 refrigerant_code: refCode,
 total_co2e: updatedTotalCo2e,
@@ -578,6 +598,8 @@ if (Object.keys(changes).length > 0) {
               diesel_litres: diesel,
               petrol_litres: petrol,
               gas_kwh: gas,
+              lpg_kg: lpg,
+              cng_kg: cng,
               refrigerant_kg: ref,
               refrigerant_code: refCode,
               total_co2e: totalCo2e,
@@ -805,6 +827,8 @@ await supabase.from('edit_history').insert({
         setDieselLitres('');
         setPetrolLitres('');
         setGasKwh('');
+        setLpgKg('');
+        setCngKg('');
         setRefrigerantKg('');
         setScope3ActivityValue('');
         setScope3Label('');
@@ -1077,18 +1101,18 @@ await supabase.from('edit_history').insert({
                   </p>
                 </div>
 
-                {/* ROAD FUEL BLOCK */}
+                {/* ROAD FUEL BLOCK — mobile combustion */}
                 <div className="border rounded-lg px-3 py-3 bg-slate-50 space-y-3">
-                  <p className="text-[11px] font-medium text-slate-700">
-                    Road fuel (litres)
-                  </p>
+                  <div>
+                    <p className="text-[11px] font-medium text-slate-700">Road fuel</p>
+                    <p className="text-[10px] text-slate-400">Fuel for company-owned vehicles.</p>
+                  </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] text-slate-600 mb-1">
                         Diesel (L)
                       </label>
-
                       <input
                         type="number"
                         step="0.01"
@@ -1104,7 +1128,6 @@ await supabase.from('edit_history').insert({
                       <label className="block text-[11px] text-slate-600 mb-1">
                         Petrol (L)
                       </label>
-
                       <input
                         type="number"
                         step="0.01"
@@ -1116,13 +1139,20 @@ await supabase.from('edit_history').insert({
                       />
                     </div>
                   </div>
+                </div>
+
+                {/* STATIONARY FUEL BLOCK — stationary combustion */}
+                <div className="border rounded-lg px-3 py-3 bg-slate-50 space-y-3">
+                  <div>
+                    <p className="text-[11px] font-medium text-slate-700">Stationary fuel</p>
+                    <p className="text-[10px] text-slate-400">Fuel for heating, cooking &amp; on-site generators.</p>
+                  </div>
 
                   {/* GAS */}
                   <div>
                     <label className="block text-[11px] text-slate-600 mb-1">
-                      Gas (kWh)
+                      {isIndia ? 'Natural Gas / PNG (kWh)' : 'Natural Gas (kWh)'}
                     </label>
-
                     <input
                       type="number"
                       step="0.01"
@@ -1134,9 +1164,47 @@ await supabase.from('edit_history').insert({
                     />
                   </div>
 
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    Diesel & petrol for vehicles, plus gas used for heating.
-                  </p>
+                  {/* LPG — India only */}
+                  {isIndia && (
+                    <div>
+                      <label className="block text-[11px] text-slate-600 mb-1">
+                        LPG (kg)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={lpgKg}
+                        onChange={(e) => setLpgKg(e.target.value)}
+                        className="w-full border rounded-lg px-2 py-1.5 text-[11px] bg-white"
+                        placeholder="e.g. 45"
+                      />
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        LPG cylinders used. Standard cylinder = 14.2 kg
+                      </p>
+                    </div>
+                  )}
+
+                  {/* CNG — India only */}
+                  {isIndia && (
+                    <div>
+                      <label className="block text-[11px] text-slate-600 mb-1">
+                        CNG (kg)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={cngKg}
+                        onChange={(e) => setCngKg(e.target.value)}
+                        className="w-full border rounded-lg px-2 py-1.5 text-[11px] bg-white"
+                        placeholder="e.g. 50"
+                      />
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        CNG used. Standard cylinder varies by supplier.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 

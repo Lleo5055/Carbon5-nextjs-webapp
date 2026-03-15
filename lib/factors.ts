@@ -20,6 +20,8 @@ export type FactorSet = {
   petrol: number;
   gas: number;
   lpg: number;
+  lpgKg: number;   // kg CO₂e per kg LPG (IPCC 2019 / BEE India)
+  cngKg: number;   // kg CO₂e per kg CNG (IPCC 2019 / BEE India)
   refrigerants: Record<string, number>;
 };
 
@@ -48,6 +50,8 @@ export function getFactorsForCountry(countryCode: string): FactorSet {
     // 1 kWh of natural gas ≈ 0.0344 m³ → factor per kWh = factor per m³ × 0.0344
     gas:          ef.naturalGasKgPerM3 * 0.0344,
     lpg:          ef.lpgKgPerLitre,
+    lpgKg:        ef.lpgKgPerKg,
+    cngKg:        ef.cngKgPerKg,
     refrigerants: { ...ef.refrigerants },
   };
 }

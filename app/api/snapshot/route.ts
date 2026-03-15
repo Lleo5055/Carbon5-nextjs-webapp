@@ -500,7 +500,7 @@ export async function POST(req: NextRequest) {
         : elecPct >= refrigPct && elecPct >= s3Pct ? "electricity"
         : refrigPct >= s3Pct ? "refrigerant" : "scope3";
       const iMap: Record<string,string> = {
-        fuel:        `Fuel (Scope 1) accounts for ${fmt(fuelPct,1)}% of emissions. Fleet optimisation, driver training or EV transition are the highest-impact near-term actions.`,
+        fuel:        `Fuel (Scope 1) accounts for ${fmt(fuelPct,1)}% of emissions. Audit consumption by fuel type — diesel, petrol, natural gas, LPG or CNG — and target the largest source first for the highest-impact reduction.`,
         electricity: `Electricity (Scope 2) represents ${fmt(elecPct,1)}% of your footprint. Switching to a renewable tariff or on-site solar can eliminate most of these emissions.`,
         refrigerant: `Refrigerant leaks account for ${fmt(refrigPct,1)}% of emissions. A scheduled leak-detection programme is the single highest-impact action available.`,
         scope3:      `Value-chain activities (Scope 3) represent ${fmt(s3Pct,1)}% of total. Engaging key suppliers on their own carbon targets is the most effective lever.`,
@@ -630,11 +630,13 @@ export async function GET(req: NextRequest) {
     const dieselTotal  = em.reduce((s, r) => s + safe(r.diesel_litres), 0);
     const petrolTotal  = em.reduce((s, r) => s + safe(r.petrol_litres), 0);
     const gasTotal     = em.reduce((s, r) => s + safe(r.gas_kwh), 0);
+    const lpgTotal     = em.reduce((s, r) => s + safe(r.lpg_kg), 0);
+    const cngTotal     = em.reduce((s, r) => s + safe(r.cng_kg), 0);
     const refrigCo2eKg = em.reduce((s, r) =>
       s + calcRefrigerantCo2e(safe(r.refrigerant_kg), (r.refrigerant_code as string) ?? "GENERIC_HFC"), 0);
 
     const scope2_kg     = elecKwhTotal * ef.electricity;
-    const scope1fuel_kg = dieselTotal * ef.diesel + petrolTotal * ef.petrol + gasTotal * ef.gas;
+    const scope1fuel_kg = dieselTotal * ef.diesel + petrolTotal * ef.petrol + gasTotal * ef.gas + lpgTotal * ef.lpgKg + cngTotal * ef.cngKg;
     const scope1_kg     = scope1fuel_kg + refrigCo2eKg;
     const scope3_kg     = s3All.reduce((s, r) => s + safe(r.co2e_kg), 0);
 
@@ -701,8 +703,26 @@ export async function GET(req: NextRequest) {
       const dom = fuelPct >= elecPct && fuelPct >= refrigPct && fuelPct >= s3Pct ? "fuel"
         : elecPct >= refrigPct && elecPct >= s3Pct ? "electricity"
         : refrigPct >= s3Pct ? "refrigerant" : "scope3";
+      // Determine dominant fuel type for a specific insight
+      const fuelCo2ByType: [string, number][] = [
+        ['diesel',  dieselTotal * ef.diesel],
+        ['petrol',  petrolTotal * ef.petrol],
+        ['gas',     gasTotal    * ef.gas],
+        ['lpg',     lpgTotal    * ef.lpgKg],
+        ['cng',     cngTotal    * ef.cngKg],
+      ].filter(([, v]) => (v as number) > 0) as [string, number][];
+      const dominantFuel = fuelCo2ByType.sort((a, b) => (b[1] as number) - (a[1] as number))[0]?.[0] ?? 'diesel';
+      const fuelInsightMap: Record<string, string> = {
+        diesel:  `Fuel (Scope 1) accounts for ${fmt(fuelPct,1)}% of emissions. Diesel is the largest fuel source — fleet route optimisation and transitioning to EVs or HVO are the highest-impact near-term actions.`,
+        petrol:  `Fuel (Scope 1) accounts for ${fmt(fuelPct,1)}% of emissions. Petrol is the largest fuel source — driver efficiency training and electrifying the vehicle fleet are the most effective levers.`,
+        gas:     `Fuel (Scope 1) accounts for ${fmt(fuelPct,1)}% of emissions. Natural gas / PNG is the largest source — upgrading boilers, improving insulation and switching to heat pumps can significantly reduce this.`,
+        lpg:     `Fuel (Scope 1) accounts for ${fmt(fuelPct,1)}% of emissions. LPG is the largest fuel source — substituting with PNG where available or switching to electric alternatives will deliver the greatest reductions.`,
+        cng:     `Fuel (Scope 1) accounts for ${fmt(fuelPct,1)}% of emissions. CNG is the largest fuel source — optimising vehicle loads and scheduling, or transitioning to EVs, are the most effective near-term actions.`,
+      };
+      const fuelInsight = fuelInsightMap[dominantFuel] ??
+        `Fuel (Scope 1) accounts for ${fmt(fuelPct,1)}% of emissions. Audit consumption by fuel type — diesel, petrol, natural gas, LPG or CNG — and target the largest source first for the highest-impact reduction.`;
       const iMap: Record<string,string> = {
-        fuel:        `Fuel (Scope 1) accounts for ${fmt(fuelPct,1)}% of emissions. Fleet optimisation, driver training or EV transition are the highest-impact near-term actions.`,
+        fuel:        fuelInsight,
         electricity: `Electricity (Scope 2) represents ${fmt(elecPct,1)}% of your footprint. Switching to a renewable tariff or investing in on-site solar can eliminate most of these emissions.`,
         refrigerant: `Refrigerant leaks account for ${fmt(refrigPct,1)}% of emissions. A scheduled leak-detection programme is the single highest-impact action available.`,
         scope3:      `Value-chain activities (Scope 3) represent ${fmt(s3Pct,1)}% of total. Engaging key suppliers on their own carbon targets is the most effective lever.`,

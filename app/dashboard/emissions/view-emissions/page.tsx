@@ -30,6 +30,8 @@ type ReportMonth = {
   dieselLitres?: number;
   petrolLitres?: number;
   gasKwh?: number;
+  lpgKg?: number;
+  cngKg?: number;
   refrigerantCode?: string | null;
 };
 
@@ -43,6 +45,8 @@ type EmissionsReport = {
     dieselSharePercent: number;
     petrolSharePercent: number;
     gasSharePercent: number;
+    lpgSharePercent: number;
+    cngSharePercent: number;
     refrigerantSharePercent: number;
   };
   suggestions: string[];
@@ -55,6 +59,8 @@ type EmissionsReport = {
     totalDieselLitres: number;
     totalPetrolLitres: number;
     totalGasKwh: number;
+    totalLpgKg: number;
+    totalCngKg: number;
     totalRefKg: number;
   };
   scope3Rows?: any[] | null;
@@ -224,6 +230,8 @@ await supabase.auth.getSession();
         dieselSharePercent: 0,
         petrolSharePercent: 0,
         gasSharePercent: 0,
+        lpgSharePercent: 0,
+        cngSharePercent: 0,
         refrigerantSharePercent: 0,
       },
       suggestions: [],
@@ -236,6 +244,8 @@ await supabase.auth.getSession();
         totalDieselLitres: 0,
         totalPetrolLitres: 0,
         totalGasKwh: 0,
+        totalLpgKg: 0,
+        totalCngKg: 0,
         totalRefKg: 0,
       },
     };
@@ -254,6 +264,8 @@ await supabase.auth.getSession();
     const dieselLitres = Number(row.diesel_litres ?? 0);
     const petrolLitres = Number(row.petrol_litres ?? 0);
     const gasKwh = Number(row.gas_kwh ?? 0);
+    const lpgKg = Number(row.lpg_kg ?? 0);
+    const cngKg = Number(row.cng_kg ?? 0);
     const refrigerantKg = Number(row.refrigerant_kg ?? 0);
 
     const refrigerantCode =
@@ -278,10 +290,14 @@ await supabase.auth.getSession();
         dieselLitres * ef.diesel +
         petrolLitres * ef.petrol +
         gasKwh * ef.gas +
+        lpgKg * ef.lpgKg +
+        cngKg * ef.cngKg +
         calcRefrigerantCo2e(refrigerantKg, refrigerantCode),
       dieselLitres,
       petrolLitres,
       gasKwh,
+      lpgKg,
+      cngKg,
       refrigerantCode,
     };
   });
@@ -333,6 +349,8 @@ await supabase.auth.getSession();
         dieselLitres: 0,
         petrolLitres: 0,
         gasKwh: 0,
+        lpgKg: 0,
+        cngKg: 0,
       };
       monthMap.set(label, stub);
       months.push(stub);
@@ -357,6 +375,14 @@ await supabase.auth.getSession();
     (s, m) => s + (m.gasKwh ?? 0) * ef.gas,
     0
   );
+  const totalLpgCo2 = months.reduce(
+    (s, m) => s + (m.lpgKg ?? 0) * ef.lpgKg,
+    0
+  );
+  const totalCngCo2 = months.reduce(
+    (s, m) => s + (m.cngKg ?? 0) * ef.cngKg,
+    0
+  );
   const totalRefCo2 = months.reduce(
     (s, m) =>
       s + calcRefrigerantCo2e(m.refrigerantKg ?? 0, m.refrigerantCode ?? ''),
@@ -368,6 +394,8 @@ await supabase.auth.getSession();
       totalDieselCo2 +
       totalPetrolCo2 +
       totalGasCo2 +
+      totalLpgCo2 +
+      totalCngCo2 +
       totalRefCo2 || 1;
 
   const breakdownBySource = {
@@ -375,6 +403,8 @@ await supabase.auth.getSession();
     dieselSharePercent: Math.round((totalDieselCo2 / denom) * 1000) / 10,
     petrolSharePercent: Math.round((totalPetrolCo2 / denom) * 1000) / 10,
     gasSharePercent: Math.round((totalGasCo2 / denom) * 1000) / 10,
+    lpgSharePercent: Math.round((totalLpgCo2 / denom) * 1000) / 10,
+    cngSharePercent: Math.round((totalCngCo2 / denom) * 1000) / 10,
     refrigerantSharePercent: Math.round((totalRefCo2 / denom) * 1000) / 10,
   };
 
@@ -384,6 +414,8 @@ await supabase.auth.getSession();
     dieselSharePercent,
     petrolSharePercent,
     gasSharePercent,
+    lpgSharePercent,
+    cngSharePercent,
     refrigerantSharePercent,
   } = breakdownBySource;
 
@@ -405,6 +437,16 @@ await supabase.auth.getSession();
   if (gasSharePercent > 15) {
     suggestions.push(
       'Gas for heating is material. Check thermostat schedules, insulation and night/weekend setpoints.'
+    );
+  }
+  if (lpgSharePercent > 15) {
+    suggestions.push(
+      'LPG usage is significant. Consider switching to piped natural gas or electrification where feasible.'
+    );
+  }
+  if (cngSharePercent > 15) {
+    suggestions.push(
+      'CNG usage is significant. Review fleet and equipment efficiency or consider electrification options.'
     );
   }
   if (refrigerantSharePercent > 10) {
@@ -436,6 +478,8 @@ await supabase.auth.getSession();
     0
   );
   const totalGasKwh = months.reduce((s, m) => s + (m.gasKwh ?? 0), 0);
+  const totalLpgKg = months.reduce((s, m) => s + (m.lpgKg ?? 0), 0);
+  const totalCngKg = months.reduce((s, m) => s + (m.cngKg ?? 0), 0);
   const totalRefKg = months.reduce((s, m) => s + (m.refrigerantKg ?? 0), 0);
 
   return {
@@ -452,6 +496,8 @@ await supabase.auth.getSession();
       totalDieselLitres,
       totalPetrolLitres,
       totalGasKwh,
+      totalLpgKg,
+      totalCngKg,
       totalRefKg,
     },
     scope3Rows,
@@ -586,6 +632,8 @@ export default function ViewEmissionsPage({ searchParams }: Props) {
     dieselSharePercent: 0,
     petrolSharePercent: 0,
     gasSharePercent: 0,
+    lpgSharePercent: 0,
+    cngSharePercent: 0,
     refrigerantSharePercent: 0,
   },
   suggestions: [],
@@ -598,6 +646,8 @@ export default function ViewEmissionsPage({ searchParams }: Props) {
     totalDieselLitres: 0,
     totalPetrolLitres: 0,
     totalGasKwh: 0,
+    totalLpgKg: 0,
+    totalCngKg: 0,
     totalRefKg: 0,
   },
   scope3Rows: [],
@@ -837,13 +887,15 @@ useEffect(() => {
   // -----------------------------
   // REMAINING LOGIC (unchanged)
   // -----------------------------
-  const { totalDieselLitres, totalPetrolLitres, totalGasKwh } = totals;
+  const { totalDieselLitres, totalPetrolLitres, totalGasKwh, totalLpgKg, totalCngKg } = totals;
 
   const {
     electricitySharePercent,
     dieselSharePercent,
     petrolSharePercent,
     gasSharePercent,
+    lpgSharePercent,
+    cngSharePercent,
     refrigerantSharePercent,
   } = breakdownBySource;
 
@@ -974,7 +1026,9 @@ useEffect(() => {
         elecCo2eKg += (m.electricityKwh ?? 0) * ef.electricity;
         fuelCo2eKg += ((m.dieselLitres ?? 0) * ef.diesel)
                     + ((m.petrolLitres ?? 0) * ef.petrol)
-                    + ((m.gasKwh ?? 0) * ef.gas);
+                    + ((m.gasKwh ?? 0) * ef.gas)
+                    + ((m.lpgKg ?? 0) * ef.lpgKg)
+                    + ((m.cngKg ?? 0) * ef.cngKg);
         refrigCo2eKg += calcRefrigerantCo2e(m.refrigerantKg ?? 0, m.refrigerantCode ?? 'GENERIC_HFC');
       }
 
@@ -1436,7 +1490,7 @@ useEffect(() => {
                           <p className="text-[11px] text-slate-500 mt-1">
                             Electricity: {electricitySharePercent}% · Diesel:{' '}
                             {dieselSharePercent}% · Petrol: {petrolSharePercent}% ·
-                            Gas: {gasSharePercent}% · Refrigerant:{' '}
+                            Gas: {gasSharePercent}%{isIndia && lpgSharePercent > 0 ? ` · LPG: ${lpgSharePercent}%` : ''}{isIndia && cngSharePercent > 0 ? ` · CNG: ${cngSharePercent}%` : ''} · Refrigerant:{' '}
                             {refrigerantSharePercent}%
                           </p>
                           <p className="text-[11px] text-slate-500 mt-1">
@@ -1533,6 +1587,22 @@ useEffect(() => {
                         {totalGasKwh.toLocaleString()} kWh
                       </span>
                     </div>
+                    {isIndia && totalLpgKg > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">LPG</span>
+                        <span className="tabular-nums">
+                          {totalLpgKg.toLocaleString()} kg
+                        </span>
+                      </div>
+                    )}
+                    {isIndia && totalCngKg > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">CNG</span>
+                        <span className="tabular-nums">
+                          {totalCngKg.toLocaleString()} kg
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </article>
 
@@ -1576,6 +1646,8 @@ useEffect(() => {
                       <th className="p-2 text-left">Diesel (L)</th>
                       <th className="p-2 text-left">Petrol (L)</th>
                       <th className="p-2 text-left">Gas (kWh)</th>
+                      {isIndia && <th className="p-2 text-left">LPG (kg)</th>}
+                      {isIndia && <th className="p-2 text-left">CNG (kg)</th>}
                       <th className="p-2 text-left">Refrigerant (kg)</th>
                       <th className="p-2 text-left">Total CO₂e (kg)</th>
                       <th className="p-2 text-left">Actions</th>
@@ -1598,6 +1670,8 @@ useEffect(() => {
                           <td className="p-2">{m.dieselLitres ?? 0}</td>
                           <td className="p-2">{m.petrolLitres ?? 0}</td>
                           <td className="p-2">{m.gasKwh ?? 0}</td>
+                          {isIndia && <td className="p-2">{m.lpgKg ?? 0}</td>}
+                          {isIndia && <td className="p-2">{m.cngKg ?? 0}</td>}
                           <td className="p-2">{m.refrigerantKg}</td>
                           <td className="p-2">
                             {formatKgValue(m.totalCo2eKg)}

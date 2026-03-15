@@ -26,6 +26,8 @@ export async function POST(req: NextRequest) {
       dieselLitres,
       petrolLitres,
       gasKwh,
+      lpgKg,
+      cngKg,
       refrigerantKg,
       refrigerantCode,
       // Feature 1.8: ef_version stamped at save time (looked up client-side)
@@ -43,6 +45,8 @@ export async function POST(req: NextRequest) {
       diesel_litres: Number(dieselLitres) || 0,
       petrol_litres: Number(petrolLitres) || 0,
       gas_kwh: Number(gasKwh) || 0,
+      lpg_kg: Number(lpgKg) || 0,
+      cng_kg: Number(cngKg) || 0,
       refrigerant_kg: Number(refrigerantKg) || 0,
       refrigerant_code: refrigerantCode || 'GENERIC_HFC',
       total_co2e: 0,

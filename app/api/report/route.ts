@@ -299,6 +299,8 @@ const totalElecKwh = list.reduce((s, r) => s + safe(r.electricity_kwh ?? r.elect
 const totalDieselLitres = list.reduce((s, r) => s + safe(r.diesel_litres), 0);
 const totalPetrolLitres = list.reduce((s, r) => s + safe(r.petrol_litres), 0);
 const totalGasKwh = list.reduce((s, r) => s + safe(r.gas_kwh), 0);
+const totalLpgKg = list.reduce((s, r) => s + safe(r.lpg_kg), 0);
+const totalCngKg = list.reduce((s, r) => s + safe(r.cng_kg), 0);
 
 // Refrigerant CO2e must be summed per-row (because code can differ per row)
 const refrigerantCo2eKg = list.reduce(
@@ -319,7 +321,9 @@ const scope2_kg = totalElecKwh * ef.electricity;
 const scope1_fuel_kg =
   totalDieselLitres * ef.diesel +
   totalPetrolLitres * ef.petrol +
-  totalGasKwh * ef.gas;
+  totalGasKwh * ef.gas +
+  totalLpgKg * ef.lpgKg +
+  totalCngKg * ef.cngKg;
 
 // Treat refrigerant as Scope 1 (fugitive)
 const scope1_refrigerant_kg = refrigerantCo2eKg;
@@ -360,7 +364,9 @@ const values = list.map((r) => {
   const fuelKg =
     safe(r.diesel_litres) * ef.diesel +
     safe(r.petrol_litres) * ef.petrol +
-    safe(r.gas_kwh) * ef.gas;
+    safe(r.gas_kwh) * ef.gas +
+    safe(r.lpg_kg) * ef.lpgKg +
+    safe(r.cng_kg) * ef.cngKg;
 
   const refrigerantKg = calcRefrigerantCo2e(
     safe(r.refrigerant_kg),
@@ -401,10 +407,13 @@ const values = list.map((r) => {
     const s1DieselCo2e  = totalDieselLitres * ef.diesel;
     const s1PetrolCo2e  = totalPetrolLitres * ef.petrol;
     const s1GasCo2e     = totalGasKwh * ef.gas;
+    const s1LpgCo2e     = totalLpgKg * ef.lpgKg;
+    const s1CngCo2e     = totalCngKg * ef.cngKg;
     const s1RefrigCo2e  = scope1_refrigerant_kg;
-    type FuelSource = 'diesel' | 'petrol' | 'gas' | 'refrigerant';
+    type FuelSource = 'diesel' | 'petrol' | 'gas' | 'lpg' | 'cng' | 'refrigerant';
     const s1Breakdown: Record<FuelSource, number> = {
-      diesel: s1DieselCo2e, petrol: s1PetrolCo2e, gas: s1GasCo2e, refrigerant: s1RefrigCo2e,
+      diesel: s1DieselCo2e, petrol: s1PetrolCo2e, gas: s1GasCo2e,
+      lpg: s1LpgCo2e, cng: s1CngCo2e, refrigerant: s1RefrigCo2e,
     };
     // Whichever sub-source contributed the most CO2e is the dominant one
     const fuelSource = (Object.entries(s1Breakdown).sort((a, b) => b[1] - a[1])[0][0]) as FuelSource;
@@ -626,7 +635,9 @@ const energy_kwh =
   totalElecKwh +
   totalDieselLitres * 10.9 +
   totalPetrolLitres * 9.4 +
-  totalGasKwh;
+  totalGasKwh +
+  totalLpgKg * 12.88 +
+  totalCngKg * 13.9;
 
 const statsLine = [
   `Energy use: ${Math.round(energy_kwh).toLocaleString()} kWh`,
@@ -850,11 +861,12 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
 
     const hY = y - 9;  // vertically centred in 22pt header rect
 
-    page.drawText('Month',              { x: 55,  y: hY, size: 10, font: bold, color: rgb(1,1,1) });
-    page.drawText('Electricity (tCO2e)', { x: 148, y: hY, size: 10, font: bold, color: rgb(1,1,1) });
-    page.drawText('Fuels (tCO2e)',      { x: 258, y: hY, size: 10, font: bold, color: rgb(1,1,1) });
-    page.drawText('Scope 3 (tCO2e)',    { x: 365, y: hY, size: 10, font: bold, color: rgb(1,1,1) });
-    page.drawText('Total (tCO2e)',      { x: 455, y: hY, size: 10, font: bold, color: rgb(1,1,1) });
+    page.drawText('Month',                   { x: 50,  y: hY, size: 8.5, font: bold, color: rgb(1,1,1) });
+    page.drawText('Electricity (tCO2e)',     { x: 150, y: hY, size: 8.5, font: bold, color: rgb(1,1,1) });
+    page.drawText('Fuels (tCO2e)',           { x: 230, y: hY, size: 8.5, font: bold, color: rgb(1,1,1) });
+    page.drawText('Refrigerant (tCO2e)',     { x: 298, y: hY, size: 8.5, font: bold, color: rgb(1,1,1) });
+    page.drawText('Scope 3 (tCO2e)',         { x: 380, y: hY, size: 8.5, font: bold, color: rgb(1,1,1) });
+    page.drawText('Total (tCO2e)',           { x: 462, y: hY, size: 8.5, font: bold, color: rgb(1,1,1) });
 
     y -= 26;
 
@@ -867,11 +879,12 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
         page = addPage();
         y = 780;
         page.drawRectangle({ x: 45, y: y - 16, width: 510, height: 22, color: rgb(0, 0, 0) });
-        page.drawText('Month',               { x: 55,  y: y - 9, size: 10, font: bold, color: rgb(1,1,1) });
-        page.drawText('Electricity (tCO2e)', { x: 148, y: y - 9, size: 10, font: bold, color: rgb(1,1,1) });
-        page.drawText('Fuels (tCO2e)',       { x: 258, y: y - 9, size: 10, font: bold, color: rgb(1,1,1) });
-        page.drawText('Scope 3 (tCO2e)',     { x: 365, y: y - 9, size: 10, font: bold, color: rgb(1,1,1) });
-        page.drawText('Total (tCO2e)',       { x: 455, y: y - 9, size: 10, font: bold, color: rgb(1,1,1) });
+        page.drawText('Month',                   { x: 50,  y: y - 9, size: 8.5, font: bold, color: rgb(1,1,1) });
+        page.drawText('Electricity (tCO2e)',     { x: 150, y: y - 9, size: 8.5, font: bold, color: rgb(1,1,1) });
+        page.drawText('Fuels (tCO2e)',           { x: 230, y: y - 9, size: 8.5, font: bold, color: rgb(1,1,1) });
+        page.drawText('Refrigerant (tCO2e)',     { x: 298, y: y - 9, size: 8.5, font: bold, color: rgb(1,1,1) });
+        page.drawText('Scope 3 (tCO2e)',         { x: 380, y: y - 9, size: 8.5, font: bold, color: rgb(1,1,1) });
+        page.drawText('Total (tCO2e)',           { x: 462, y: y - 9, size: 8.5, font: bold, color: rgb(1,1,1) });
         y -= 26;
       }
 
@@ -887,24 +900,26 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
 
       // Recalculate CO2e from components so it matches the report totals
       const rowElecKg   = safe(r.electricity_kwh ?? r.electricity_kw) * ef.electricity;
-      const rowFuelKg   = safe(r.diesel_litres) * ef.diesel + safe(r.petrol_litres) * ef.petrol + safe(r.gas_kwh) * ef.gas;
+      const rowFuelKg   = safe(r.diesel_litres) * ef.diesel + safe(r.petrol_litres) * ef.petrol + safe(r.gas_kwh) * ef.gas + safe(r.lpg_kg) * ef.lpgKg + safe(r.cng_kg) * ef.cngKg;
       const rowRefrigKg = calcRefrigerantCo2e(safe(r.refrigerant_kg), (r.refrigerant_code as string | null) ?? 'GENERIC_HFC');
       const rowS3Kg     = scope3ByMonth.get(r.month) ?? 0;
       const rowTotal    = rowElecKg + rowFuelKg + rowRefrigKg + rowS3Kg;
 
-      const rowFuelsTotal = rowFuelKg + rowRefrigKg;
-      page.drawText(fmtMonth(r.month),                           { x: 55,  y: y - 5, size: 10, font, color: TEXT });
-      page.drawText((rowElecKg / 1000).toFixed(3),               { x: 148, y: y - 5, size: 10, font, color: TEXT });
-      page.drawText((rowFuelsTotal / 1000).toFixed(3),           { x: 255, y: y - 5, size: 10, font, color: TEXT });
-      page.drawText(rowS3Kg > 0 ? (rowS3Kg / 1000).toFixed(3) : '0', { x: 365, y: y - 5, size: 10, font, color: TEXT });
-      page.drawText((rowTotal / 1000).toFixed(3),                { x: 455, y: y - 5, size: 10, font, color: TEXT });
+      page.drawText(fmtMonth(r.month),                                { x: 50,  y: y - 5, size: 9.5, font, color: TEXT });
+      page.drawText((rowElecKg / 1000).toFixed(3),                    { x: 150, y: y - 5, size: 9.5, font, color: TEXT });
+      page.drawText((rowFuelKg / 1000).toFixed(3),                    { x: 230, y: y - 5, size: 9.5, font, color: TEXT });
+      page.drawText((rowRefrigKg / 1000).toFixed(3),                  { x: 298, y: y - 5, size: 9.5, font, color: TEXT });
+      page.drawText(rowS3Kg > 0 ? (rowS3Kg / 1000).toFixed(3) : '0', { x: 380, y: y - 5, size: 9.5, font, color: TEXT });
+      page.drawText((rowTotal / 1000).toFixed(3),                     { x: 462, y: y - 5, size: 9.5, font, color: TEXT });
 
       y -= 24;
     }
 
     // Table footnote
     y -= 4;
-    page.drawText('All values in metric tonnes CO2e (tCO2e). Fuels includes diesel, petrol, natural gas and refrigerant. Total = Elec + Fuels + Scope 3.', { x: 50, y, size: 8, font, color: rgb(0.5, 0.5, 0.52) });
+    page.drawText('All values in tCO2e. Fuels = diesel, petrol, natural gas, LPG, CNG. Refrigerant = fugitive emissions (Scope 1).', { x: 50, y, size: 8, font, color: rgb(0.5, 0.5, 0.52) });
+    y -= 12;
+    page.drawText('Total = Elec + Fuels + Refrig + Scope 3.', { x: 50, y, size: 8, font, color: rgb(0.5, 0.5, 0.52) });
     y -= 14;
 
     // ---- FOOTER PAGE 2 ----
@@ -937,7 +952,7 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
         {
           label: 'Scope 1: Direct fuel emissions',
           value: `${scope1_t.toFixed(2)} tCO2e`,
-          desc: 'Includes emissions from combustion of diesel, petrol and gas in company-operated vehicles or equipment.',
+          desc: 'Includes emissions from combustion of diesel, petrol, natural gas, LPG and CNG in company-operated vehicles or equipment, plus refrigerant fugitive emissions.',
           leftBg: rgb(0.84, 0.93, 0.86),
           rightBg: rgb(0.93, 0.97, 0.94),
         },
@@ -1142,12 +1157,12 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       page.drawText('Value', { x: 360, y: y - 10, size: 10, font: bold, color: rgb(1, 1, 1) });
       y -= 26;
 
-      const fuelKwhE = totalDieselLitres * 10.9 + totalPetrolLitres * 9.4 + totalGasKwh;
+      const fuelKwhE = totalDieselLitres * 10.9 + totalPetrolLitres * 9.4 + totalGasKwh + totalLpgKg * 12.88 + totalCngKg * 13.9;
       const totalEnergyE = totalElecKwh + fuelKwhE;
       const totalCO2E = scope1_t + scope2_t + scope3_t;
       const energyTableRows: Array<{ label: string; value: string; isBold?: boolean; isHighlight?: boolean }> = [
         { label: 'Electricity', value: `${Math.round(totalElecKwh).toLocaleString()} kWh` },
-        { label: 'Road fuels', value: `${Math.round(fuelKwhE).toLocaleString()} kWh` },
+        { label: 'Fuels', value: `${Math.round(fuelKwhE).toLocaleString()} kWh` },
         { label: 'Total energy', value: `${Math.round(totalEnergyE).toLocaleString()} kWh`, isBold: true },
         { label: 'Scope 1', value: `${scope1_t.toFixed(2)} tCO2e` },
         { label: 'Scope 2', value: `${scope2_t.toFixed(2)} tCO2e` },
@@ -1275,14 +1290,16 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
     y -= 26;
 
     // Build per-source content library and prioritised source list for all fuel insights/actions
-    const s1TotalForPct = s1DieselCo2e + s1PetrolCo2e + s1GasCo2e + s1RefrigCo2e || 1;
+    const s1TotalForPct = s1DieselCo2e + s1PetrolCo2e + s1GasCo2e + s1LpgCo2e + s1CngCo2e + s1RefrigCo2e || 1;
     const pctOf = (v: number) => Math.round(v / s1TotalForPct * 100);
     const sigSources = ([
       { key: 'refrigerant' as FuelSource, co2e: s1RefrigCo2e },
       { key: 'diesel'      as FuelSource, co2e: s1DieselCo2e },
       { key: 'petrol'      as FuelSource, co2e: s1PetrolCo2e },
       { key: 'gas'         as FuelSource, co2e: s1GasCo2e    },
-    ]).filter(s => s.co2e / s1TotalForPct >= 0.05).sort((a, b) => b.co2e - a.co2e);
+      { key: 'lpg'         as FuelSource, co2e: s1LpgCo2e    },
+      { key: 'cng'         as FuelSource, co2e: s1CngCo2e    },
+    ]).filter(s => s.co2e > 0).sort((a, b) => b.co2e - a.co2e);
 
     const srcLib: Record<FuelSource, { name: string; operational: string; longTerm: string; action: string; immediate: string; medTerm: string }> = {
       refrigerant: {
@@ -1316,6 +1333,22 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
         action: 'Commission a boiler and heating system audit to assess efficiency ratings and replacement viability.',
         immediate: 'Review gas consumption by month to identify seasonal peaks and optimise boiler controls for current occupancy levels.',
         medTerm: 'Evaluate heat pump suitability for your building type and commission insulation upgrades where the return justifies investment.',
+      },
+      lpg: {
+        name: 'LPG combustion',
+        operational: 'LPG combustion for heating, cooking or on-site equipment, where cylinder consumption tracking and appliance efficiency are the primary variables',
+        longTerm: 'replace LPG-fired equipment with electric or solar alternatives as part of a phased decarbonisation of stationary fuel use',
+        action: 'Audit all LPG-consuming appliances and equipment to identify high-usage sources and assess electrification feasibility.',
+        immediate: 'Begin tracking LPG cylinder consumption monthly by appliance or location to establish a reliable baseline.',
+        medTerm: 'Evaluate electric or induction alternatives for cooking and heating applications and assess solar thermal or heat pump options.',
+      },
+      cng: {
+        name: 'CNG combustion',
+        operational: 'CNG combustion from vehicles or on-site generators, where fleet utilisation, route efficiency and maintenance standards are the primary variables',
+        longTerm: 'transition CNG vehicles and equipment to electric alternatives as battery technology and infrastructure mature',
+        action: 'Map CNG consumption by vehicle or equipment type and set monthly consumption reduction targets for each category.',
+        immediate: 'Begin logging CNG fill-ups or dispenser records monthly to establish an accurate consumption baseline.',
+        medTerm: 'Assess EV or electric equipment options for the highest CNG-consuming assets and model the transition economics.',
       },
     };
 
@@ -1565,7 +1598,7 @@ paragraphText(
   page,
   font,
   TEXT,
-  `Emission calculations use national GHG conversion factors applicable to ${countryName} (${ef.version}). Electricity emissions use location-based grid factors and do not include market-based supplier factors. Fuel emissions use standard CO2e per-litre values, and Scope 3 emissions use category-specific activity factors.`,
+  `Emission calculations use national GHG conversion factors applicable to ${countryName} (${ef.version}). Electricity emissions use location-based grid factors and do not include market-based supplier factors. Fuel emissions use standard CO2e per-unit values (litres for diesel/petrol, kWh for natural gas, kg for LPG/CNG), and Scope 3 emissions use category-specific activity factors.`,
   yRef
 );
 
@@ -1773,8 +1806,9 @@ y -= 22;
 
 page.drawText(`Diesel: ${ef.diesel} kg CO2e per litre`, { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
 page.drawText(`Petrol: ${ef.petrol} kg CO2e per litre`, { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText(`LPG: ${ef.lpg.toFixed(3)} kg CO2e per litre`, { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText(`Natural gas: ${ef.gas.toFixed(4)} kg CO2e per kWh`, { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
+page.drawText(`Natural gas / PNG: ${ef.gas.toFixed(4)} kg CO2e per kWh`, { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
+page.drawText(`LPG: ${ef.lpgKg.toFixed(2)} kg CO2e per kg (IPCC 2019 / BEE India)`, { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
+page.drawText(`CNG: ${ef.cngKg.toFixed(2)} kg CO2e per kg (IPCC 2019 / BEE India)`, { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
 
 // --------------------------- SCOPE 2 ---------------------------
 page.drawText('Scope 2: Purchased electricity (location-based)', {
@@ -1857,7 +1891,8 @@ y -= 22;
 
 page.drawText('Diesel: 10.9 kWh per litre', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
 page.drawText('Petrol: 9.4 kWh per litre', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
-page.drawText('LPG: 7.1 kWh per litre', { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
+page.drawText('LPG: 12.88 kWh per kg', { x: 60, y, size: 11, font, color: TEXT }); y -= 15;
+page.drawText('CNG: 13.9 kWh per kg', { x: 60, y, size: 11, font, color: TEXT }); y -= 25;
 
 // Review paragraph
 {
@@ -1890,7 +1925,7 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       const BADGE_W = 90;
 
       // Pre-computed BRSR values
-      const bFuelKwh = totalDieselLitres * 10.9 + totalPetrolLitres * 9.4 + totalGasKwh;
+      const bFuelKwh = totalDieselLitres * 10.9 + totalPetrolLitres * 9.4 + totalGasKwh + totalLpgKg * 12.88 + totalCngKg * 13.9;
       const bTotalEnergyKwh = totalElecKwh + bFuelKwh;
       const bTotalEnergyGJ = bTotalEnergyKwh * 0.0036;
       const bTotalCO2t = scope1_t + scope2_t + scope3_t;
