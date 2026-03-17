@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../../lib/supabaseClient';
 import {
-  calcRefrigerantCo2e,
   normaliseRefrigerantCode,
 } from '../../../lib/emissionFactors';
 import { getFactorsForCountry } from '@/lib/factors';
+import { calculateCo2e } from '../../../lib/calcCo2e';
 
 type ParsedSuggestion = {
   docType: 'electricity' | 'fuel';
@@ -113,36 +113,74 @@ export default function ImportInvoicesPage() {
         return;
       }
 
-      // Load country-aware factors from user profile
       const { data: profile } = await supabase
         .from('profiles')
         .select('country')
         .eq('id', user.id)
         .single();
-      const ef = getFactorsForCountry(profile?.country ?? 'GB');
+
+      const countryCode = profile?.country ?? 'GB';
+      const ef = getFactorsForCountry(countryCode);
 
       const electricityNum = Number(electricity) || 0;
-      const fuelNum = Number(fuel) || 0;
-      const refrigerantNum = Number(refrigerant) || 0;
-      const refCode = normaliseRefrigerantCode(refrigerantType);
+      const fuelNum        = Number(fuel)         || 0;
+      const refrigerantNum = Number(refrigerant)  || 0;
+      const refCode        = normaliseRefrigerantCode(refrigerantType);
 
-      // Use ef.diesel as the generic road fuel factor (same as before)
-      const total_co2e =
-        electricityNum * ef.electricity +
-        fuelNum * ef.diesel +
-        calcRefrigerantCo2e(refrigerantNum, refCode);
-
-      const { error: insertError } = await supabase.from('emissions').insert([
+      // Use existing engine for consistency
+      const result = calculateCo2e(
         {
-          user_id: user.id,
-          month,
-          electricity_kw: electricityNum,
-          fuel_liters: fuelNum,
-          refrigerant_kg: refrigerantNum,
-          refrigerant_type: refrigerantType,
-          total_co2e,
+          electricityKwh:  electricityNum,
+          dieselLitres:    fuelNum,
+          refrigerantType: refCode,
+          refrigerantKg:   refrigerantNum,
         },
-      ]);
+        ef
+      );
+
+      // Full auditable breakdown for CCTS
+      const calc_breakdown = {
+        electricity: {
+          qty:     electricityNum,
+          unit:    'kWh',
+          factor:  ef.electricity,
+          kg_co2e: result.electricity,
+        },
+        diesel: {
+          qty:     fuelNum,
+          unit:    'litres',
+          factor:  ef.diesel,
+          kg_co2e: result.diesel,
+        },
+        refrigerant: {
+          qty:     refrigerantNum,
+          unit:    'kg',
+          type:    refCode,
+          factor:  ef.refrigerants[refCode] ?? 0,
+          kg_co2e: result.refrigerant,
+        },
+        total_kg_co2e:  result.total,
+        country_code:   countryCode,
+        factor_version: ef.version,
+        calculated_at:  new Date().toISOString(),
+      };
+
+      const { error: insertError } = await supabase.from('emissions').insert([{
+        user_id:          user.id,
+        month,
+        electricity_kw:   electricityNum,
+        diesel_litres:    fuelNum,
+        refrigerant_kg:   refrigerantNum,
+        refrigerant_code: refCode,
+        total_co2e:       result.total,
+        country_code:     countryCode,
+        data_source:      'bill_scan',
+        ef_version:       ef.version,
+        ef_electricity:   ef.electricity,
+        ef_diesel:        ef.diesel,
+        ef_refrigerant:   ef.refrigerants[refCode] ?? null,
+        calc_breakdown,
+      }]);
 
       if (insertError) {
         console.error(insertError);

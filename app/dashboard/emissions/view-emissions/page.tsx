@@ -695,6 +695,10 @@ const brsrScorecard = useMemo<BrsrScorecardData | null>(() => {
 }, [isIndia, brsrExtra, waterRows, wasteRows, airRows]);
 const [snapshotLoading, setSnapshotLoading] = useState(false);
 const [freeReportUsed, setFreeReportUsed] = useState(false);
+const [cctsPkgOpen, setCctsPkgOpen] = useState(false);
+const [cctsPkgLoading, setCctsPkgLoading] = useState<'pdf' | 'json' | 'csv' | null>(null);
+const [cctsFY, setCctsFY] = useState<number | null>(null);
+const [orgTargets, setOrgTargets] = useState<{ compliance_year: number; trajectory_period: string }[]>([]);
 // -----------------------------
 // RESTORE CACHED REPORT (INSTANT PAINT — runs before browser paint)
 // -----------------------------
@@ -791,6 +795,18 @@ useEffect(() => {
     }
 
     setIsIndia(true);
+
+    const { data: targetsData } = await supabase
+      .from('org_targets')
+      .select('compliance_year, trajectory_period')
+      .eq('user_id', uid)
+      .order('compliance_year', { ascending: true });
+
+    setOrgTargets(targetsData ?? []);
+    if (targetsData && targetsData.length > 0) {
+      setCctsFY(targetsData[targetsData.length - 1].compliance_year);
+    }
+
     const water  = { data: profile.india_water_enabled ? (waterRes.data ?? []) : [] };
     const waste  = { data: profile.india_waste_enabled ? (wasteRes.data ?? []) : [] };
     const air    = { data: profile.india_air_enabled   ? (airRes.data   ?? []) : [] };
@@ -1050,6 +1066,41 @@ useEffect(() => {
     a.click();
     URL.revokeObjectURL(url);
     logActivity('export_xls', 'report', { period: report.periodLabel });
+  }
+
+  // ── CCTS Verification Package ──
+  async function handleCctsPkg(format: 'pdf' | 'json' | 'csv', fyYear?: number | null) {
+    if (!userId || !accessToken) return;
+    setCctsPkgLoading(format);
+    try {
+      let url = `/api/ccts-verification?userId=${userId}&token=${accessToken}&format=${format}`;
+      if (fyYear) {
+        const fyNum = Number(fyYear);
+        const fyStart = `${fyNum - 1}-04`;
+        const fyEnd = `${fyNum}-03`;
+        url += `&periodType=fy&start=${fyStart}&end=${fyEnd}&fyYear=${fyNum}`;
+      } else {
+        url += `&periodType=${period === 'custom' ? 'custom' : 'quick'}&period=${period}${period === 'custom' ? `&start=${customStart ?? ''}&end=${customEnd ?? ''}` : ''}`;
+      }
+      console.log('CCTS URL:', url);
+      const res = await fetch(url, { method: 'GET' });
+      if (!res.ok) throw new Error('Failed to generate verification package');
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      const ext = format === 'pdf' ? 'pdf' : format === 'json' ? 'json' : 'csv';
+      a.download = `CCTS-Verification-Package.${ext}`;
+      a.click();
+      URL.revokeObjectURL(blobUrl);
+      logActivity('export_ccts_pkg', 'report', { format, period: report.periodLabel });
+      setCctsPkgOpen(false);
+    } catch (err) {
+      console.error('CCTS package error:', err);
+      alert('Failed to generate verification package. Please try again.');
+    } finally {
+      setCctsPkgLoading(null);
+    }
   }
 
   // ── Leadership Snapshot ──
@@ -1362,6 +1413,43 @@ useEffect(() => {
 </button>
 
 </form>
+
+                {/* CCTS Verification Package — India only */}
+                {isIndia && (
+                  orgTargets.length > 0 ? (
+                    <div className="flex items-center gap-1">
+                      <select
+                        value={cctsFY ?? ''}
+                        onChange={e => setCctsFY(Number(e.target.value) || null)}
+                        className="border rounded-l-full px-3 py-1.5 text-xs bg-white border-r-0 h-[34px] border-slate-300"
+                      >
+                        <option value="">All data</option>
+                        {orgTargets.map(t => (
+                          <option key={t.compliance_year} value={t.compliance_year}>
+                            FY {t.compliance_year} ({t.trajectory_period})
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setCctsPkgOpen(true)}
+                        disabled={!userId || !hasData}
+                        className="px-3 py-1.5 rounded-r-full border border-slate-300 bg-white text-xs font-medium text-slate-700 hover:bg-slate-900 hover:text-white h-[34px] whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        CCTS Verification Package
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setCctsPkgOpen(true)}
+                      disabled={!userId || !hasData}
+                      className="h-[32px] px-4 rounded-full border text-xs font-medium bg-white text-slate-700 border-slate-300 hover:bg-slate-900 hover:text-white flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      CCTS Verification Package
+                    </button>
+                  )
+                )}
 
                 {/* Leadership Snapshot — Pro+ only */}
                 {isProPlus ? (
@@ -2023,6 +2111,65 @@ useEffect(() => {
           </>
         )}
       </div>
+
+      {cctsPkgOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
+            <h2 className="text-sm font-semibold text-slate-900 mb-1">CCTS Verification Package</h2>
+            <p className="text-xs text-slate-500 mb-5">
+              Export your locked emission data for ACVA verification under the Indian Carbon Credit Trading Scheme (CCTS). Choose your preferred format.
+            </p>
+            <div className="space-y-3">
+              <button
+                onClick={() => handleCctsPkg('pdf', cctsFY)}
+                disabled={cctsPkgLoading !== null}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="text-left">
+                  <p className="text-xs font-medium text-slate-900">PDF Report</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Formatted document for ACVA review and sign-off</p>
+                </div>
+                <span className="text-xs text-emerald-700 font-medium ml-4">
+                  {cctsPkgLoading === 'pdf' ? 'Generating...' : 'Download →'}
+                </span>
+              </button>
+              <button
+                onClick={() => handleCctsPkg('csv', cctsFY)}
+                disabled={cctsPkgLoading !== null}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="text-left">
+                  <p className="text-xs font-medium text-slate-900">CSV Export</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Spreadsheet format for detailed data review</p>
+                </div>
+                <span className="text-xs text-emerald-700 font-medium ml-4">
+                  {cctsPkgLoading === 'csv' ? 'Generating...' : 'Download →'}
+                </span>
+              </button>
+              <button
+                onClick={() => handleCctsPkg('json', cctsFY)}
+                disabled={cctsPkgLoading !== null}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="text-left">
+                  <p className="text-xs font-medium text-slate-900">JSON Export</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Machine-readable format for technical verification agencies</p>
+                </div>
+                <span className="text-xs text-emerald-700 font-medium ml-4">
+                  {cctsPkgLoading === 'json' ? 'Generating...' : 'Download →'}
+                </span>
+              </button>
+            </div>
+            <button
+              onClick={() => setCctsPkgOpen(false)}
+              disabled={cctsPkgLoading !== null}
+              className="mt-4 w-full text-xs text-slate-500 hover:text-slate-700 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

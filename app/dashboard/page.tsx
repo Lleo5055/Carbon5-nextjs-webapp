@@ -604,6 +604,7 @@ const [state, setState] = React.useState<{
 
 const [isTeamMember, setIsTeamMember] = React.useState(false);
 const [isPro, setIsPro] = React.useState(false);
+const [isIndia, setIsIndia] = React.useState(false);
 const [brsrResult, setBrsrResult] = React.useState<BrsrCompletenessResult | null>(() => {
   try {
     const c = sessionStorage.getItem('greenio_brsr_result_v1');
@@ -716,6 +717,7 @@ supabase
     }
 
     // 2b️⃣ BRSR completeness — India accounts only (non-blocking)
+    if (data?.country === 'IN') setIsIndia(true);
     if (data?.country === 'IN' && !cancelled) {
       const [brsrRes, emissionsRes, scope3Res, waterRes, wasteRes] = await Promise.all([
         supabase.from('brsr_profile').select('industry_sector,permanent_employees,permanent_workers,is_listed_company,renewable_elec_pct,has_ghg_reduction_plan').eq('account_id', user.id).maybeSingle(),
@@ -1332,8 +1334,40 @@ const youTonnes = dashData.totalCo2eKg / 1000;
                     <HotspotPieChart breakdown={breakdownBySource} />
                   </div>
                 </section>
-{/* Right side: tiny KPI + progress bar */}
-          <div className="w-full md:w-64 lg:w-72 rounded-xl bg-white/80 border border-slate-200 px-4 py-3 shadow-sm backdrop-blur">
+
+                {/* COMPLIANCE & REGULATORY CARD */}
+                <section className="rounded-xl bg-white border p-6 shadow">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-3">
+                    Compliance & Regulatory
+                  </p>
+                  <div className="space-y-2">
+                    <Link
+                      href="/dashboard/brsr-profile"
+                      className="flex items-center justify-between rounded-lg px-3 py-2.5 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-900 hover:text-white transition-colors group"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="text-emerald-600 group-hover:text-emerald-400">📋</span>
+                        BRSR Profile
+                      </span>
+                      <span className="text-slate-400 group-hover:text-slate-300">→</span>
+                    </Link>
+                    {isIndia && (
+                      <Link
+                        href="/dashboard/ccts"
+                        className="flex items-center justify-between rounded-lg px-3 py-2.5 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-900 hover:text-white transition-colors group"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="text-emerald-600 group-hover:text-emerald-400">🌱</span>
+                          CCTS Dashboard
+                        </span>
+                        <span className="text-slate-400 group-hover:text-slate-300">→</span>
+                      </Link>
+                    )}
+                  </div>
+                </section>
+
+{/* Right side: tiny KPI + progress bar — hidden for India accounts */}
+          {!isIndia && <div className="w-full md:w-64 lg:w-72 rounded-xl bg-white/80 border border-slate-200 px-4 py-3 shadow-sm backdrop-blur">
             <div className="flex items-center justify-between gap-2 text-xs">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
@@ -1366,7 +1400,7 @@ const youTonnes = dashData.totalCo2eKg / 1000;
                   : 'Log your first few months of data to start building a baseline.'}
               </p>
             </div>
-          </div>
+          </div>}
                 {/* BRSR COMPLETENESS — India accounts only */}
                 {brsrResult && (
                   <section className="rounded-xl bg-white border border-slate-200 p-5 shadow-sm space-y-3">

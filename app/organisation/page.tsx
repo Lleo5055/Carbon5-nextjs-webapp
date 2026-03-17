@@ -149,22 +149,38 @@ function fmtDetail(action: string, detail: Record<string, any>): string {
   if (action === 'export_pdf') {
     return detail.period ? String(detail.period) : '';
   }
-  if (action === 'export_csv' || action === 'export_xls' || action === 'snapshot') {
+  if (action === 'export_csv' || action === 'export_xls' || action === 'snapshot' || action === 'export_ccts_pkg') {
     return detail.period ? String(detail.period) : '';
+  }
+  if (action === 'bulk_upload' || action === 'bulk_update') {
+    return detail.month ? String(detail.month) : '';
+  }
+  if (action === 'tally_import') {
+    return detail.month ? String(detail.month) : '';
+  }
+  if (action === 'production_output') {
+    return detail.month && detail.quantity
+      ? `${detail.month} — ${Number(detail.quantity).toLocaleString()} ${detail.unit ?? 'units'}`
+      : detail.month ? String(detail.month) : '';
   }
   return '';
 }
 
 function actionLabel(action: string): { label: string; color: string } {
   switch (action) {
-    case 'create':     return { label: 'Added emission',       color: 'bg-emerald-100 text-emerald-700' };
-    case 'update':     return { label: 'Edited emission',      color: 'bg-amber-100 text-amber-700' };
-    case 'delete':     return { label: 'Deleted emission',     color: 'bg-rose-100 text-rose-700' };
-    case 'export_csv': return { label: 'Exported CSV',         color: 'bg-blue-100 text-blue-700' };
-    case 'export_xls': return { label: 'Exported Excel',       color: 'bg-blue-100 text-blue-700' };
-    case 'snapshot':   return { label: 'Downloaded Snapshot',  color: 'bg-purple-100 text-purple-700' };
-    case 'export_pdf': return { label: 'Downloaded Report',    color: 'bg-indigo-100 text-indigo-700' };
-    default:           return { label: action,                 color: 'bg-slate-100 text-slate-600' };
+    case 'create':              return { label: 'Added emission',        color: 'bg-emerald-100 text-emerald-700' };
+    case 'update':              return { label: 'Edited emission',       color: 'bg-amber-100 text-amber-700' };
+    case 'delete':              return { label: 'Deleted emission',      color: 'bg-rose-100 text-rose-700' };
+    case 'bulk_upload':         return { label: 'Bulk uploaded',         color: 'bg-emerald-100 text-emerald-700' };
+    case 'bulk_update':         return { label: 'Bulk consolidated',     color: 'bg-amber-100 text-amber-700' };
+    case 'tally_import':        return { label: 'Tally import applied',  color: 'bg-violet-100 text-violet-700' };
+    case 'production_output':   return { label: 'Production output',     color: 'bg-cyan-100 text-cyan-700' };
+    case 'export_csv':          return { label: 'Exported CSV',          color: 'bg-blue-100 text-blue-700' };
+    case 'export_xls':          return { label: 'Exported Excel',        color: 'bg-blue-100 text-blue-700' };
+    case 'export_ccts_pkg':     return { label: 'CCTS package exported', color: 'bg-blue-100 text-blue-700' };
+    case 'snapshot':            return { label: 'Downloaded Snapshot',   color: 'bg-purple-100 text-purple-700' };
+    case 'export_pdf':          return { label: 'Downloaded Report',     color: 'bg-indigo-100 text-indigo-700' };
+    default:                    return { label: action,                  color: 'bg-slate-100 text-slate-600' };
   }
 }
 
@@ -336,8 +352,8 @@ export default function OrganisationPage() {
 
   const filteredActivity = activityRows.filter((r) => {
     if (memberFilter && r.actor_id !== memberFilter) return false;
-    if (actionFilter === 'emissions' && !['create','update','delete'].includes(r.action)) return false;
-    if (actionFilter === 'exports' && !['export_csv','export_xls','snapshot','export_pdf'].includes(r.action)) return false;
+    if (actionFilter === 'emissions' && !['create','update','delete','bulk_upload','bulk_update','tally_import','production_output'].includes(r.action)) return false;
+    if (actionFilter === 'exports' && !['export_csv','export_xls','export_ccts_pkg','snapshot','export_pdf'].includes(r.action)) return false;
     return true;
   });
 

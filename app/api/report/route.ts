@@ -1098,59 +1098,72 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
 
     y -= 26;
 
-    let s3AltShade = false;
     const s3_total_t = s3.reduce((s, r) => s + safe(r.co2e_kg), 0) / 1000;
 
+    // Group rows by category
+    const s3Groups = new Map<string, typeof s3>();
     for (const r of s3) {
-      // Page overflow:start a continuation page before this row falls off
+      const cat = r.category ?? 'other';
+      if (!s3Groups.has(cat)) s3Groups.set(cat, []);
+      s3Groups.get(cat)!.push(r);
+    }
+
+    const drawS3Header = () => {
+      page.drawRectangle({ x: 45, y: y - 18, width: 510, height: 22, color: rgb(0, 0, 0) });
+      page.drawText('Category',          { x: 55,  y: y - 10, size: 11, font: bold, color: rgb(1, 1, 1) });
+      page.drawText('Emissions (tCO2e)', { x: 210, y: y - 10, size: 11, font: bold, color: rgb(1, 1, 1) });
+      page.drawText('Share (%)',         { x: 380, y: y - 10, size: 11, font: bold, color: rgb(1, 1, 1) });
+      y -= 26;
+    };
+
+    let s3AltShade = false;
+    for (const [cat, rows] of Array.from(s3Groups)) {
+      const catKg = rows.reduce((s: number, r: any) => s + safe(r.co2e_kg), 0);
+      const catT = catKg / 1000;
+      const catPct = s3_total_t ? ((catT / s3_total_t) * 100).toFixed(1) : '0';
+      const catLabel = cat.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+      const hasSubRows = rows.length > 1;
+
+      // Page overflow guard for parent row
       if (y < 80) {
         page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
         page = addPage();
         y = 780;
-        // Repeat table header on the new page
-        page.drawRectangle({ x: 45, y: y - 18, width: 510, height: 22, color: rgb(0, 0, 0) });
-        page.drawText('Category',           { x: 55,  y: y - 10, size: 11, font: bold, color: rgb(1, 1, 1) });
-        page.drawText('Emissions (tCO2e)',  { x: 210, y: y - 10, size: 11, font: bold, color: rgb(1, 1, 1) });
-        page.drawText('Share (%)',          { x: 380, y: y - 10, size: 11, font: bold, color: rgb(1, 1, 1) });
-        y -= 26;
+        drawS3Header();
       }
 
-      const t = safe(r.co2e_kg) / 1000;
-      const pct = s3_total_t ? ((t / s3_total_t) * 100).toFixed(1) : '0';
-
-      page.drawRectangle({
-        x: 45,
-        y: y - 16,
-        width: 510,
-        height: 22,
-        color: s3AltShade ? rgb(0.95, 0.95, 0.97) : rgb(0.98, 0.98, 1),
-      });
+      // Parent row
+      const parentBg = s3AltShade ? rgb(0.95, 0.95, 0.97) : rgb(0.98, 0.98, 1);
+      page.drawRectangle({ x: 45, y: y - 18, width: 510, height: 22, color: parentBg });
+      page.drawLine({ start: { x: 45, y: y - 18 }, end: { x: 555, y: y - 18 }, thickness: 0.3, color: rgb(0.87, 0.87, 0.87) });
+      page.drawText(catLabel,          { x: 55,  y: y - 6, size: 10, font: bold, color: TEXT });
+      page.drawText(catT.toFixed(3),   { x: 210, y: y - 6, size: 10, font: bold, color: TEXT });
+      page.drawText(catPct,            { x: 380, y: y - 6, size: 10, font: bold, color: TEXT });
       s3AltShade = !s3AltShade;
-
-      const catLabel = (r.category ?? '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
-      page.drawText(catLabel, {
-        x: 55,
-        y: y - 5,
-        size: 11,
-        font,
-        color: TEXT,
-      });
-      page.drawText(t.toFixed(3), {
-        x: 210,
-        y: y - 5,
-        size: 11,
-        font,
-        color: TEXT,
-      });
-      page.drawText(String(pct), {
-        x: 380,
-        y: y - 5,
-        size: 11,
-        font,
-        color: TEXT,
-      });
-
       y -= 24;
+
+      // Sub-rows (only when more than one entry in this category)
+      if (hasSubRows) {
+        const subBg = s3AltShade ? rgb(0.97, 0.97, 0.985) : rgb(0.99, 0.99, 1);
+        for (let si = 0; si < rows.length; si++) {
+          const r = rows[si];
+          if (y < 80) {
+            page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
+            page = addPage();
+            y = 780;
+            drawS3Header();
+          }
+          const rT = safe(r.co2e_kg) / 1000;
+          const rPct = s3_total_t ? ((rT / s3_total_t) * 100).toFixed(1) : '0';
+          const subLabel = (r.label ?? r.category ?? '').replace(/_/g, ' ');
+          page.drawRectangle({ x: 45, y: y - 16, width: 510, height: 20, color: subBg });
+          page.drawLine({ start: { x: 45, y: y - 16 }, end: { x: 555, y: y - 16 }, thickness: 0.2, color: rgb(0.9, 0.9, 0.92) });
+          page.drawText(subLabel,         { x: 67,  y: y - 5, size: 8, font, color: rgb(0.35, 0.35, 0.38) });
+          page.drawText(rT.toFixed(3),    { x: 210, y: y - 5, size: 8, font, color: rgb(0.35, 0.35, 0.38) });
+          page.drawText(rPct,             { x: 380, y: y - 5, size: 8, font, color: rgb(0.35, 0.35, 0.38) });
+          y -= 20;
+        }
+      }
     }
 
     // Add spacing before next header
@@ -1833,8 +1846,9 @@ y -= 22;
 page.drawText(`Diesel: ${ef.diesel} kg CO2e per litre`, { x: 60, y, size: 11, font, color: TEXT }); y -= 17;
 page.drawText(`Petrol: ${ef.petrol} kg CO2e per litre`, { x: 60, y, size: 11, font, color: TEXT }); y -= 17;
 page.drawText(`Natural gas / PNG: ${ef.gas.toFixed(4)} kg CO2e per kWh`, { x: 60, y, size: 11, font, color: TEXT }); y -= 17;
-page.drawText(`LPG: ${ef.lpgKg.toFixed(2)} kg CO2e per kg (IPCC 2019 / BEE India)`, { x: 60, y, size: 11, font, color: TEXT }); y -= 17;
-page.drawText(`CNG: ${ef.cngKg.toFixed(2)} kg CO2e per kg (IPCC 2019 / BEE India)`, { x: 60, y, size: 11, font, color: TEXT }); y -= 24;
+const lpgCngSrc = countryCode === 'IN' ? 'IPCC 2019 / BEE India' : 'DEFRA 2025';
+page.drawText(`LPG: ${ef.lpgKg.toFixed(2)} kg CO2e per kg (${lpgCngSrc})`, { x: 60, y, size: 11, font, color: TEXT }); y -= 17;
+page.drawText(`CNG: ${ef.cngKg.toFixed(2)} kg CO2e per kg (${lpgCngSrc})`, { x: 60, y, size: 11, font, color: TEXT }); y -= 24;
 page.drawText('Refrigerant leakage (fugitive), GWP values per IPCC AR6:', { x: 60, y, size: 11, font: bold, color: TEXT }); y -= 17;
 page.drawText('R-410A: 2,088 kg CO2e per kg', { x: 70, y, size: 11, font, color: TEXT }); y -= 16;
 page.drawText('R-32: 675 kg CO2e per kg',      { x: 70, y, size: 11, font, color: TEXT }); y -= 16;
