@@ -58,7 +58,7 @@ export default function SectionCActions({ id, table, label }: Props) {
         {!locked && (
           <>
             <Link
-              href="/dashboard/emissions"
+              href={`/dashboard/emissions?sectionc=${table}&sectionc_id=${id}&sectionc_label=${encodeURIComponent(label)}`}
               className="px-2 py-1 rounded-full border hover:bg-slate-900 hover:text-white"
             >
               Edit

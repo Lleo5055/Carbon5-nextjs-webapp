@@ -166,10 +166,19 @@ function EmissionsPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // ✅ Scope 3 edit support
+  // ✅ Edit support
   const edit = searchParams.get('edit');
   const editingId = searchParams.get('id');
-  const isEditMode = edit === 'scope3' && Boolean(editingId);
+  // scope3 edit: ?edit=scope3&id=<scope3_activities.id>
+  const isScope3EditMode = edit === 'scope3' && Boolean(editingId);
+  // scope1/2 edit: ?id=<emissions.id> (no edit param) — used by RowActions Edit button
+  const isScope1EditMode = Boolean(editingId) && edit !== 'scope3';
+  // any edit mode — for UI (heading, button text, note)
+  const isEditMode = Boolean(editingId);
+  // Section C edit params — ?sectionc=water|waste|air&sectionc_id=<id>&sectionc_label=<label>
+  const sectioncTable = searchParams.get('sectionc') as 'water_entries' | 'waste_entries' | 'air_emissions' | null;
+  const sectioncId = searchParams.get('sectionc_id');
+  const sectioncLabel = searchParams.get('sectionc_label');
 
   const today = new Date();
   const currentYear = today.getFullYear();
@@ -355,7 +364,7 @@ function EmissionsPageInner() {
 // Load existing Scope 3 row when editing
 // --------------------------------
 useEffect(() => {
-  if (!isEditMode || !editingId) return;
+  if (!isScope3EditMode || !editingId) return;
 
   supabase
     .from('scope3_activities')
@@ -376,7 +385,55 @@ useEffect(() => {
         data.data?.activity_value != null ? String(data.data.activity_value) : ''
       );
     });
-}, [isEditMode, editingId]); // ✅ correct
+}, [isScope3EditMode, editingId]); // ✅ correct
+
+// Load Section C entry (water/waste/air) for editing
+useEffect(() => {
+  if (!sectioncTable || !sectioncId) return;
+
+  async function loadSectionC() {
+    const { data } = await (supabase as any)
+      .from(sectioncTable)
+      .select('*')
+      .eq('id', sectioncId)
+      .maybeSingle();
+
+    if (!data) return;
+
+    if (sectioncTable === 'water_entries') {
+      // period_month is 1-indexed
+      const mn = MONTHS[(data.period_month ?? 1) - 1];
+      if (mn) setMonthName(mn);
+      if (data.period_year) setYear(data.period_year);
+      setWaterSourceType(data.source_type ?? 'municipal');
+      setWaterWithdrawnKl(data.volume_withdrawn_kl != null ? String(data.volume_withdrawn_kl) : '');
+      setWaterConsumedKl(data.volume_consumed_kl != null ? String(data.volume_consumed_kl) : '');
+      setWaterDischargedKl(data.volume_discharged_kl != null ? String(data.volume_discharged_kl) : '');
+      setWaterDischargeDestination(data.discharge_destination ?? '');
+      setWaterOpen(true);
+    } else if (sectioncTable === 'waste_entries') {
+      const mn = MONTHS[(data.period_month ?? 1) - 1];
+      if (mn) setMonthName(mn);
+      if (data.period_year) setYear(data.period_year);
+      setWasteTotalKg(data.total_kg != null ? String(data.total_kg) : '');
+      setWasteLandfillKg(data.landfill_kg != null ? String(data.landfill_kg) : '');
+      setWasteRecycledKg(data.recycled_kg != null ? String(data.recycled_kg) : '');
+      setWasteIncineratedKg(data.incinerated_kg != null ? String(data.incinerated_kg) : '');
+      setWasteHazardousKg(data.hazardous_kg != null ? String(data.hazardous_kg) : '');
+      setWasteOpen(true);
+    } else if (sectioncTable === 'air_emissions') {
+      if (data.period_year) setAirFY(data.period_year);
+      setAirNox(data.nox_tonnes != null ? String(data.nox_tonnes) : '');
+      setAirSox(data.sox_tonnes != null ? String(data.sox_tonnes) : '');
+      setAirPm(data.pm_tonnes != null ? String(data.pm_tonnes) : '');
+      setAirOtherName(data.other_pollutant_name ?? '');
+      setAirOtherTonnes(data.other_pollutant_tonnes != null ? String(data.other_pollutant_tonnes) : '');
+      setAirOpen(true);
+    }
+  }
+
+  loadSectionC();
+}, [sectioncTable, sectioncId]);
 
 // Load India feature flags — instant from cache, then refresh from DB
 useEffect(() => {
@@ -758,32 +815,32 @@ if (monthIsLocked && savingEmissions) {
 
         if (existing) {
 
-          // EDIT MODE → REPLACE VALUES, DO NOT ACCUMULATE
-          const updatedElectricity = isEditMode
+          // SCOPE1 EDIT MODE → REPLACE VALUES, DO NOT ACCUMULATE
+          const updatedElectricity = isScope1EditMode
   ? elec
   : (existing.electricity_kw ?? 0) + elec;
 
-const updatedDiesel = isEditMode
+const updatedDiesel = isScope1EditMode
   ? diesel
   : (existing.diesel_litres ?? 0) + diesel;
 
-const updatedPetrol = isEditMode
+const updatedPetrol = isScope1EditMode
   ? petrol
   : (existing.petrol_litres ?? 0) + petrol;
 
-const updatedGas = isEditMode
+const updatedGas = isScope1EditMode
   ? gas
   : (existing.gas_kwh ?? 0) + gas;
 
-const updatedLpg = isEditMode
+const updatedLpg = isScope1EditMode
   ? lpg
   : (existing.lpg_kg ?? 0) + lpg;
 
-const updatedCng = isEditMode
+const updatedCng = isScope1EditMode
   ? cng
   : (existing.cng_kg ?? 0) + cng;
 
-const updatedRefrigerant = isEditMode
+const updatedRefrigerant = isScope1EditMode
   ? ref
   : (existing.refrigerant_kg ?? 0) + ref;
 
@@ -953,7 +1010,7 @@ logActivity('create', 'emission', {
 // SCOPE 3 — INSERT OR UPDATE (FIXED)
 // ----------------------------------
 if (hasScope3Activity) {
-  if (isEditMode && editingId) {
+  if (isScope3EditMode && editingId) {
     const { error } = await supabase
       .from('scope3_activities')
       .update({

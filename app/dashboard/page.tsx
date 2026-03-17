@@ -604,7 +604,8 @@ const [state, setState] = React.useState<{
 
 const [isTeamMember, setIsTeamMember] = React.useState(false);
 const [isPro, setIsPro] = React.useState(false);
-const [isIndia, setIsIndia] = React.useState(false);
+// null = not yet known (hides all country-specific content until confirmed)
+const [isIndia, setIsIndia] = React.useState<boolean | null>(null);
 const [brsrResult, setBrsrResult] = React.useState<BrsrCompletenessResult | null>(() => {
   try {
     const c = sessionStorage.getItem('greenio_brsr_result_v1');
@@ -628,6 +629,19 @@ const [indiaEnvTotals, setIndiaEnvTotals] = React.useState<{
 });
 const [showProfileMenu, setShowProfileMenu] = React.useState(false);
 const profileMenuRef = React.useRef<HTMLDivElement>(null);
+
+// Resolve isIndia from sessionStorage immediately on mount (client-only)
+React.useEffect(() => {
+  try {
+    const cached = sessionStorage.getItem('dashboard_state');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed?.profile?.country !== undefined) {
+        setIsIndia(parsed.profile.country === 'IN');
+      }
+    }
+  } catch {}
+}, []);
 
 // Close profile menu on scroll or outside click
 React.useEffect(() => {
@@ -717,21 +731,23 @@ supabase
     }
 
     // 2b️⃣ BRSR completeness — India accounts only (non-blocking)
-    if (data?.country === 'IN') setIsIndia(true);
+    setIsIndia(data?.country === 'IN');
     if (data?.country === 'IN' && !cancelled) {
-      const [brsrRes, emissionsRes, scope3Res, waterRes, wasteRes] = await Promise.all([
+      const [brsrRes, scope1Res, scope2Res, scope3Res, waterRes, wasteRes] = await Promise.all([
         supabase.from('brsr_profile').select('industry_sector,permanent_employees,permanent_workers,is_listed_company,renewable_elec_pct,has_ghg_reduction_plan').eq('account_id', user.id).maybeSingle(),
-        supabase.from('emissions').select('diesel_litres,electricity_kw,total_co2e').eq('user_id', user.id).limit(1),
+        // Scope 1: any row with at least one combustion/refrigerant source
+        supabase.from('emissions').select('id').eq('user_id', user.id).or('diesel_litres.gt.0,petrol_litres.gt.0,gas_kwh.gt.0,lpg_kg.gt.0,cng_kg.gt.0,refrigerant_kg.gt.0').limit(1),
+        // Scope 2: any row with electricity
+        supabase.from('emissions').select('id').eq('user_id', user.id).gt('electricity_kw', 0).limit(1),
         supabase.from('scope3_activities').select('id').eq('user_id', user.id).limit(1),
         data.india_water_enabled ? supabase.from('water_entries').select('id').eq('account_id', user.id).limit(1) : Promise.resolve({ data: [] as any[] }),
         data.india_waste_enabled ? supabase.from('waste_entries').select('id').eq('account_id', user.id).limit(1) : Promise.resolve({ data: [] as any[] }),
       ]);
-      const emRow = emissionsRes.data?.[0];
       const result = computeBrsrCompleteness(
         brsrRes.data ?? null,
         {
-          hasScope1: !!emRow && ((emRow.diesel_litres ?? 0) > 0),
-          hasScope2: !!emRow && ((emRow.electricity_kw ?? 0) > 0),
+          hasScope1: (scope1Res.data?.length ?? 0) > 0,
+          hasScope2: (scope2Res.data?.length ?? 0) > 0,
           hasScope3: (scope3Res.data?.length ?? 0) > 0,
           hasWater:  (waterRes.data?.length ?? 0) > 0,
           hasWaste:  (wasteRes.data?.length ?? 0) > 0,
@@ -1335,7 +1351,8 @@ const youTonnes = dashData.totalCo2eKg / 1000;
                   </div>
                 </section>
 
-                {/* COMPLIANCE & REGULATORY CARD */}
+                {/* COMPLIANCE & REGULATORY CARD — India only */}
+                {isIndia === true && (
                 <section className="rounded-xl bg-white border p-6 shadow">
                   <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-3">
                     Compliance & Regulatory
@@ -1351,7 +1368,7 @@ const youTonnes = dashData.totalCo2eKg / 1000;
                       </span>
                       <span className="text-slate-400 group-hover:text-slate-300">→</span>
                     </Link>
-                    {isIndia && (
+                    {isIndia === true && (
                       <Link
                         href="/dashboard/ccts"
                         className="flex items-center justify-between rounded-lg px-3 py-2.5 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-900 hover:text-white transition-colors group"
@@ -1365,9 +1382,10 @@ const youTonnes = dashData.totalCo2eKg / 1000;
                     )}
                   </div>
                 </section>
+                )}
 
 {/* Right side: tiny KPI + progress bar — hidden for India accounts */}
-          {!isIndia && <div className="w-full md:w-64 lg:w-72 rounded-xl bg-white/80 border border-slate-200 px-4 py-3 shadow-sm backdrop-blur">
+          {isIndia === false && <div className="w-full md:w-64 lg:w-72 rounded-xl bg-white/80 border border-slate-200 px-4 py-3 shadow-sm backdrop-blur">
             <div className="flex items-center justify-between gap-2 text-xs">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
