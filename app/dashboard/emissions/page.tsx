@@ -582,7 +582,7 @@ useEffect(() => {
       .filter(s => s && s !== 'skip');
     logActivity('tally_import', 'emission', {
       month: `${monthName} ${year}`,
-      sources: [...new Set(appliedSources)],
+      sources: appliedSources.filter((s, i, a) => a.indexOf(s) === i),
     });
 
     setEntryMode('manual');
