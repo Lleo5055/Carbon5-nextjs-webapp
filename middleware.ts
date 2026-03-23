@@ -17,22 +17,18 @@ import { NextRequest, NextResponse } from 'next/server';
 const GEO_COOKIE = 'geo_override';
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
-// Paths that should never be redirected (auth, API, static)
-const BYPASS_PREFIXES = [
-  '/api/',
-  '/_next/',
-  '/favicon',
-  '/login',
-  '/signup',
-  '/logout',
-  '/auth/',
-];
+// Only these paths are eligible for geo-redirect (marketing homepage).
+// Everything else — app routes, auth, API — always bypasses.
+const GEO_REDIRECT_ELIGIBLE = ['/', '/en', '/ie', '/de', '/fr', '/it', '/es', '/nl', '/pl', '/sv', '/da', '/pt'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Never redirect API routes, Next.js internals, or auth pages
-  if (BYPASS_PREFIXES.some((p) => pathname.startsWith(p))) {
+  // Only geo-redirect marketing homepage paths; all app routes bypass entirely
+  const isEligible = GEO_REDIRECT_ELIGIBLE.some(
+    (p) => pathname === p || pathname.startsWith(p + '/')
+  );
+  if (!isEligible) {
     return NextResponse.next();
   }
 
