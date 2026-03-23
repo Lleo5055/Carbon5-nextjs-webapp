@@ -16,8 +16,7 @@ export const nl: Translations = {
     badge: 'Gebouwd voor Europese mkb-bedrijven',
     headline: 'Auditklare koolstofboekhouding voor mkb,',
     headlineHighlight: 'in enkele minuten klaar.',
-    subtext:
-      'Zet uw emissiegegevens om in CSRD-conforme, GHG-Protocol-klare koolstofrekeningen — met rapporten op auditniveau en professionele Leadership Snapshots.',
+    subtext: 'CSRD-conforme koolstofrekeningen met rapporten op auditniveau en Leadership Snapshots. Zonder consultants, zonder complexiteit.',
     cta: 'Gratis starten – geen kaart vereist',
     stat1: 'Ontworpen voor mkb-bedrijven met 1–250 medewerkers',
     stat2: 'Eerste koolstofrekening in minder dan 30 minuten',
@@ -43,15 +42,15 @@ export const nl: Translations = {
 
   product: {
     heading: 'Gebouwd voor echte bedrijven, niet voor klimaatwetenschappers.',
-    sub: 'De meeste mkb-bedrijven hebben geen duurzaamheidsteam. Greenio geeft u een duidelijke, geloofwaardige koolstofrekening zonder rompslomp — voor operationele, financiële en compliance-teams.',
+    sub: 'Geen duurzaamheidsteam nodig. Duidelijke koolstofboekhouding voor operationele, financiële en compliance-teams.',
     features: [
       {
         title: 'Eenvoudig van opzet',
-        desc: 'Geen ingewikkelde spreadsheets. Voer verbruik of uitgaven in, kies een categorie en laat het platform CO₂e berekenen met Europese standaardmethoden.',
+        desc: 'Geen ingewikkelde spreadsheets. Voer verbruik in, kies een categorie en laat het platform CO₂e berekenen met Europese standaardmethoden.',
       },
       {
         title: 'CSRD-conforme rapporten',
-        desc: 'Genereer overzichtelijke koolstofrekeningen voor raden van bestuur, investeerders en klanten. Ideaal voor aanbestedingen, naleving en netto-nuldoelstellingen.',
+        desc: 'Overzichtelijke koolstofrekeningen voor raden van bestuur, investeerders en klanten. Ideaal voor aanbestedingen, naleving en netto-nuldoelstellingen.',
       },
       {
         title: 'Eerlijke, transparante prijzen',
@@ -62,19 +61,19 @@ export const nl: Translations = {
 
   howItWorks: {
     heading: 'Hoe Greenio werkt',
-    sub: 'Van rommelige rekeningen naar een auditklare koolstofrekening — in drie eenvoudige stappen.',
+    sub: 'Van rommelige rekeningen naar een auditklare koolstofrekening in drie stappen.',
     steps: [
       {
         title: 'Voer uw gegevens in',
-        desc: 'Begin met wat u heeft — elektriciteit, gas, brandstof en koudemiddelen. Geen perfecte gegevens nodig; schattingen worden ondersteund.',
+        desc: 'Elektriciteit, gas, brandstof en koudemiddelen. Geen perfecte data nodig, schattingen worden ondersteund.',
       },
       {
         title: 'Wij berekenen uw voetafdruk',
-        desc: 'We passen Europese emissiefactoren toe en bouwen uw koolstofrekening per maand, bron en hotspot — direct en transparant.',
+        desc: 'Europese emissiefactoren. Uw koolstofrekening per maand, bron en hotspot, direct.',
       },
       {
         title: 'Download en onderneem actie',
-        desc: 'Exporteer een overzichtelijk PDF voor uw raad van bestuur en begin uw grootste emissiebronnen aan te pakken met concrete aanbevelingen.',
+        desc: 'Exporteer een PDF voor uw raad van bestuur en pak uw grootste emissiebronnen aan.',
       },
     ],
     benefits: [
@@ -86,7 +85,7 @@ export const nl: Translations = {
 
   pricing: {
     heading: 'Eenvoudige, transparante prijzen',
-    sub: 'Start gratis, upgrade pas wanneer koolstofboekhouding routine wordt. Geen installatiekosten, geen verrassingen.',
+    sub: 'Start gratis. Upgrade wanneer u er klaar voor bent. Geen kosten, geen contracten.',
     note: 'Alle plannen bieden toegang tot hetzelfde overzichtelijke, minimalistische dashboard.',
     cancelNote: 'Op elk moment opzeggen of van plan wisselen. Geen langetermijncontracten.',
     plans: {
@@ -103,7 +102,7 @@ export const nl: Translations = {
       },
       growth: {
         name: 'Groei',
-        price: '€11,99',
+        price: '€14,99',
         period: 'per maand',
         features: [
           'Onbeperkte koolstofrekeningen/rapporten',
@@ -115,7 +114,7 @@ export const nl: Translations = {
       },
       pro: {
         name: 'Pro',
-        price: '€29,99',
+        price: '€34,99',
         period: 'per maand',
         features: [
           'Alles van Groei',
@@ -127,7 +126,7 @@ export const nl: Translations = {
       },
       enterprise: {
         name: 'Enterprise',
-        price: 'Laten we praten',
+        price: 'Neem contact',
         period: 'op maat',
         features: [
           'Meerdere entiteiten & locaties',
@@ -141,12 +140,12 @@ export const nl: Translations = {
 
   contact: {
     heading: 'Maak van koolstofboekhouding een kracht, geen last.',
-    sub: 'Of u nu net begint of uw netto-nulverplichting aanscherpt, Greenio geeft u een duidelijke basis en eenvoudige volgende stappen.',
+    sub: 'Een duidelijke basis en eenvoudige volgende stappen voor echte Europese bedrijven.',
     ctaPrimary: 'Begin vandaag gratis',
     ctaEmail: 'Mail ons',
     cardHeading: 'Liever e-mailen?',
     cardDesc:
-      'Deel een paar regels over de omvang van uw bedrijf en waarom u koolstofboekhouding verkent. We reageren met volgende stappen en, indien handig, een link voor een kort kennismakingsgesprek.',
+      'Deel de omvang van uw bedrijf en waarom u koolstofboekhouding verkent. We reageren met volgende stappen.',
     cardEmailLabel: 'E-mail:',
   },
 
@@ -160,7 +159,7 @@ export const nl: Translations = {
 
   testimonials: {
     heading: 'Vertrouwd door operations- en financieteams in Europa.',
-    subtext: 'Greenio past in de dagelijkse realiteit van drukke teams — geen klimaatconsultants nodig. Zo gebruiken onze klanten het platform vandaag.',
+    subtext: 'Zo gebruiken onze klanten Greenio vandaag.',
     tag: 'Vroege klanten in logistiek, professionele dienstverlening en tech.',
   },
 

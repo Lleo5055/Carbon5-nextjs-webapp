@@ -16,8 +16,7 @@ export const en: Translations = {
     badge: 'Built for UK businesses',
     headline: 'Audit-ready carbon accounting for UK SMEs,',
     headlineHighlight: 'done in minutes.',
-    subtext:
-      'Turn your emission data into DEFRA-aligned, SECR-ready carbon accounts with audit-grade reports and polished Leadership Snapshots in minutes.',
+    subtext: 'DEFRA-aligned carbon accounts with audit-grade reports and Leadership Snapshots. No consultants, no complexity.',
     cta: 'Start free – no card needed',
     stat1: 'Designed for 1–250 employee UK companies',
     stat2: 'First carbon account in under 30 minutes',
@@ -43,7 +42,7 @@ export const en: Translations = {
 
   product: {
     heading: 'Built for real businesses, not climate PhDs.',
-    sub: "Most UK SMEs don't have a sustainability team. Greenio gives you a clear, credible carbon account with the minimum amount of noise — built for operations, finance and compliance teams.",
+    sub: 'No sustainability team needed. Clear, credible carbon accounting for operations, finance and compliance.',
     features: [
       {
         title: 'Simple by design',
@@ -62,19 +61,19 @@ export const en: Translations = {
 
   howItWorks: {
     heading: 'How Greenio works',
-    sub: 'From messy bills to a clean, audit-ready carbon account — in three simple steps. Built for busy UK operations and finance teams.',
+    sub: 'From messy bills to a clean, audit-ready carbon account in three steps.',
     steps: [
       {
         title: 'Add your data',
-        desc: 'Start with what you have — electricity, gas, fuel usage and refrigerants. No perfect data needed; estimates supported.',
+        desc: 'Electricity, gas, fuel and refrigerants. No perfect data needed, estimates supported.',
       },
       {
         title: 'We calculate your footprint',
-        desc: 'We apply UK-standard emission factors and build your carbon account by month, source and hotspot — instantly and transparently.',
+        desc: 'UK-standard emission factors. Your carbon account by month, source and hotspot, instantly.',
       },
       {
         title: 'Download and act',
-        desc: 'Export a clean, board-ready PDF and start targeting your highest-impact hotspots first with simple, actionable insights.',
+        desc: 'Export a board-ready report and target your highest-impact hotspots first.',
       },
     ],
     benefits: [
@@ -86,7 +85,7 @@ export const en: Translations = {
 
   pricing: {
     heading: 'Simple, transparent pricing',
-    sub: 'Start free, upgrade only when your carbon accounting becomes routine. No setup fees, no long contracts, no surprises.',
+    sub: 'Start free. Upgrade when ready. No setup fees, no contracts.',
     note: 'All plans include access to the same clean, minimal dashboard.',
     cancelNote: 'Cancel or switch plans any time. No long-term contracts.',
     plans: {
@@ -103,7 +102,7 @@ export const en: Translations = {
       },
       growth: {
         name: 'Growth',
-        price: '£9.99',
+        price: '£14.99',
         period: 'per month',
         features: [
           'Unlimited carbon accounts/reports',
@@ -115,7 +114,7 @@ export const en: Translations = {
       },
       pro: {
         name: 'Pro',
-        price: '£24.99',
+        price: '£34.99',
         period: 'per month',
         features: [
           'Everything in Growth',
@@ -141,7 +140,7 @@ export const en: Translations = {
 
   contact: {
     heading: 'Turn carbon accounting into a strength, not a burden.',
-    sub: "Whether you're just starting or tightening a net-zero commitment, Greenio gives you a clear baseline and simple next steps — built for real UK businesses.",
+    sub: 'A clear baseline and simple next steps, built for real UK businesses.',
     ctaPrimary: 'Start free today',
     ctaEmail: 'Email us',
     cardHeading: 'Prefer email?',
@@ -160,7 +159,7 @@ export const en: Translations = {
 
   testimonials: {
     heading: 'Trusted by UK operations and finance teams.',
-    subtext: "Greenio fits into the real world of busy teams, not climate consultants. Here's how customers are using it today.",
+    subtext: "How UK SMEs are using Greenio today.",
     tag: 'Early customers from logistics, professional services and tech.',
   },
 

@@ -2,74 +2,22 @@
 'use client';
 
 import React, { useState } from 'react';
-
-type Testimonial = {
-  name: string;
-  role: string;
-  company: string;
-  quote: string;
-  avatarUrl: string;
-};
-
-const testimonials: Testimonial[] = [
-  {
-    name: 'Mark Wilson',
-    role: 'Operations Director',
-    company: 'Northvale Logistics',
-    quote:
-      'We pulled together a credible footprint in a single afternoon. No one on my team is a sustainability expert, and that\u2019s the point \u2014 the product isn\u2019t built for experts.',
-    avatarUrl:
-      'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg?auto=compress&cs=tinysrgb&w=200',
-  },
-  {
-    name: 'Emma Clarke',
-    role: 'Finance Manager',
-    company: 'BrightPath Services',
-    quote:
-      'The board just wants a clear number, a simple trend and what we should do next. Greenio gives me all three without adding a new project to my week.',
-    avatarUrl:
-      'https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg?auto=compress&cs=tinysrgb&w=200',
-  },
-  {
-    name: 'Tom Harris',
-    role: 'Managing Director',
-    company: 'HarrisTech',
-    quote:
-      'We used our first report in a tender the same week. It\u2019s now part of the pack we share with larger customers asking about emissions and net-zero plans.',
-    avatarUrl:
-      'https://images.pexels.com/photos/2380794/pexels-photo-2380794.jpeg?auto=compress&cs=tinysrgb&w=200',
-  },
-  {
-    name: 'Lucy Bennett',
-    role: 'Office Manager',
-    company: 'Greenline Transport',
-    quote:
-      'I can log utility and fuel data in minutes. The dashboard makes it obvious where our biggest hotspots are, without drowning us in jargon.',
-    avatarUrl:
-      'https://images.pexels.com/photos/3760853/pexels-photo-3760853.jpeg?auto=compress&cs=tinysrgb&w=200',
-  },
-  {
-    name: 'James Porter',
-    role: 'CFO',
-    company: 'Oakwood Retail Group',
-    quote:
-      'For a mid-sized business, Greenio hits the sweet spot \u2014 serious enough for investors, simple enough that we don\u2019t need consultants to run it.',
-    avatarUrl:
-      'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200',
-  },
-];
+import { getTestimonialsForLocale } from '@/lib/testimonials';
 
 interface Props {
   heading?: string;
   subtext?: string;
   tag?: string;
+  locale?: string;
 }
 
 export default function TestimonialsCarousel({
   heading = 'Trusted by UK operations and finance teams.',
-  subtext = "Greenio fits into the real world of busy teams, not climate consultants. Here\u2019s how customers are using it today.",
+  subtext = 'How customers are using Greenio today.',
   tag = 'Early customers from logistics, professional services and tech.',
+  locale = 'en',
 }: Props) {
+  const testimonials = getTestimonialsForLocale(locale);
   const [activeIndex, setActiveIndex] = useState(0);
   const total = testimonials.length;
 

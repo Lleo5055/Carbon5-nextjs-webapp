@@ -16,8 +16,7 @@ export const it: Translations = {
     badge: "Pensato per le PMI europee",
     headline: "Contabilità carbonio pronta per l'audit per le PMI,",
     headlineHighlight: "in pochi minuti.",
-    subtext:
-      "Trasforma i tuoi dati sulle emissioni in bilanci di carbonio conformi alla CSRD e al GHG Protocol — con report di livello audit e Leadership Snapshot professionali.",
+    subtext: "Bilanci di carbonio conformi alla CSRD con report di audit e Leadership Snapshot. Senza consulenti, senza complessità.",
     cta: "Inizia gratis – nessuna carta richiesta",
     stat1: "Progettato per PMI da 1 a 250 dipendenti",
     stat2: "Primo bilancio di carbonio in meno di 30 minuti",
@@ -43,7 +42,7 @@ export const it: Translations = {
 
   product: {
     heading: "Costruito per le vere imprese, non per gli esperti di clima.",
-    sub: "La maggior parte delle PMI non ha un team di sostenibilità. Greenio ti fornisce un bilancio di carbonio chiaro e credibile senza complessità — per team operativi, finanziari e di compliance.",
+    sub: "Nessun team di sostenibilità necessario. Contabilità carbonio chiara per team operativi, finanziari e di compliance.",
     features: [
       {
         title: "Semplice per design",
@@ -51,7 +50,7 @@ export const it: Translations = {
       },
       {
         title: "Output conformi CSRD",
-        desc: "Genera bilanci di carbonio chiari per CDA, investitori e clienti. Perfetto per gare d'appalto, compliance e obiettivi net zero.",
+        desc: "Bilanci di carbonio chiari per CDA, investitori e clienti. Perfetto per gare d'appalto, compliance e obiettivi net zero.",
       },
       {
         title: "Prezzi equi e trasparenti",
@@ -62,19 +61,19 @@ export const it: Translations = {
 
   howItWorks: {
     heading: "Come funziona Greenio",
-    sub: "Dalle bollette disordinate a un bilancio di carbonio pronto per l'audit — in tre semplici passi.",
+    sub: "Dalle bollette al bilancio carbonio pronto per l'audit in tre passi.",
     steps: [
       {
         title: "Inserisci i tuoi dati",
-        desc: "Inizia con quello che hai — elettricità, gas, carburante e refrigeranti. Non servono dati perfetti; sono supportate anche le stime.",
+        desc: "Elettricità, gas, carburante e refrigeranti. Dati perfetti non necessari, le stime sono accettate.",
       },
       {
         title: "Calcoliamo la tua impronta",
-        desc: "Applichiamo i fattori di emissione europei e costruiamo il tuo bilancio per mese, fonte e hotspot — istantaneamente e in modo trasparente.",
+        desc: "Fattori di emissione europei. Il tuo bilancio per mese, fonte e hotspot, istantaneamente.",
       },
       {
         title: "Scarica e agisci",
-        desc: "Esporta un PDF chiaro per il tuo CDA e inizia a puntare sulle principali fonti di emissione con raccomandazioni concrete.",
+        desc: "Esporta un PDF per il tuo CDA e punta sulle principali fonti di emissione.",
       },
     ],
     benefits: [
@@ -86,7 +85,7 @@ export const it: Translations = {
 
   pricing: {
     heading: "Prezzi semplici e trasparenti",
-    sub: "Inizia gratis, passa al piano superiore solo quando la contabilità del carbonio diventa regolare. Nessun costo di setup, nessuna sorpresa.",
+    sub: "Inizia gratis. Passa al piano superiore quando sei pronto. Nessuna tariffa, nessun contratto.",
     note: "Tutti i piani includono accesso allo stesso dashboard pulito e minimalista.",
     cancelNote: "Disdici o cambia piano in qualsiasi momento. Nessun contratto a lungo termine.",
     plans: {
@@ -103,7 +102,7 @@ export const it: Translations = {
       },
       growth: {
         name: "Crescita",
-        price: "€11,99",
+        price: "€14,99",
         period: "al mese",
         features: [
           "Bilanci/report illimitati",
@@ -115,7 +114,7 @@ export const it: Translations = {
       },
       pro: {
         name: "Pro",
-        price: "€29,99",
+        price: "€34,99",
         period: "al mese",
         features: [
           "Tutto di Crescita",
@@ -141,12 +140,12 @@ export const it: Translations = {
 
   contact: {
     heading: "Trasforma la contabilità del carbonio in un punto di forza.",
-    sub: "Che tu stia iniziando o consolidando un impegno net zero, Greenio ti offre una base chiara e semplici passi successivi.",
+    sub: "Una base chiara e semplici passi successivi per le imprese europee.",
     ctaPrimary: "Inizia gratis oggi",
     ctaEmail: "Scrivici",
     cardHeading: "Preferisci l'email?",
     cardDesc:
-      "Condividi qualche riga sulla dimensione della tua azienda e perché stai esplorando la contabilità del carbonio. Risponderemo con i prossimi passi e, se utile, un link per una breve chiamata.",
+      "Condividi la dimensione della tua azienda e perché esplori la contabilità del carbonio. Risponderemo con i prossimi passi.",
     cardEmailLabel: "Email:",
   },
 
@@ -160,7 +159,7 @@ export const it: Translations = {
 
   testimonials: {
     heading: "La fiducia dei team operativi e finanziari in Europa.",
-    subtext: "Greenio si integra nella realtà quotidiana dei team impegnati — senza esperti di clima. Ecco come i nostri clienti lo usano oggi.",
+    subtext: "Come i nostri clienti usano Greenio oggi.",
     tag: "Primi clienti in logistica, servizi professionali e tech.",
   },
 

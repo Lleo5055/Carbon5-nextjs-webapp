@@ -16,8 +16,7 @@ export const de: Translations = {
     badge: 'Für europäische KMUs entwickelt',
     headline: 'Prüfungsreifes Carbon Accounting für KMUs,',
     headlineHighlight: 'in Minuten erledigt.',
-    subtext:
-      'Wandeln Sie Ihre Emissionsdaten in CSRD-konforme, GHG-Protokoll-kompatible Klimabilanzen um — mit revisionssicheren Berichten und professionellen Leadership-Snapshots.',
+    subtext: 'CSRD-konforme Klimabilanzen mit revisionssicheren Berichten und Leadership Snapshots. Ohne Berater, ohne Komplexität.',
     cta: 'Kostenlos starten – keine Karte nötig',
     stat1: 'Entwickelt für KMUs mit 1–250 Mitarbeitern',
     stat2: 'Erste Klimabilanz in unter 30 Minuten',
@@ -43,15 +42,15 @@ export const de: Translations = {
 
   product: {
     heading: 'Für echte Unternehmen gebaut, nicht für Klimaexperten.',
-    sub: 'Die meisten KMUs haben kein Nachhaltigkeitsteam. Greenio liefert Ihnen eine klare, glaubwürdige Klimabilanz ohne Komplexität — für Operations-, Finanz- und Compliance-Teams.',
+    sub: 'Kein Nachhaltigkeitsteam nötig. Klare, glaubwürdige Klimabilanz für Operations-, Finanz- und Compliance-Teams.',
     features: [
       {
         title: 'Einfach durch Design',
-        desc: 'Keine unübersichtlichen Tabellen. Verbrauch oder Ausgaben eingeben, Kategorie wählen — die Plattform berechnet CO₂e nach EU-Standard.',
+        desc: 'Keine unübersichtlichen Tabellen. Verbrauch eingeben, Kategorie wählen, CO₂e wird nach EU-Standard berechnet.',
       },
       {
         title: 'CSRD-konforme Ausgaben',
-        desc: 'Erstellen Sie saubere Klimabilanzen für Vorstände, Investoren und Kunden. Ideal für Ausschreibungen, Compliance und Netto-Null-Ziele.',
+        desc: 'Saubere Klimabilanzen für Vorstände, Investoren und Kunden. Ideal für Ausschreibungen, Compliance und Netto-Null-Ziele.',
       },
       {
         title: 'Faire, transparente Preise',
@@ -62,19 +61,19 @@ export const de: Translations = {
 
   howItWorks: {
     heading: 'So funktioniert Greenio',
-    sub: 'Von unsortierten Rechnungen zu einer prüfungsreifen Klimabilanz — in drei einfachen Schritten.',
+    sub: 'Von unsortierten Rechnungen zur prüfungsreifen Klimabilanz in drei Schritten.',
     steps: [
       {
         title: 'Daten eingeben',
-        desc: 'Beginnen Sie mit dem, was Sie haben — Strom, Gas, Kraftstoff und Kältemittel. Keine perfekten Daten nötig; Schätzungen werden unterstützt.',
+        desc: 'Strom, Gas, Kraftstoff und Kältemittel. Keine perfekten Daten nötig, Schätzungen akzeptiert.',
       },
       {
         title: 'Wir berechnen Ihren Fußabdruck',
-        desc: 'Wir wenden EU-Standardemissionsfaktoren an und erstellen Ihre Klimabilanz nach Monat, Quelle und Hotspot — sofort und transparent.',
+        desc: 'EU-Emissionsfaktoren. Ihre Klimabilanz nach Monat, Quelle und Hotspot, sofort.',
       },
       {
         title: 'Herunterladen und handeln',
-        desc: 'Exportieren Sie ein klares, vorstandstaugliches PDF und beginnen Sie, Ihre wichtigsten Emissionsquellen mit umsetzbaren Empfehlungen anzugehen.',
+        desc: 'Vorstandstauglichen Bericht exportieren und wichtigste Emissionsquellen gezielt angehen.',
       },
     ],
     benefits: [
@@ -86,7 +85,7 @@ export const de: Translations = {
 
   pricing: {
     heading: 'Einfache, transparente Preise',
-    sub: 'Kostenlos starten, nur upgraden wenn Carbon Accounting Routine wird. Keine Einrichtungsgebühren, keine Überraschungen.',
+    sub: 'Kostenlos starten. Upgraden wenn bereit. Keine Einrichtungsgebühren, keine Verträge.',
     note: 'Alle Pläne bieten Zugang zum selben klaren, minimalen Dashboard.',
     cancelNote: 'Jederzeit kündigen oder den Plan wechseln. Keine Langzeitverträge.',
     plans: {
@@ -103,7 +102,7 @@ export const de: Translations = {
       },
       growth: {
         name: 'Growth',
-        price: '€11,99',
+        price: '€14,99',
         period: 'pro Monat',
         features: [
           'Unbegrenzte Klimabilanzen/Berichte',
@@ -115,7 +114,7 @@ export const de: Translations = {
       },
       pro: {
         name: 'Pro',
-        price: '€29,99',
+        price: '€34,99',
         period: 'pro Monat',
         features: [
           'Alles aus Growth',
@@ -141,12 +140,12 @@ export const de: Translations = {
 
   contact: {
     heading: 'Machen Sie Carbon Accounting zur Stärke, nicht zur Last.',
-    sub: 'Ob Sie gerade erst anfangen oder Ihre Netto-Null-Strategie verfeinern — Greenio gibt Ihnen eine klare Ausgangsbasis und einfache nächste Schritte.',
+    sub: 'Eine klare Ausgangsbasis und einfache nächste Schritte für echte Unternehmen.',
     ctaPrimary: 'Heute kostenlos starten',
     ctaEmail: 'E-Mail senden',
     cardHeading: 'Lieber per E-Mail?',
     cardDesc:
-      'Beschreiben Sie kurz Ihre Unternehmensgröße und warum Sie Carbon Accounting erkunden. Wir antworten mit nächsten Schritten und, falls hilfreich, einem Link für ein kurzes Erstgespräch.',
+      'Beschreiben Sie kurz Ihre Unternehmensgröße und warum Sie Carbon Accounting erkunden. Wir antworten mit nächsten Schritten.',
     cardEmailLabel: 'E-Mail:',
   },
 
@@ -160,7 +159,7 @@ export const de: Translations = {
 
   testimonials: {
     heading: 'Vertrauen europäischer Operations- und Finanzteams.',
-    subtext: 'Greenio passt in den Arbeitsalltag beschäftigter Teams — kein Klimaberater nötig. So nutzen unsere Kunden die Plattform heute.',
+    subtext: 'Wie europäische Unternehmen Greenio heute nutzen.',
     tag: 'Frühe Kunden aus Logistik, Dienstleistungen und Technologie.',
   },
 

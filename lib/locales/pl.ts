@@ -16,8 +16,7 @@ export const pl: Translations = {
     badge: 'Stworzone dla europejskich MŚP',
     headline: 'Gotowa do audytu rachunkowość węglowa dla MŚP,',
     headlineHighlight: 'gotowa w kilka minut.',
-    subtext:
-      'Przekształć dane emisyjne w rachunki węglowe zgodne z CSRD i GHG Protocol — z raportami na poziomie audytu i profesjonalnymi Leadership Snapshot.',
+    subtext: 'Rachunki węglowe zgodne z CSRD z raportami audytowymi i Leadership Snapshot. Bez konsultantów, bez złożoności.',
     cta: 'Zacznij za darmo – bez karty',
     stat1: 'Zaprojektowane dla MŚP zatrudniających 1–250 pracowników',
     stat2: 'Pierwszy bilans węglowy w mniej niż 30 minut',
@@ -43,15 +42,15 @@ export const pl: Translations = {
 
   product: {
     heading: 'Stworzony dla prawdziwych firm, nie dla ekspertów klimatycznych.',
-    sub: 'Większość MŚP nie ma zespołu ds. zrównoważonego rozwoju. Greenio zapewnia jasny, wiarygodny bilans węglowy bez zbędnej złożoności — dla zespołów operacyjnych, finansowych i compliance.',
+    sub: 'Bez potrzeby zespołu ds. zrównoważonego rozwoju. Jasna rachunkowość węglowa dla zespołów operacyjnych, finansowych i compliance.',
     features: [
       {
         title: 'Prosta w obsłudze',
-        desc: 'Żadnych skomplikowanych arkuszy kalkulacyjnych. Wprowadź zużycie, wybierz kategorię — platforma obliczy CO₂e według europejskich standardów.',
+        desc: 'Żadnych skomplikowanych arkuszy kalkulacyjnych. Wprowadź zużycie, wybierz kategorię, platforma obliczy CO₂e według europejskich standardów.',
       },
       {
         title: 'Wyniki zgodne z CSRD',
-        desc: 'Generuj przejrzyste bilanse węglowe dla zarządów, inwestorów i klientów. Idealne do przetargów, zgodności z przepisami i celów neutralności klimatycznej.',
+        desc: 'Przejrzyste bilanse węglowe dla zarządów, inwestorów i klientów. Idealne do przetargów, zgodności z przepisami i celów neutralności klimatycznej.',
       },
       {
         title: 'Uczciwe, przejrzyste ceny',
@@ -62,19 +61,19 @@ export const pl: Translations = {
 
   howItWorks: {
     heading: 'Jak działa Greenio',
-    sub: 'Od nieuporządkowanych rachunków do gotowego do audytu bilansu węglowego — w trzech prostych krokach.',
+    sub: 'Od nieuporządkowanych rachunków do gotowego do audytu bilansu węglowego w trzech krokach.',
     steps: [
       {
         title: 'Wprowadź swoje dane',
-        desc: 'Zacznij od tego, co masz — prąd, gaz, paliwo i czynniki chłodnicze. Nie potrzebujesz idealnych danych; szacunki są akceptowane.',
+        desc: 'Prąd, gaz, paliwo i czynniki chłodnicze. Idealne dane nie są potrzebne, szacunki akceptowane.',
       },
       {
         title: 'Obliczamy Twój ślad węglowy',
-        desc: 'Stosujemy europejskie wskaźniki emisji i budujemy Twój bilans według miesiąca, źródła i hotspotu — natychmiast i przejrzyście.',
+        desc: 'Europejskie wskaźniki emisji. Twój bilans według miesiąca, źródła i hotspotu, natychmiast.',
       },
       {
         title: 'Pobierz i działaj',
-        desc: 'Eksportuj przejrzysty PDF dla zarządu i zacznij adresować największe źródła emisji za pomocą konkretnych rekomendacji.',
+        desc: 'Eksportuj PDF dla zarządu i zacznij adresować największe źródła emisji.',
       },
     ],
     benefits: [
@@ -86,7 +85,7 @@ export const pl: Translations = {
 
   pricing: {
     heading: 'Proste, przejrzyste ceny',
-    sub: 'Zacznij za darmo, przejdź na wyższy plan tylko gdy rachunkowość węglowa stanie się rutyną. Bez opłat konfiguracyjnych, bez niespodzianek.',
+    sub: 'Zacznij za darmo. Przejdź wyżej gdy będziesz gotowy. Bez opłat i umów.',
     note: 'Wszystkie plany obejmują dostęp do tego samego czystego, minimalistycznego pulpitu nawigacyjnego.',
     cancelNote: 'Anuluj lub zmień plan w dowolnym momencie. Bez długoterminowych umów.',
     plans: {
@@ -103,7 +102,7 @@ export const pl: Translations = {
       },
       growth: {
         name: 'Wzrost',
-        price: '€11,99',
+        price: '€14,99',
         period: 'miesięcznie',
         features: [
           'Nieograniczone bilanse/raporty',
@@ -115,7 +114,7 @@ export const pl: Translations = {
       },
       pro: {
         name: 'Pro',
-        price: '€29,99',
+        price: '€34,99',
         period: 'miesięcznie',
         features: [
           'Wszystko z Wzrostu',
@@ -127,7 +126,7 @@ export const pl: Translations = {
       },
       enterprise: {
         name: 'Enterprise',
-        price: 'Porozmawiajmy',
+        price: 'Kontakt',
         period: 'indywidualny',
         features: [
           'Wiele podmiotów i lokalizacji',
@@ -141,12 +140,12 @@ export const pl: Translations = {
 
   contact: {
     heading: 'Zamień rachunkowość węglową w atut, nie w obciążenie.',
-    sub: 'Niezależnie od tego, czy dopiero zaczynasz, czy uszczegółowiasz zobowiązanie do neutralności klimatycznej, Greenio daje Ci jasną podstawę i proste kolejne kroki.',
+    sub: 'Jasna podstawa i proste kolejne kroki dla prawdziwych europejskich firm.',
     ctaPrimary: 'Zacznij za darmo dziś',
     ctaEmail: 'Napisz do nas',
     cardHeading: 'Wolisz e-mail?',
     cardDesc:
-      'Napisz kilka słów o swojej firmie i dlaczego interesuje Cię rachunkowość węglowa. Odpowiemy z kolejnymi krokami i, jeśli pomocne, linkiem do krótkiej rozmowy.',
+      'Napisz kilka słów o swojej firmie i dlaczego interesuje Cię rachunkowość węglowa. Odpowiemy z kolejnymi krokami.',
     cardEmailLabel: 'Email:',
   },
 
@@ -160,7 +159,7 @@ export const pl: Translations = {
 
   testimonials: {
     heading: 'Zaufanie europejskich zespołów operacyjnych i finansowych.',
-    subtext: 'Greenio wpisuje się w codzienną rzeczywistość zapracowanych zespołów — bez potrzeby ekspertów klimatycznych. Oto jak nasi klienci korzystają z platformy dziś.',
+    subtext: 'Jak nasi klienci korzystają z Greenio dziś.',
     tag: 'Pierwsi klienci z logistyki, usług profesjonalnych i technologii.',
   },
 

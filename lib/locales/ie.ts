@@ -18,8 +18,7 @@ export const ie: Translations = {
     badge: 'Built for Irish businesses',
     headline: 'Audit-ready carbon accounting for Irish SMEs,',
     headlineHighlight: 'done in minutes.',
-    subtext:
-      'Turn your emission data into CSRD-aligned, GHG Protocol-ready carbon accounts with audit-grade reports and polished Leadership Snapshots in minutes.',
+    subtext: 'CSRD-aligned carbon accounts with audit-grade reports and Leadership Snapshots. No consultants, no complexity.',
     cta: 'Start free – no card needed',
     stat1: 'Designed for 1–250 employee Irish companies',
     stat2: 'First carbon account in under 30 minutes',
@@ -45,7 +44,7 @@ export const ie: Translations = {
 
   product: {
     heading: 'Built for real businesses, not climate PhDs.',
-    sub: "Most Irish SMEs don't have a sustainability team. Greenio gives you a clear, credible carbon account with the minimum amount of noise — built for operations, finance and compliance teams.",
+    sub: 'No sustainability team needed. Clear, credible carbon accounting for Irish operations, finance and compliance.',
     features: [
       {
         title: 'Simple by design',
@@ -53,7 +52,7 @@ export const ie: Translations = {
       },
       {
         title: 'CSRD-ready outputs',
-        desc: 'Generate clean carbon accounts and summaries for boards, investors and customers. Perfect for tenders, CSRD compliance and net-zero goals.',
+        desc: 'Generate clean carbon accounts for boards, investors and customers. Perfect for tenders, CSRD compliance and net-zero goals.',
       },
       {
         title: 'Fair, transparent pricing',
@@ -64,19 +63,19 @@ export const ie: Translations = {
 
   howItWorks: {
     heading: 'How Greenio works',
-    sub: 'From messy bills to a clean, audit-ready carbon account — in three simple steps. Built for busy Irish operations and finance teams.',
+    sub: 'From messy bills to a clean, audit-ready carbon account in three steps.',
     steps: [
       {
         title: 'Add your data',
-        desc: 'Start with what you have — electricity, gas, fuel usage and refrigerants. No perfect data needed; estimates supported.',
+        desc: 'Electricity, gas, fuel and refrigerants. No perfect data needed, estimates supported.',
       },
       {
         title: 'We calculate your footprint',
-        desc: 'We apply EU-standard emission factors and build your carbon account by month, source and hotspot — instantly and transparently.',
+        desc: 'EU-standard emission factors. Your carbon account by month, source and hotspot, instantly.',
       },
       {
         title: 'Download and act',
-        desc: 'Export a clean, board-ready PDF and start targeting your highest-impact hotspots first with simple, actionable insights.',
+        desc: 'Export a board-ready report and target your highest-impact hotspots first.',
       },
     ],
     benefits: [
@@ -88,7 +87,7 @@ export const ie: Translations = {
 
   pricing: {
     heading: 'Simple, transparent pricing',
-    sub: 'Start free, upgrade only when your carbon accounting becomes routine. No setup fees, no long contracts, no surprises.',
+    sub: 'Start free. Upgrade when ready. No setup fees, no contracts.',
     note: 'All plans include access to the same clean, minimal dashboard.',
     cancelNote: 'Cancel or switch plans any time. No long-term contracts.',
     plans: {
@@ -105,7 +104,7 @@ export const ie: Translations = {
       },
       growth: {
         name: 'Growth',
-        price: '€11.99',
+        price: '€14.99',
         period: 'per month',
         features: [
           'Unlimited carbon accounts/reports',
@@ -117,7 +116,7 @@ export const ie: Translations = {
       },
       pro: {
         name: 'Pro',
-        price: '€29.99',
+        price: '€34.99',
         period: 'per month',
         features: [
           'Everything in Growth',
@@ -143,12 +142,12 @@ export const ie: Translations = {
 
   contact: {
     heading: 'Turn carbon accounting into a strength, not a burden.',
-    sub: "Whether you're just starting or tightening a net-zero commitment, Greenio gives you a clear baseline and simple next steps — built for real Irish businesses.",
+    sub: 'A clear baseline and simple next steps, built for real Irish businesses.',
     ctaPrimary: 'Start free today',
     ctaEmail: 'Email us',
     cardHeading: 'Prefer email?',
     cardDesc:
-      "Share a couple of lines about your company size and why you're exploring carbon accounting. We'll reply with next steps and, if helpful, a link for a short intro call.",
+      "Share your company size and why you're exploring carbon accounting. We'll reply with next steps.",
     cardEmailLabel: 'Email:',
   },
 
@@ -162,7 +161,7 @@ export const ie: Translations = {
 
   testimonials: {
     heading: 'Trusted by Irish operations and finance teams.',
-    subtext: "Greenio fits into the real world of busy Irish businesses — no sustainability expert needed. Here's how customers are using it today.",
+    subtext: 'How Irish businesses are using Greenio today.',
     tag: 'Early customers from logistics, professional services and tech.',
   },
 

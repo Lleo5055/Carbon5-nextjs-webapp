@@ -16,8 +16,7 @@ export const da: Translations = {
     badge: "Bygget til europæiske SMV'er",
     headline: "Revisionsklart kulstofregnskab for SMV'er,",
     headlineHighlight: 'gjort på minutter.',
-    subtext:
-      'Omdann dine emissionsdata til CSRD-kompatible kulstofregnskaber — med revisionsgodkendte rapporter og professionelle Leadership Snapshots.',
+    subtext: 'CSRD-kompatible kulstofregnskaber med revisionsgodkendte rapporter og Leadership Snapshots. Uden konsulenter, uden kompleksitet.',
     cta: 'Kom i gang gratis – intet kort kræves',
     stat1: "Designet til SMV'er med 1–250 medarbejdere",
     stat2: 'Første kulstofregnskab på under 30 minutter',
@@ -43,7 +42,7 @@ export const da: Translations = {
 
   product: {
     heading: 'Bygget til rigtige virksomheder, ikke klimaeksperter.',
-    sub: "De fleste SMV'er har ikke et bæredygtighedsteam. Greenio giver dig et klart, troværdigt kulstofregnskab uden kompleksitet — til drifts-, økonomi- og complianceteam.",
+    sub: "Intet bæredygtighedsteam nødvendigt. Klart kulstofregnskab for drifts-, økonomi- og complianceteam.",
     features: [
       {
         title: 'Enkelt af design',
@@ -51,7 +50,7 @@ export const da: Translations = {
       },
       {
         title: 'CSRD-kompatible resultater',
-        desc: 'Generer rene kulstofregnskaber til bestyrelser, investorer og kunder. Perfekt til udbud, overholdelse og netto-nulmål.',
+        desc: 'Rene kulstofregnskaber til bestyrelser, investorer og kunder. Perfekt til udbud, overholdelse og netto-nulmål.',
       },
       {
         title: 'Fair, transparent prissætning',
@@ -62,19 +61,19 @@ export const da: Translations = {
 
   howItWorks: {
     heading: 'Sådan fungerer Greenio',
-    sub: 'Fra rodede regninger til et revisionsklart kulstofregnskab — i tre enkle trin.',
+    sub: 'Fra rodede regninger til et revisionsklart kulstofregnskab i tre trin.',
     steps: [
       {
         title: 'Tilføj dine data',
-        desc: 'Start med det, du har — elektricitet, gas, brændstof og kølemidler. Ingen perfekte data kræves; estimater understøttes.',
+        desc: 'El, gas, brændstof og kølemidler. Ingen perfekte data kræves, estimater understøttes.',
       },
       {
         title: 'Vi beregner dit fodaftryk',
-        desc: 'Vi anvender europæiske emissionsfaktorer og bygger dit kulstofregnskab pr. måned, kilde og hotspot — øjeblikkeligt og gennemsigtigt.',
+        desc: 'Europæiske emissionsfaktorer. Dit kulstofregnskab pr. måned, kilde og hotspot, øjeblikkeligt.',
       },
       {
         title: 'Download og handl',
-        desc: 'Eksportér en klar PDF til din bestyrelse og begynd at adressere dine vigtigste emissionskilder med konkrete anbefalinger.',
+        desc: 'Eksportér en PDF til din bestyrelse og adressér dine vigtigste emissionskilder.',
       },
     ],
     benefits: [
@@ -86,7 +85,7 @@ export const da: Translations = {
 
   pricing: {
     heading: 'Enkel, transparent prissætning',
-    sub: 'Start gratis, opgrader kun når kulstofregnskab bliver rutine. Ingen opsætningsgebyrer, ingen overraskelser.',
+    sub: 'Start gratis. Opgrader når du er klar. Ingen gebyrer, ingen kontrakter.',
     note: 'Alle planer inkluderer adgang til det samme rene, minimalistiske dashboard.',
     cancelNote: 'Annullér eller skift plan til enhver tid. Ingen langsigtede kontrakter.',
     plans: {
@@ -103,7 +102,7 @@ export const da: Translations = {
       },
       growth: {
         name: 'Vækst',
-        price: '89 kr.',
+        price: '109 kr.',
         period: 'pr. måned',
         features: [
           'Ubegrænsede kulstofregnskaber/rapporter',
@@ -115,7 +114,7 @@ export const da: Translations = {
       },
       pro: {
         name: 'Pro',
-        price: '219 kr.',
+        price: '259 kr.',
         period: 'pr. måned',
         features: [
           'Alt fra Vækst',
@@ -141,12 +140,12 @@ export const da: Translations = {
 
   contact: {
     heading: 'Gør kulstofregnskab til en styrke, ikke en byrde.',
-    sub: 'Uanset om du lige er startet eller strammer et netto-nulengagement, giver Greenio dig et klart udgangspunkt og enkle næste skridt.',
+    sub: 'Et klart udgangspunkt og enkle næste skridt for rigtige europæiske virksomheder.',
     ctaPrimary: 'Start gratis i dag',
     ctaEmail: 'Send os en mail',
     cardHeading: 'Foretrækker du e-mail?',
     cardDesc:
-      'Del et par linjer om din virksomhedsstørrelse og hvorfor du undersøger kulstofregnskab. Vi svarer med næste skridt og, hvis det hjælper, et link til et kort introduktionsopkald.',
+      'Del din virksomhedsstørrelse og hvorfor du undersøger kulstofregnskab. Vi svarer med næste skridt.',
     cardEmailLabel: 'E-mail:',
   },
 
@@ -160,7 +159,7 @@ export const da: Translations = {
 
   testimonials: {
     heading: 'Tillid fra operations- og finansteam i Europa.',
-    subtext: 'Greenio passer ind i hverdagen for travle teams — uden klimakonsulenter. Sådan bruger vores kunder platformen i dag.',
+    subtext: 'Sådan bruger vores kunder Greenio i dag.',
     tag: 'Tidlige kunder fra logistik, professionelle tjenester og tech.',
   },
 

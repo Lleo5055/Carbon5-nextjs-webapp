@@ -1,6 +1,6 @@
 import type { Translations } from './types';
 
-// India locale — English language (English is an official language of India),
+// India locale -English language (English is an official language of India),
 // with India-specific pricing (₹), regulatory context (BRSR/ESG/BEE),
 // and emission factor (India grid: 0.820 kg CO₂e/kWh).
 export const india: Translations = {
@@ -19,8 +19,7 @@ export const india: Translations = {
     badge: 'Built for Indian MSMEs',
     headline: 'Audit-ready carbon accounting for Indian MSMEs,',
     headlineHighlight: 'done in minutes.',
-    subtext:
-      'Turn your emission data into BRSR-aligned, ESG-ready carbon accounts with audit-grade reports and polished Leadership Snapshots — built for Indian operations and finance teams.',
+    subtext: 'BRSR-aligned carbon accounts with audit-grade reports and Leadership Snapshots. No consultants, no complexity.',
     cta: 'Start free – no card needed',
     stat1: 'Designed for 1–250 employee Indian companies',
     stat2: 'First carbon account in under 30 minutes',
@@ -46,7 +45,7 @@ export const india: Translations = {
 
   product: {
     heading: 'Built for real businesses, not climate PhDs.',
-    sub: "Most Indian MSMEs don't have a sustainability team. Greenio gives you a clear, credible carbon account with the minimum amount of noise — built for operations, finance and compliance teams.",
+    sub: 'No sustainability team needed. Clear, credible carbon accounting for Indian operations, finance and compliance.',
     features: [
       {
         title: 'Simple by design',
@@ -65,19 +64,19 @@ export const india: Translations = {
 
   howItWorks: {
     heading: 'How Greenio works',
-    sub: 'From messy bills to a clean, audit-ready carbon account — in three simple steps. Built for busy Indian operations and finance teams.',
+    sub: 'From messy bills to a clean, audit-ready carbon account in three steps.',
     steps: [
       {
         title: 'Add your data',
-        desc: 'Start with what you have — electricity, gas, fuel usage and refrigerants. No perfect data needed; estimates supported.',
+        desc: 'Electricity, gas, fuel and refrigerants. No perfect data needed, estimates supported.',
       },
       {
         title: 'We calculate your footprint',
-        desc: 'We apply BEE-standard emission factors and build your carbon account by month, source and hotspot — instantly and transparently.',
+        desc: 'BEE-standard emission factors. Your carbon account by month, source and hotspot, instantly.',
       },
       {
         title: 'Download and act',
-        desc: 'Export a clean, board-ready PDF and start targeting your highest-impact hotspots first with simple, actionable insights.',
+        desc: 'Export a board-ready report and target your highest-impact hotspots first.',
       },
     ],
     benefits: [
@@ -89,7 +88,7 @@ export const india: Translations = {
 
   pricing: {
     heading: 'Simple, transparent pricing',
-    sub: 'Start free, upgrade only when your carbon accounting becomes routine. No setup fees, no long contracts, no surprises.',
+    sub: 'Start free. Upgrade when ready. No setup fees, no contracts.',
     note: 'All plans include access to the same clean, minimal dashboard.',
     cancelNote: 'Cancel or switch plans any time. No long-term contracts.',
     plans: {
@@ -106,7 +105,7 @@ export const india: Translations = {
       },
       growth: {
         name: 'Growth',
-        price: '₹999',
+        price: '₹1,499',
         period: 'per month',
         features: [
           'Unlimited carbon accounts/reports',
@@ -118,7 +117,7 @@ export const india: Translations = {
       },
       pro: {
         name: 'Pro',
-        price: '₹2,499',
+        price: '₹3,499',
         period: 'per month',
         features: [
           'Everything in Growth',
@@ -144,7 +143,7 @@ export const india: Translations = {
 
   contact: {
     heading: 'Turn carbon accounting into a strength, not a burden.',
-    sub: "Whether you're just starting or tightening a net-zero commitment, Greenio gives you a clear baseline and simple next steps — built for real Indian businesses.",
+    sub: 'A clear baseline and simple next steps, built for real Indian businesses.',
     ctaPrimary: 'Start free today',
     ctaEmail: 'Email us',
     cardHeading: 'Prefer email?',
@@ -163,7 +162,7 @@ export const india: Translations = {
 
   testimonials: {
     heading: 'Trusted by Indian operations and finance teams.',
-    subtext: "Greenio fits into the real world of busy Indian businesses — no sustainability expert needed. Here's how MSMEs are using it today.",
+    subtext: "How Indian MSMEs are using Greenio today.",
     tag: 'Early customers from manufacturing, logistics and professional services.',
   },
 

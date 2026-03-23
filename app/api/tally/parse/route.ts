@@ -7,7 +7,6 @@ export const dynamic = 'force-dynamic';
 
 const KEYWORD_MAP: Record<string, string> = {
   diesel: 'diesel', hsd: 'diesel', 'high speed diesel': 'diesel',
-  'vehicle fuel': 'diesel', 'diesel purchase': 'diesel',
   petrol: 'petrol', 'motor spirit': 'petrol',
   lpg: 'lpg', 'lpg cylinder': 'lpg', 'gas cylinder': 'lpg',
   'liquefied petroleum': 'lpg',

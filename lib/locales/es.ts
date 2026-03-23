@@ -16,8 +16,7 @@ export const es: Translations = {
     badge: 'Diseñado para pymes europeas',
     headline: 'Contabilidad de carbono lista para auditoría para pymes,',
     headlineHighlight: 'en minutos.',
-    subtext:
-      'Convierte tus datos de emisiones en cuentas de carbono conformes con la CSRD y el GHG Protocol — con informes de nivel de auditoría y Leadership Snapshots profesionales.',
+    subtext: 'Cuentas de carbono conformes con la CSRD con informes de auditoría y Leadership Snapshots. Sin consultores, sin complejidad.',
     cta: 'Empezar gratis – sin tarjeta',
     stat1: 'Diseñado para pymes de 1 a 250 empleados',
     stat2: 'Primera cuenta de carbono en menos de 30 minutos',
@@ -43,7 +42,7 @@ export const es: Translations = {
 
   product: {
     heading: 'Creado para empresas reales, no para expertos en clima.',
-    sub: 'La mayoría de las pymes no tienen un equipo de sostenibilidad. Greenio te ofrece una cuenta de carbono clara y creíble sin complejidad — para equipos de operaciones, finanzas y cumplimiento.',
+    sub: 'Sin equipo de sostenibilidad necesario. Contabilidad de carbono clara para operaciones, finanzas y cumplimiento.',
     features: [
       {
         title: 'Simple por diseño',
@@ -51,7 +50,7 @@ export const es: Translations = {
       },
       {
         title: 'Resultados conformes con la CSRD',
-        desc: 'Genera cuentas de carbono limpias para consejos de administración, inversores y clientes. Ideal para licitaciones, cumplimiento y objetivos de cero emisiones netas.',
+        desc: 'Cuentas de carbono limpias para consejos de administración, inversores y clientes. Ideal para licitaciones, cumplimiento y objetivos de cero emisiones netas.',
       },
       {
         title: 'Precios justos y transparentes',
@@ -62,19 +61,19 @@ export const es: Translations = {
 
   howItWorks: {
     heading: 'Cómo funciona Greenio',
-    sub: 'De facturas desordenadas a una cuenta de carbono lista para auditoría — en tres sencillos pasos.',
+    sub: 'De facturas desordenadas a una cuenta de carbono lista para auditoría en tres pasos.',
     steps: [
       {
         title: 'Añade tus datos',
-        desc: 'Comienza con lo que tienes — electricidad, gas, combustible y refrigerantes. No se necesitan datos perfectos; se aceptan estimaciones.',
+        desc: 'Electricidad, gas, combustible y refrigerantes. No se necesitan datos perfectos, se aceptan estimaciones.',
       },
       {
         title: 'Calculamos tu huella',
-        desc: 'Aplicamos los factores de emisión europeos y construimos tu cuenta de carbono por mes, fuente y punto caliente — al instante y con total transparencia.',
+        desc: 'Factores de emisión europeos. Tu cuenta de carbono por mes, fuente y punto caliente, al instante.',
       },
       {
         title: 'Descarga y actúa',
-        desc: 'Exporta un PDF claro para tu consejo de administración y empieza a abordar tus principales fuentes de emisiones con recomendaciones concretas.',
+        desc: 'Exporta un PDF para tu consejo y empieza a abordar tus principales fuentes de emisiones.',
       },
     ],
     benefits: [
@@ -86,7 +85,7 @@ export const es: Translations = {
 
   pricing: {
     heading: 'Precios simples y transparentes',
-    sub: 'Empieza gratis, mejora solo cuando la contabilidad de carbono se vuelva rutinaria. Sin tarifas de configuración, sin sorpresas.',
+    sub: 'Empieza gratis. Mejora cuando estés listo. Sin tarifas ni contratos.',
     note: 'Todos los planes incluyen acceso al mismo panel limpio y minimalista.',
     cancelNote: 'Cancela o cambia de plan en cualquier momento. Sin contratos a largo plazo.',
     plans: {
@@ -103,7 +102,7 @@ export const es: Translations = {
       },
       growth: {
         name: 'Crecimiento',
-        price: '€11,99',
+        price: '€14,99',
         period: 'al mes',
         features: [
           'Cuentas/informes ilimitados',
@@ -115,7 +114,7 @@ export const es: Translations = {
       },
       pro: {
         name: 'Pro',
-        price: '€29,99',
+        price: '€34,99',
         period: 'al mes',
         features: [
           'Todo de Crecimiento',
@@ -141,12 +140,12 @@ export const es: Translations = {
 
   contact: {
     heading: 'Convierte la contabilidad de carbono en una fortaleza, no en una carga.',
-    sub: 'Ya sea que estés empezando o consolidando un compromiso de cero emisiones netas, Greenio te ofrece una base clara y pasos sencillos a seguir.',
+    sub: 'Una base clara y pasos sencillos para empresas europeas reales.',
     ctaPrimary: 'Empieza gratis hoy',
     ctaEmail: 'Escríbenos',
     cardHeading: '¿Prefieres el correo electrónico?',
     cardDesc:
-      'Comparte unas líneas sobre el tamaño de tu empresa y por qué estás explorando la contabilidad de carbono. Te responderemos con los próximos pasos y, si es útil, un enlace para una breve llamada.',
+      'Comparte tu empresa y por qué estás explorando la contabilidad de carbono. Te responderemos con los próximos pasos.',
     cardEmailLabel: 'Email:',
   },
 
@@ -160,7 +159,7 @@ export const es: Translations = {
 
   testimonials: {
     heading: 'La confianza de los equipos de operaciones y finanzas en Europa.',
-    subtext: 'Greenio encaja en el día a día de los equipos ocupados — sin consultores climáticos. Así es como nuestros clientes lo usan hoy.',
+    subtext: 'Así utilizan nuestros clientes Greenio hoy.',
     tag: 'Primeros clientes en logística, servicios profesionales y tecnología.',
   },
 

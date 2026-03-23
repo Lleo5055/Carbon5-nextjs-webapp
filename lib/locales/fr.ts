@@ -16,8 +16,7 @@ export const fr: Translations = {
     badge: "Conçu pour les PME européennes",
     headline: "Comptabilité carbone prête à l'audit pour les PME,",
     headlineHighlight: "en quelques minutes.",
-    subtext:
-      "Transformez vos données d'émissions en bilans carbone conformes au BEGES et à la CSRD — avec des rapports de niveau audit et des snapshots de direction impeccables.",
+    subtext: "Bilans carbone conformes au BEGES et à la CSRD, avec rapports audit et Leadership Snapshots. Sans consultants, sans complexité.",
     cta: "Commencer gratuitement – sans carte",
     stat1: "Conçu pour les PME de 1 à 250 employés",
     stat2: "Premier bilan carbone en moins de 30 minutes",
@@ -43,7 +42,7 @@ export const fr: Translations = {
 
   product: {
     heading: "Conçu pour les vraies entreprises, pas pour les experts climat.",
-    sub: "La plupart des PME n'ont pas d'équipe développement durable. Greenio vous donne un bilan carbone clair et crédible, sans complexité — pour les équipes opérations, finance et conformité.",
+    sub: "Pas d'équipe développement durable nécessaire. Comptabilité carbone claire pour opérations, finance et conformité.",
     features: [
       {
         title: "Simple par conception",
@@ -51,7 +50,7 @@ export const fr: Translations = {
       },
       {
         title: "Sorties conformes CSRD",
-        desc: "Générez des bilans carbone propres pour vos conseils d'administration, investisseurs et clients. Idéal pour les appels d'offres et objectifs net zéro.",
+        desc: "Bilans carbone propres pour vos conseils d'administration, investisseurs et clients. Idéal pour les appels d'offres et objectifs net zéro.",
       },
       {
         title: "Tarification juste et transparente",
@@ -62,19 +61,19 @@ export const fr: Translations = {
 
   howItWorks: {
     heading: "Comment fonctionne Greenio",
-    sub: "De vos factures à un bilan carbone prêt à l'audit — en trois étapes simples.",
+    sub: "De vos factures à un bilan carbone prêt à l'audit en trois étapes.",
     steps: [
       {
         title: "Saisissez vos données",
-        desc: "Commencez avec ce que vous avez — électricité, gaz, carburant et fluides frigorigènes. Pas besoin de données parfaites ; les estimations sont acceptées.",
+        desc: "Électricité, gaz, carburant et fluides frigorigènes. Pas de données parfaites nécessaires, les estimations sont acceptées.",
       },
       {
         title: "Nous calculons votre empreinte",
-        desc: "Nous appliquons les facteurs d'émission européens et construisons votre bilan par mois, source et poste clé — instantanément et en toute transparence.",
+        desc: "Facteurs d'émission européens. Votre bilan par mois, source et poste clé, instantanément.",
       },
       {
         title: "Téléchargez et agissez",
-        desc: "Exportez un PDF clair pour votre conseil d'administration et commencez à cibler vos principaux postes d'émissions avec des recommandations concrètes.",
+        desc: "Exportez un PDF pour votre conseil d'administration et ciblez vos principales sources d'émissions.",
       },
     ],
     benefits: [
@@ -86,7 +85,7 @@ export const fr: Translations = {
 
   pricing: {
     heading: "Tarification simple et transparente",
-    sub: "Démarrez gratuitement, passez à la formule supérieure uniquement quand la comptabilité carbone devient régulière. Sans frais d'installation, sans mauvaises surprises.",
+    sub: "Démarrez gratuitement. Évoluez quand vous êtes prêt. Sans frais ni engagement.",
     note: "Tous les plans incluent l'accès au même tableau de bord épuré.",
     cancelNote: "Résiliez ou changez de plan à tout moment. Sans engagement long terme.",
     plans: {
@@ -103,7 +102,7 @@ export const fr: Translations = {
       },
       growth: {
         name: "Croissance",
-        price: "€11,99",
+        price: "€14,99",
         period: "par mois",
         features: [
           "Bilans/rapports illimités",
@@ -115,7 +114,7 @@ export const fr: Translations = {
       },
       pro: {
         name: "Pro",
-        price: "€29,99",
+        price: "€34,99",
         period: "par mois",
         features: [
           "Tout de Croissance",
@@ -141,12 +140,12 @@ export const fr: Translations = {
 
   contact: {
     heading: "Faites de la comptabilité carbone un atout, pas une contrainte.",
-    sub: "Que vous démarriez ou consolidiez votre engagement net zéro, Greenio vous donne une base claire et des prochaines étapes simples.",
+    sub: "Une base claire et des étapes simples pour les entreprises européennes.",
     ctaPrimary: "Démarrer gratuitement aujourd'hui",
     ctaEmail: "Nous écrire",
     cardHeading: "Vous préférez l'email ?",
     cardDesc:
-      "Partagez quelques lignes sur la taille de votre entreprise et pourquoi vous explorez la comptabilité carbone. Nous répondrons avec les prochaines étapes et, si utile, un lien pour un court appel.",
+      "Partagez quelques lignes sur votre entreprise et pourquoi vous explorez la comptabilité carbone. Nous répondrons avec les prochaines étapes.",
     cardEmailLabel: "Email :",
   },
 
@@ -160,7 +159,7 @@ export const fr: Translations = {
 
   testimonials: {
     heading: "La confiance des équipes opérations et finance en Europe.",
-    subtext: "Greenio s'intègre dans le quotidien des équipes occupées — aucune expertise climatique requise. Voici comment nos clients l'utilisent aujourd'hui.",
+    subtext: "Comment nos clients utilisent Greenio aujourd'hui.",
     tag: "Premiers clients en logistique, services professionnels et tech.",
   },
 
