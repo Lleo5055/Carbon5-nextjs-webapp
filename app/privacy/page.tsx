@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Privacy Policy — Greenio',
+  title: 'Privacy Policy | Greenio',
   description: 'How Greenio collects, uses, and protects your data.',
 };
 
@@ -11,9 +11,8 @@ export default function PrivacyPage() {
       {/* Nav */}
       <header className="border-b border-slate-200">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="Greenio" className="h-8 w-auto" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-            <span className="text-lg font-semibold text-emerald-700">Greenio</span>
+          <Link href="/">
+            <img src="/logogreenio.svg" alt="Greenio" className="h-20 w-auto" />
           </Link>
           <Link href="/" className="text-sm text-slate-500 hover:text-slate-800 transition-colors">← Back to home</Link>
         </div>
@@ -23,7 +22,7 @@ export default function PrivacyPage() {
         <h1 className="text-3xl font-bold text-slate-900 mb-2">Privacy Policy</h1>
         <p className="text-sm text-slate-500 mb-10">Effective date: 1 April 2025 &nbsp;|&nbsp; Last updated: 22 March 2026</p>
 
-        <div className="prose prose-slate max-w-none space-y-8 text-slate-700 leading-relaxed">
+        <div className="space-y-8 text-slate-700 leading-relaxed">
 
           <section>
             <h2 className="text-xl font-semibold text-slate-900 mb-3">1. Who we are</h2>
@@ -60,7 +59,7 @@ export default function PrivacyPage() {
                   <tr className="bg-slate-50/50">
                     <td className="px-4 py-3 font-medium">Emissions data</td>
                     <td className="px-4 py-3">Electricity consumption, fuel usage, refrigerant quantities, Scope 3 activities</td>
-                    <td className="px-4 py-3">Core service — carbon accounting and reporting</td>
+                    <td className="px-4 py-3">Core service: carbon accounting and reporting</td>
                   </tr>
                   <tr>
                     <td className="px-4 py-3 font-medium">Organisation profile</td>
@@ -80,7 +79,7 @@ export default function PrivacyPage() {
                 </tbody>
               </table>
             </div>
-            <p className="mt-4">We do <strong>not</strong> collect payment card details directly — payments are processed by our payment provider and we receive only transaction references.</p>
+            <p className="mt-4">We do <strong>not</strong> collect payment card details directly. Payments are processed by our payment provider and we receive only transaction references.</p>
           </section>
 
           <section>
@@ -100,10 +99,10 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-semibold text-slate-900 mb-3">4. Legal basis for processing</h2>
             <p>We process your personal data on the following grounds:</p>
             <ul className="list-disc pl-5 space-y-2 mt-2">
-              <li><strong>Contract performance</strong> — processing necessary to deliver the service you subscribed to</li>
-              <li><strong>Consent</strong> — for optional communications such as product updates and newsletters; you may withdraw consent at any time</li>
-              <li><strong>Legitimate interests</strong> — platform security, fraud prevention, and anonymised analytics</li>
-              <li><strong>Legal obligation</strong> — where required by applicable law</li>
+              <li><strong>Contract performance:</strong> processing necessary to deliver the service you subscribed to</li>
+              <li><strong>Consent:</strong> for optional communications such as product updates and newsletters; you may withdraw consent at any time</li>
+              <li><strong>Legitimate interests:</strong> platform security, fraud prevention, and anonymised analytics</li>
+              <li><strong>Legal obligation:</strong> where required by applicable law</li>
             </ul>
           </section>
 
@@ -124,11 +123,11 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-semibold text-slate-900 mb-3">6. Data sharing</h2>
             <p>We share data only with:</p>
             <ul className="list-disc pl-5 space-y-2 mt-2">
-              <li><strong>Supabase</strong> — database and authentication infrastructure</li>
-              <li><strong>Vercel</strong> — application hosting and edge delivery</li>
-              <li><strong>Payment processors</strong> — for billing purposes only; no emission data is shared</li>
-              <li><strong>Professional advisors</strong> — lawyers and accountants bound by confidentiality obligations</li>
-              <li><strong>Regulatory authorities</strong> — where required by law (e.g., BEE, MoEFCC, SEBI)</li>
+              <li><strong>Supabase:</strong> database and authentication infrastructure</li>
+              <li><strong>Vercel:</strong> application hosting and edge delivery</li>
+              <li><strong>Payment processors:</strong> for billing purposes only; no emission data is shared</li>
+              <li><strong>Professional advisors:</strong> lawyers and accountants bound by confidentiality obligations</li>
+              <li><strong>Regulatory authorities:</strong> where required by law (e.g., BEE, MoEFCC, SEBI)</li>
             </ul>
             <p className="mt-4">
               All sub-processors are bound by data processing agreements and are prohibited from using your data for
@@ -141,7 +140,7 @@ export default function PrivacyPage() {
             <p>
               We retain your account and emissions data for as long as your account is active, plus 7 years after
               account closure (to comply with statutory record-keeping requirements relevant to carbon reporting and
-              financial accounts). You may request earlier deletion subject to legal obligations — see Section 8.
+              financial accounts). You may request earlier deletion subject to legal obligations; see Section 8.
             </p>
           </section>
 
@@ -149,15 +148,15 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-semibold text-slate-900 mb-3">8. Your rights</h2>
             <p>Under applicable law (including DPDPA 2023), you have the right to:</p>
             <ul className="list-disc pl-5 space-y-2 mt-2">
-              <li><strong>Access</strong> — request a copy of the personal data we hold about you</li>
-              <li><strong>Correction</strong> — request correction of inaccurate or incomplete data</li>
-              <li><strong>Erasure</strong> — request deletion of your data, subject to legal retention requirements</li>
-              <li><strong>Data portability</strong> — receive your emissions data in a machine-readable format (CSV/JSON export is available directly in the platform)</li>
-              <li><strong>Withdraw consent</strong> — where processing is based on consent, withdraw it at any time</li>
-              <li><strong>Lodge a complaint</strong> — with the Data Protection Board of India or other competent supervisory authority</li>
+              <li><strong>Access:</strong> request a copy of the personal data we hold about you</li>
+              <li><strong>Correction:</strong> request correction of inaccurate or incomplete data</li>
+              <li><strong>Erasure:</strong> request deletion of your data, subject to legal retention requirements</li>
+              <li><strong>Data portability:</strong> receive your emissions data in a machine-readable format (CSV/JSON export is available directly in the platform)</li>
+              <li><strong>Withdraw consent:</strong> where processing is based on consent, withdraw it at any time</li>
+              <li><strong>Lodge a complaint:</strong> with the Data Protection Board of India or other competent supervisory authority</li>
             </ul>
             <p className="mt-4">
-              To exercise any of these rights, email us at <a href="mailto:privacy@greenio.co" className="text-emerald-700 hover:underline">privacy@greenio.co</a>.
+              To exercise any of these rights, email us at <a href="mailto:hello@greenio.co" className="text-emerald-700 hover:underline">hello@greenio.co</a>.
               We will respond within 30 days.
             </p>
           </section>
@@ -185,7 +184,7 @@ export default function PrivacyPage() {
             <p>For privacy-related queries or to exercise your rights:</p>
             <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
               <p><strong>Greenio</strong></p>
-              <p>Email: <a href="mailto:privacy@greenio.co" className="text-emerald-700 hover:underline">privacy@greenio.co</a></p>
+              <p>Email: <a href="mailto:hello@greenio.co" className="text-emerald-700 hover:underline">hello@greenio.co</a></p>
               <p>Website: <a href="https://greenio.co" className="text-emerald-700 hover:underline">greenio.co</a></p>
             </div>
           </section>

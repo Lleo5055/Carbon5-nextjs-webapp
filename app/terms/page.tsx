@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Terms of Service — Greenio',
+  title: 'Terms of Service | Greenio',
   description: 'Terms governing your use of the Greenio carbon accounting platform.',
 };
 
@@ -11,9 +11,8 @@ export default function TermsPage() {
       {/* Nav */}
       <header className="border-b border-slate-200">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="Greenio" className="h-8 w-auto" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-            <span className="text-lg font-semibold text-emerald-700">Greenio</span>
+          <Link href="/">
+            <img src="/logogreenio.svg" alt="Greenio" className="h-20 w-auto" />
           </Link>
           <Link href="/" className="text-sm text-slate-500 hover:text-slate-800 transition-colors">← Back to home</Link>
         </div>
@@ -23,7 +22,7 @@ export default function TermsPage() {
         <h1 className="text-3xl font-bold text-slate-900 mb-2">Terms of Service</h1>
         <p className="text-sm text-slate-500 mb-10">Effective date: 1 April 2025 &nbsp;|&nbsp; Last updated: 22 March 2026</p>
 
-        <div className="prose prose-slate max-w-none space-y-8 text-slate-700 leading-relaxed">
+        <div className="space-y-8 text-slate-700 leading-relaxed">
 
           <section>
             <h2 className="text-xl font-semibold text-slate-900 mb-3">1. Agreement to terms</h2>
