@@ -681,7 +681,7 @@ export default function CCTSDashboardPage() {
                           <p className="text-[11px] text-slate-400">{position.surplus ? 'Eligible to earn' : 'Must surrender/buy'}</p>
                         </>
                       ) : (
-                        <p className="text-sm text-slate-400 mt-0.5">—</p>
+                        <p className="text-sm text-slate-400 mt-0.5">N/A</p>
                       )}
                     </div>
                   </div>
@@ -765,13 +765,13 @@ export default function CCTSDashboardPage() {
                                       </div>
                                     </td>
                                     <td className="p-2 text-right tabular-nums text-slate-600">
-                                      {m.has_emissions ? (m.total_co2e_kg / 1000).toFixed(4) : '—'}
+                                      {m.has_emissions ? (m.total_co2e_kg / 1000).toFixed(4) : 'N/A'}
                                     </td>
                                     <td className="p-2 text-right tabular-nums text-slate-600">
-                                      {m.product_output > 0 ? m.product_output.toLocaleString() : '—'}
+                                      {m.product_output > 0 ? m.product_output.toLocaleString() : 'N/A'}
                                     </td>
                                     <td className="p-2 text-right tabular-nums font-medium text-slate-800">
-                                      {intensity != null ? intensity.toFixed(4) : '—'}
+                                      {intensity != null ? intensity.toFixed(4) : 'N/A'}
                                     </td>
                                     <td className="p-2 text-right">
                                       {intensity != null ? (
@@ -781,7 +781,7 @@ export default function CCTSDashboardPage() {
                                       ) : m.has_emissions && !m.has_output ? (
                                         <span className="text-[10px] text-amber-500">Log output</span>
                                       ) : (
-                                        <span className="text-[10px] text-slate-400">—</span>
+                                        <span className="text-[10px] text-slate-400">N/A</span>
                                       )}
                                     </td>
                                   </tr>
@@ -979,7 +979,7 @@ export default function CCTSDashboardPage() {
                         <td className="p-3 text-right tabular-nums text-slate-600">
                           {actual?.total_product_output
                             ? `${actual.total_product_output.toLocaleString()} ${target.equivalent_product_unit}`
-                            : '—'}
+                            : 'N/A'}
                         </td>
                         <td className="p-3 text-right tabular-nums">
                           {position ? (
@@ -987,7 +987,7 @@ export default function CCTSDashboardPage() {
                               {position.surplus ? '+' : ''}{position.ccc.toFixed(1)} CCCs
                             </span>
                           ) : (
-                            <span className="text-slate-400">—</span>
+                            <span className="text-slate-400">N/A</span>
                           )}
                         </td>
                         <td className="p-3 text-right">

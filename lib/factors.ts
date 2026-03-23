@@ -47,8 +47,8 @@ export function getFactorsForCountry(countryCode: string): FactorSet {
     petrol:       ef.petrolKgPerLitre,
     // gas is stored as kgCO2e/m³ in emissionFactors.ts.
     // calculateCo2e() receives gasKwh, so we convert here:
-    // 1 kWh of natural gas ≈ 0.0344 m³ → factor per kWh = factor per m³ × 0.0344
-    gas:          ef.naturalGasKgPerM3 * 0.0344,
+    // 1 kWh of natural gas ≈ 0.0924 m³ (gross CV ~10.83 kWh/m³, UK/EU/IN standard)
+    gas:          ef.naturalGasKgPerM3 * 0.0924,
     lpg:          ef.lpgKgPerLitre,
     lpgKg:        ef.lpgKgPerKg,
     cngKg:        ef.cngKgPerKg,

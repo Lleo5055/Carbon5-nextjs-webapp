@@ -377,7 +377,7 @@ export async function GET(req: NextRequest) {
     page.drawLine({ start: { x: 50, y }, end: { x: 545, y }, thickness: 2, color: GREEN });
     y -= 28;
 
-    drawText(page, 'Carbon Credit Trading Scheme \u2014 Audit-Ready Emission Data', 50, y, 12, font, GREY);
+    drawText(page, 'Carbon Credit Trading Scheme: Audit-Ready Emission Data', 50, y, 12, font, GREY);
     y -= 36;
 
     const metaRows = [
@@ -385,7 +385,7 @@ export async function GET(req: NextRequest) {
       ['Industry', industry],
       ['Country', 'India'],
       ['Reporting period', periodLabel],
-      ...(fyYear ? [['Compliance year', `FY ${fyYear} \u2014 Carbon Credit Trading Scheme, 2023`]] : []),
+      ...(fyYear ? [['Compliance year', `FY ${fyYear}: Carbon Credit Trading Scheme, 2023`]] : []),
       ['Report date', reportDate],
       ['Regulatory reference', 'Carbon Credit Trading Scheme, 2023 (MoP S.O. 2825(E))'],
       ['Emission factor sources', ef.version.split(' | ')[0]],
@@ -500,7 +500,7 @@ export async function GET(req: NextRequest) {
           page.drawLine({ start: { x: 45, y: y - 18 }, end: { x: 555, y: y - 18 }, thickness: 0.3, color: DIVIDER });
           drawText(page, label, 55, y - 6, 9, bold, TEXT);
           const valueColor = highlight ? (onTrack ? GREEN : rgb(0.75, 0.1, 0.1)) : TEXT;
-          drawText(page, value, 400, y - 6, 9, font, valueColor);
+          drawText(page, value, 260, y - 6, 9, font, valueColor);
           rowShadeI = !rowShadeI;
           y -= 24;
         }
@@ -518,8 +518,10 @@ export async function GET(req: NextRequest) {
     page.drawLine({ start: { x: 50, y: y - 6 }, end: { x: 545, y: y - 6 }, thickness: 1, color: GREEN });
     y -= 30;
 
-    drawText(page, 'Each row shows the raw activity inputs, emission factors applied, and calculated CO2e output. This constitutes the full MRV chain required for ACVA verification.', 50, y, 9, font, GREY);
-    y -= 20;
+    drawText(page, 'Each row shows the raw activity inputs, emission factors applied, and calculated CO2e output.', 50, y, 9, font, GREY);
+    y -= 13;
+    drawText(page, 'This constitutes the full MRV chain required for ACVA verification.', 50, y, 9, font, GREY);
+    y -= 16;
 
     for (const r of assembledRowsFiltered) {
       if (y < 120) {
@@ -529,7 +531,7 @@ export async function GET(req: NextRequest) {
       }
 
       const lockBadge = r.lock_status === 'locked' ? 'Locked' : 'Unlocked';
-      const chainBadge = r.has_full_audit_chain ? 'Full audit chain' : 'Legacy \u2014 recalculated';
+      const chainBadge = r.has_full_audit_chain ? 'Full audit chain' : 'Legacy (recalculated)';
 
       page.drawRectangle({ x: 45, y: y - 18, width: 510, height: 22, color: rgb(0.1, 0.1, 0.12) });
       drawText(page, r.month, 55, y - 10, 9.5, bold, rgb(1, 1, 1));
@@ -576,13 +578,13 @@ export async function GET(req: NextRequest) {
       drawText(page, `${r.total_co2e_kg.toFixed(3)} kg  (${(r.total_co2e_kg / 1000).toFixed(4)} tCO2e)`, 355, y - 8, 8.5, bold, GREEN);
       y -= 22;
 
-      // Truncate EF version string to prevent overflow
-      const efStr = `EF version: ${r.ef_version}   |   Data source: ${r.data_source}`;
-      const efTruncated = font.widthOfTextAtSize(efStr, 7) > 490
-        ? efStr.slice(0, Math.floor(efStr.length * 490 / font.widthOfTextAtSize(efStr, 7))) + '...'
-        : efStr;
+      // EF version on its own line (may be long); data source always shown in full on next line
+      const efVersionStr = `EF version: ${r.ef_version}`;
+      const efTruncated = font.widthOfTextAtSize(efVersionStr, 7) > 490
+        ? efVersionStr.slice(0, Math.floor(efVersionStr.length * 490 / font.widthOfTextAtSize(efVersionStr, 7))) + '...'
+        : efVersionStr;
       drawText(page, efTruncated, 55, y - 6, 7, font, GREY);
-      drawText(page, `Row ID: ${r.id}`, 55, y - 17, 7, font, GREY);
+      drawText(page, `Data source: ${r.data_source}   |   Row ID: ${r.id}`, 55, y - 17, 7, font, GREY);
       y -= 26;
       y -= 6;
     }

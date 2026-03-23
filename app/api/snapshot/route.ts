@@ -885,7 +885,7 @@ export async function GET(req: NextRequest) {
     fillRect(page, 0, 28, PW, 28, rgb(245/255,249/255,246/255));
     line(page, 0, 56, PW, 56, C.RULE, 0.5);
     const today = new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
-    label(page, `Generated: ${today}   |   Boundary: Operational Control   |   Factors: DEFRA 2025 / EU Eurostat 2026   |   Carbon5`,
+    label(page, `Generated: ${today}   |   Boundary: Operational Control   |   Factors: DEFRA 2025 / EU Eurostat 2026   |   Greenio`,
       ML, 37, 6.5, font, C.MUTED);
 
     const pdfBytes = await pdf.save();

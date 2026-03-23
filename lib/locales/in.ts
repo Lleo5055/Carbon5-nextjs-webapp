@@ -155,8 +155,8 @@ export const india: Translations = {
 
   footer: {
     rights: 'Greenio. All rights reserved.',
-    madeIn: 'Made in the UK',
-    flag: '🇬🇧',
+    madeIn: 'Made in India',
+    flag: '🇮🇳',
     privacy: 'Privacy',
     terms: 'Terms',
   },
