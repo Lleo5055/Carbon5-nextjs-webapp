@@ -106,11 +106,11 @@ export const de: Translations = {
         period: 'pro Monat',
         features: [
           'Unbegrenzte Klimabilanzen/Berichte',
-          'Prioritätssupport',
           'CSV / XLS Exporte',
+          'CSRD-Berichterstattung',
+          'E-Mail-Support',
         ],
         cta: 'Growth wählen',
-        badge: 'Beliebteste Wahl',
       },
       pro: {
         name: 'Pro',
@@ -118,17 +118,20 @@ export const de: Translations = {
         period: 'pro Monat',
         features: [
           'Alles aus Growth',
-          'Teamzugang (mehrere Nutzer)',
+          'Teamzugang für mehrere Nutzer',
           'Leadership Snapshot',
           'KI-Reduktionsempfehlungen',
+          'Prioritätssupport',
         ],
         cta: 'Pro wählen',
+        badge: 'Beliebteste Wahl',
       },
       enterprise: {
         name: 'Enterprise',
         price: 'Sprechen wir',
         period: 'individuell',
         features: [
+          'Alles aus Pro',
           'Mehrere Standorte & Einheiten',
           'Individuelles Onboarding & Support',
           'Dedicated Account Manager',

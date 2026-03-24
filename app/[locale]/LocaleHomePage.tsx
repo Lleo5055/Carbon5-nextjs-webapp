@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import TestimonialsCarousel from '../TestimonialsCarousel';
 import { getTranslations, SWITCHER_COUNTRIES } from '@/lib/locales/index';
+import { supabase } from '@/lib/supabaseClient';
 
 interface Props {
   locale: string;
@@ -15,6 +16,13 @@ export default function LocaleHomePage({ locale }: Props) {
   const router = useRouter();
   const year = new Date().getFullYear();
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setIsLoggedIn(!!data.session);
+    });
+  }, []);
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
@@ -63,7 +71,7 @@ export default function LocaleHomePage({ locale }: Props) {
           <nav className="hidden items-center gap-8 text-sm font-medium text-slate-600 sm:flex">
             <a href="#product" className="transition-colors hover:text-slate-900">{t.nav.product}</a>
             <a href="#how-it-works" className="transition-colors hover:text-slate-900">{t.nav.howItWorks}</a>
-            <a href="#pricing" className="transition-colors hover:text-slate-900">{t.nav.pricing}</a>
+            <a href={isLoggedIn ? '/billing' : '#pricing'} className="transition-colors hover:text-slate-900">{t.nav.pricing}</a>
             <a href="#contact" className="transition-colors hover:text-slate-900">{t.nav.contact}</a>
           </nav>
 
@@ -429,52 +437,52 @@ export default function LocaleHomePage({ locale }: Props) {
                     </li>
                   ))}
                 </ul>
-                <Link href="/signup" className="mt-8 inline-flex w-full items-center justify-center rounded-full border-2 border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50">
+                <Link href={isLoggedIn ? '/billing' : '/signup'} className="mt-8 inline-flex w-full items-center justify-center rounded-full border-2 border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50">
                   {t.pricing.plans.free.cta}
                 </Link>
               </div>
 
-              {/* Growth — highlighted */}
-              <div className="relative flex flex-col rounded-2xl border-2 border-emerald-500 bg-white p-6 shadow-xl shadow-emerald-100">
-                {t.pricing.plans.growth.badge && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-emerald-600 px-4 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-md">
-                    {t.pricing.plans.growth.badge}
-                  </span>
-                )}
-                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">{t.pricing.plans.growth.name}</p>
+              {/* Growth */}
+              <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t.pricing.plans.growth.name}</p>
                 <div className="mt-4 mb-1">
                   <span className="text-4xl font-bold text-slate-900">{t.pricing.plans.growth.price}</span>
                 </div>
                 <p className="text-sm text-slate-400 mb-6">{t.pricing.plans.growth.period}</p>
                 <ul className="flex-1 space-y-3">
                   {t.pricing.plans.growth.features.map((f, i) => (
-                    <li key={i} className="flex items-start gap-2.5 text-sm text-slate-700">
-                      <span className="mt-0.5 shrink-0 text-emerald-500 font-bold">✓</span>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/signup" className="mt-8 inline-flex w-full items-center justify-center rounded-full bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:-translate-y-0.5 hover:bg-emerald-500">
-                  {t.pricing.plans.growth.cta}
-                </Link>
-              </div>
-
-              {/* Pro */}
-              <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t.pricing.plans.pro.name}</p>
-                <div className="mt-4 mb-1">
-                  <span className="text-4xl font-bold text-slate-900">{t.pricing.plans.pro.price}</span>
-                </div>
-                <p className="text-sm text-slate-400 mb-6">{t.pricing.plans.pro.period}</p>
-                <ul className="flex-1 space-y-3">
-                  {t.pricing.plans.pro.features.map((f, i) => (
                     <li key={i} className="flex items-start gap-2.5 text-sm text-slate-600">
                       <span className="mt-0.5 shrink-0 text-emerald-500 font-bold">✓</span>
                       {f}
                     </li>
                   ))}
                 </ul>
-                <Link href="/signup" className="mt-8 inline-flex w-full items-center justify-center rounded-full border-2 border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50">
+                <Link href={isLoggedIn ? '/billing' : '/signup'} className="mt-8 inline-flex w-full items-center justify-center rounded-full border-2 border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50">
+                  {t.pricing.plans.growth.cta}
+                </Link>
+              </div>
+
+              {/* Pro — highlighted */}
+              <div className="relative flex flex-col rounded-2xl border-2 border-emerald-500 bg-white p-6 shadow-xl shadow-emerald-100">
+                {t.pricing.plans.pro.badge && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-emerald-600 px-4 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-md">
+                    {t.pricing.plans.pro.badge}
+                  </span>
+                )}
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">{t.pricing.plans.pro.name}</p>
+                <div className="mt-4 mb-1">
+                  <span className="text-4xl font-bold text-slate-900">{t.pricing.plans.pro.price}</span>
+                </div>
+                <p className="text-sm text-slate-400 mb-6">{t.pricing.plans.pro.period}</p>
+                <ul className="flex-1 space-y-3">
+                  {t.pricing.plans.pro.features.map((f, i) => (
+                    <li key={i} className="flex items-start gap-2.5 text-sm text-slate-700">
+                      <span className="mt-0.5 shrink-0 text-emerald-500 font-bold">✓</span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Link href={isLoggedIn ? '/billing' : '/signup'} className="mt-8 inline-flex w-full items-center justify-center rounded-full bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:-translate-y-0.5 hover:bg-emerald-500">
                   {t.pricing.plans.pro.cta}
                 </Link>
               </div>
@@ -494,9 +502,9 @@ export default function LocaleHomePage({ locale }: Props) {
                     </li>
                   ))}
                 </ul>
-                <a href="#contact" className="mt-8 inline-flex w-full items-center justify-center rounded-full border-2 border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50">
+                <Link href={isLoggedIn ? '/billing' : '#contact'} className="mt-8 inline-flex w-full items-center justify-center rounded-full border-2 border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50">
                   {t.pricing.plans.enterprise.cta}
-                </a>
+                </Link>
               </div>
 
             </div>

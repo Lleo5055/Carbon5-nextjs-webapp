@@ -106,11 +106,11 @@ export const en: Translations = {
         period: 'per month',
         features: [
           'Unlimited carbon accounts/reports',
-          'Priority support',
           'CSV / XLS exports',
+          'SECR & CSRD reporting',
+          'Email support',
         ],
         cta: 'Choose Growth',
-        badge: 'Most popular',
       },
       pro: {
         name: 'Pro',
@@ -118,17 +118,20 @@ export const en: Translations = {
         period: 'per month',
         features: [
           'Everything in Growth',
-          'Team access (multi-user)',
+          'Multi-user team access',
           'Leadership Snapshot',
           'Early AI reduction insights',
+          'Priority support',
         ],
         cta: 'Choose Pro',
+        badge: 'Most popular',
       },
       enterprise: {
         name: 'Enterprise',
         price: "Let's talk",
         period: 'custom',
         features: [
+          'Everything in Pro',
           'Multiple entities & locations',
           'Custom onboarding & support',
           'Dedicated account manager',

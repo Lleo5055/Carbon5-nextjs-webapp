@@ -106,11 +106,11 @@ export const sv: Translations = {
         period: 'per månad',
         features: [
           'Obegränsade koldioxidkonton/rapporter',
-          'Prioritetssupport',
           'CSV / XLS-exporter',
+          'CSRD-rapportering',
+          'E-postsupport',
         ],
         cta: 'Välj Tillväxt',
-        badge: 'Mest populär',
       },
       pro: {
         name: 'Pro',
@@ -118,17 +118,20 @@ export const sv: Translations = {
         period: 'per månad',
         features: [
           'Allt i Tillväxt',
-          'Teamåtkomst (flera användare)',
+          'Teamåtkomst för flera användare',
           'Leadership Snapshot',
           'AI-rekommendationer för minskning',
+          'Prioritetssupport',
         ],
         cta: 'Välj Pro',
+        badge: 'Mest populär',
       },
       enterprise: {
         name: 'Enterprise',
         price: 'Kontakta oss',
         period: 'anpassad',
         features: [
+          'Allt i Pro',
           'Flera enheter och platser',
           'Anpassad onboarding och support',
           'Dedikerad kundansvarig',

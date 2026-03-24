@@ -106,11 +106,11 @@ export const pl: Translations = {
         period: 'miesięcznie',
         features: [
           'Nieograniczone bilanse/raporty',
-          'Wsparcie priorytetowe',
           'Eksporty CSV / XLS',
+          'Raportowanie CSRD',
+          'Wsparcie e-mail',
         ],
         cta: 'Wybierz Wzrost',
-        badge: 'Najpopularniejszy',
       },
       pro: {
         name: 'Pro',
@@ -118,17 +118,20 @@ export const pl: Translations = {
         period: 'miesięcznie',
         features: [
           'Wszystko z Wzrostu',
-          'Dostęp zespołowy (wielu użytkowników)',
+          'Dostęp zespołowy dla wielu użytkowników',
           'Leadership Snapshot',
           'Rekomendacje AI do redukcji emisji',
+          'Wsparcie priorytetowe',
         ],
         cta: 'Wybierz Pro',
+        badge: 'Najpopularniejszy',
       },
       enterprise: {
         name: 'Enterprise',
         price: 'Kontakt',
         period: 'indywidualny',
         features: [
+          'Wszystko z Pro',
           'Wiele podmiotów i lokalizacji',
           'Indywidualny onboarding i wsparcie',
           'Dedykowany opiekun konta',

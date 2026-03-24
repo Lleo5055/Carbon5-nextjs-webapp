@@ -106,11 +106,11 @@ export const nl: Translations = {
         period: 'per maand',
         features: [
           'Onbeperkte koolstofrekeningen/rapporten',
-          'Prioriteitsondersteuning',
           'CSV / XLS-exports',
+          'CSRD-rapportage',
+          'E-mailondersteuning',
         ],
         cta: 'Kies Groei',
-        badge: 'Meest populair',
       },
       pro: {
         name: 'Pro',
@@ -118,17 +118,20 @@ export const nl: Translations = {
         period: 'per maand',
         features: [
           'Alles van Groei',
-          'Teamtoegang (meerdere gebruikers)',
+          'Teamtoegang voor meerdere gebruikers',
           'Leadership Snapshot',
           'AI-aanbevelingen voor reductie',
+          'Prioriteitsondersteuning',
         ],
         cta: 'Kies Pro',
+        badge: 'Meest populair',
       },
       enterprise: {
         name: 'Enterprise',
         price: 'Neem contact',
         period: 'op maat',
         features: [
+          'Alles van Pro',
           'Meerdere entiteiten & locaties',
           'Aangepaste onboarding & ondersteuning',
           'Dedicated accountmanager',

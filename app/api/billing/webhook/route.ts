@@ -61,12 +61,7 @@ export async function POST(req: NextRequest) {
       const session = event.data.object as Stripe.Checkout.Session;
 
       const userId = session.metadata?.user_id;
-      const plan = session.metadata?.plan as
-        | 'free'
-        | 'growth'
-        | 'pro'
-        | 'enterprise'
-        | undefined;
+      const plan = session.metadata?.plan as 'free' | 'growth' | 'pro' | undefined;
 
       if (!userId || !plan) {
         console.warn('⚠️ Missing user_id/plan metadata in Stripe checkout');

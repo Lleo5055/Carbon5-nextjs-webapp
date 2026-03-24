@@ -106,11 +106,11 @@ export const pt: Translations = {
         period: 'por mês',
         features: [
           'Contas/relatórios ilimitados',
-          'Suporte prioritário',
           'Exportações CSV / XLS',
+          'Relatórios CSRD',
+          'Suporte por email',
         ],
         cta: 'Escolher Crescimento',
-        badge: 'Mais popular',
       },
       pro: {
         name: 'Pro',
@@ -118,17 +118,20 @@ export const pt: Translations = {
         period: 'por mês',
         features: [
           'Tudo do Crescimento',
-          'Acesso em equipa (multiutilizador)',
+          'Acesso em equipa multi-utilizador',
           'Leadership Snapshot',
           'Recomendações de IA para redução',
+          'Suporte prioritário',
         ],
         cta: 'Escolher Pro',
+        badge: 'Mais popular',
       },
       enterprise: {
         name: 'Enterprise',
         price: 'Fale connosco',
         period: 'personalizado',
         features: [
+          'Tudo do Pro',
           'Múltiplas entidades e localizações',
           'Integração e suporte personalizados',
           'Gestor de conta dedicado',

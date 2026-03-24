@@ -106,11 +106,11 @@ export const it: Translations = {
         period: "al mese",
         features: [
           "Bilanci/report illimitati",
-          "Supporto prioritario",
           "Esportazioni CSV / XLS",
+          "Reporting CSRD",
+          "Supporto email",
         ],
         cta: "Scegli Crescita",
-        badge: "Più popolare",
       },
       pro: {
         name: "Pro",
@@ -118,17 +118,20 @@ export const it: Translations = {
         period: "al mese",
         features: [
           "Tutto di Crescita",
-          "Accesso team (multi-utente)",
+          "Accesso team multi-utente",
           "Leadership Snapshot",
           "Raccomandazioni AI di riduzione",
+          "Supporto prioritario",
         ],
         cta: "Scegli Pro",
+        badge: "Più popolare",
       },
       enterprise: {
         name: "Enterprise",
         price: "Parliamone",
         period: "personalizzato",
         features: [
+          "Tutto di Pro",
           "Più entità e sedi",
           "Onboarding e supporto personalizzati",
           "Account manager dedicato",

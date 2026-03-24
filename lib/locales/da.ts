@@ -106,11 +106,11 @@ export const da: Translations = {
         period: 'pr. måned',
         features: [
           'Ubegrænsede kulstofregnskaber/rapporter',
-          'Prioritetssupport',
           'CSV / XLS-eksporter',
+          'CSRD-rapportering',
+          'E-mailsupport',
         ],
         cta: 'Vælg Vækst',
-        badge: 'Mest populær',
       },
       pro: {
         name: 'Pro',
@@ -118,17 +118,20 @@ export const da: Translations = {
         period: 'pr. måned',
         features: [
           'Alt fra Vækst',
-          'Teamadgang (flere brugere)',
+          'Teamadgang til flere brugere',
           'Leadership Snapshot',
           'AI-anbefalinger til reduktion',
+          'Prioritetssupport',
         ],
         cta: 'Vælg Pro',
+        badge: 'Mest populær',
       },
       enterprise: {
         name: 'Enterprise',
         price: 'Lad os tale',
         period: 'tilpasset',
         features: [
+          'Alt fra Pro',
           'Flere enheder og lokationer',
           'Tilpasset onboarding og support',
           'Dedikeret account manager',
