@@ -245,6 +245,6 @@ export default function Image({ params }: Props) {
         </div>
       </div>
     ),
-    { width: 1200, height: 630 }
+    { width: 1200, height: 630, fonts: [] }
   );
 }
