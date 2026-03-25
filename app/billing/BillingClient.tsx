@@ -17,6 +17,10 @@ export default function BillingClient({ initialLocale }: { initialLocale: string
   const [userId, setUserId] = useState<string | null>(null);
   const [currentPlan, setCurrentPlan] = useState<CurrentPlan>('free');
   const [showDowngradeModal, setShowDowngradeModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+  const [justCancelled, setJustCancelled] = useState(false);
   const [locale, setLocale] = useState<string>(initialLocale);
 
   const success = searchParams.get('success');
@@ -64,6 +68,27 @@ export default function BillingClient({ initialLocale }: { initialLocale: string
       alert('Something went wrong starting checkout.');
     } finally {
       setLoadingPlan(null);
+    }
+  }
+
+  async function confirmCancel() {
+    if (!userId) return;
+    try {
+      setCancelling(true);
+      const res = await fetch('/api/billing/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, reason: cancelReason }),
+      });
+      if (!res.ok) { alert(`Error: ${await res.text()}`); return; }
+      setJustCancelled(true);
+      setShowCancelModal(false);
+      setCurrentPlan('free');
+    } catch (err) {
+      console.error('Cancel error', err);
+      alert('Something went wrong.');
+    } finally {
+      setCancelling(false);
     }
   }
 
@@ -165,15 +190,73 @@ export default function BillingClient({ initialLocale }: { initialLocale: string
         </div>
       )}
 
+      {/* CANCEL MODAL */}
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-1 flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600 text-base">✕</span>
+              <h2 className="text-base font-semibold text-slate-900">Cancel subscription?</h2>
+            </div>
+            <p className="mt-2 text-sm text-slate-500">Your plan stays active until the end of your billing period. You won't be charged again.</p>
+            <div className="mt-4">
+              <p className="text-sm font-medium text-slate-700 mb-2">Why are you cancelling? <span className="text-slate-400 font-normal">(optional)</span></p>
+              <div className="space-y-2">
+                {[
+                  'Too expensive',
+                  'Not using it enough',
+                  'Missing features I need',
+                  'Switching to another tool',
+                  'Just testing, not ready yet',
+                  'Other',
+                ].map(r => (
+                  <label key={r} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="cancel_reason"
+                      value={r}
+                      checked={cancelReason === r}
+                      onChange={() => setCancelReason(r)}
+                      className="accent-emerald-600"
+                    />
+                    <span className="text-sm text-slate-700">{r}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="flex-1 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Keep my plan
+              </button>
+              <button
+                onClick={confirmCancel}
+                disabled={cancelling}
+                className="flex-1 rounded-full bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-60"
+              >
+                {cancelling ? 'Cancelling…' : 'Yes, cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mx-auto max-w-3xl px-4 py-8 space-y-5">
 
         {/* Back link */}
-        <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900">
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
-          Back to dashboard
+        <Link href="/dashboard" className="h-[32px] px-4 rounded-full border text-xs font-medium bg-slate-900 text-white border-slate-900 hover:bg-slate-800 flex items-center justify-center w-fit">
+          ← Dashboard
         </Link>
 
         {/* Toasts */}
+        {justCancelled && (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            Your subscription has been cancelled. You'll keep access until the end of your billing period.
+          </div>
+        )}
+
         {(success || cancelled) && (
           <div className={`rounded-xl border px-4 py-3 text-sm flex items-center justify-between ${success ? 'border-emerald-100 bg-emerald-50 text-emerald-800' : 'border-amber-100 bg-amber-50 text-amber-800'}`}>
             <span>
@@ -306,6 +389,18 @@ export default function BillingClient({ initialLocale }: { initialLocale: string
         </div>
 
         <p className="text-center text-xs text-slate-400">Cancel or switch plans any time. No long-term contracts.</p>
+
+        {(currentPlan === 'growth' || currentPlan === 'pro') && !justCancelled && (
+          <p className="text-center text-xs text-slate-400">
+            Want to cancel?{' '}
+            <button
+              onClick={() => setShowCancelModal(true)}
+              className="underline underline-offset-2 hover:text-slate-600 transition-colors"
+            >
+              Cancel your subscription
+            </button>
+          </p>
+        )}
 
       </div>
     </main>

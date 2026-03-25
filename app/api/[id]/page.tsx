@@ -227,7 +227,7 @@ export default function EditEmissionPage() {
               href="/dashboard"
               className="h-[32px] px-4 rounded-full border text-xs font-medium bg-slate-900 text-white border-slate-900 hover:bg-slate-800 flex items-center justify-center"
             >
-              ← Back to dashboard
+              ← Dashboard
             </Link>
           </div>
         </section>
