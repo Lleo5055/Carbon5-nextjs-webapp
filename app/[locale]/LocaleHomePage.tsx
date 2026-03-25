@@ -24,8 +24,33 @@ export default function LocaleHomePage({ locale }: Props) {
     });
   }, []);
 
+  const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://greenio.co';
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'Greenio',
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'Web',
+    url: `${BASE_URL}/${locale}`,
+    description: t.hero.subtext,
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: locale === 'in' ? 'INR' : locale === 'en' ? 'GBP' : 'EUR',
+    },
+    provider: {
+      '@type': 'Organization',
+      name: 'Greenio',
+      url: BASE_URL,
+    },
+  };
+
   return (
     <div className="min-h-screen bg-white text-slate-900">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
 
       {/* ── COUNTRY SWITCHER MODAL ── */}
       {switcherOpen && (

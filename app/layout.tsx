@@ -2,8 +2,8 @@ import './globals.css';
 import AuthCacheGuard from '@/components/AuthCacheGuard';
 
 export const metadata = {
-  title: 'UK SME Carbon Accounting',
-  description: 'Simple and reliable carbon accounting for UK SMEs',
+  title: 'Carbon Accounting Software | Greenio',
+  description: 'Greenio helps businesses track, report and reduce their carbon footprint. Country-specific emission factors, SECR, CSRD and BRSR reporting. Free to start.',
 };
 
 export default function RootLayout({
