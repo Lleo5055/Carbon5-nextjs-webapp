@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       .eq('id', userId)
       .single();
 
-    const ef = getFactorsForCountry(profile?.country ?? 'IN');
+    const ef = getFactorsForCountry(profile?.country ?? 'GB');
     const actorName: string = profile?.contact_name ?? '';
 
     const results = { saved: 0, updated: 0, errors: [] as string[] };
