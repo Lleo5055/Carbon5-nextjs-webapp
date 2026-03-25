@@ -52,16 +52,6 @@ export default function Image({ params }: Props) {
 
           {/* Logo row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{
-              width: 52, height: 52, borderRadius: 14,
-              background: 'linear-gradient(135deg, #059669, #10b981)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                <path d="M17 8C8 10 5.9 16.17 3.82 19.1c.95.83 2.14 1.4 3.48 1.4 3 0 6.5-2 7.5-6 .5-2-1-3-2-3s-2 1-2 2 1 2 2 2c2.67 0 4-1.67 4-5"
-                  stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
             <span style={{ fontSize: 36, fontWeight: 800, color: '#064e3b', letterSpacing: '-0.5px' }}>Greenio</span>
             <div style={{
               marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6,
@@ -76,7 +66,7 @@ export default function Image({ params }: Props) {
           {/* Main headline */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <span style={{ fontSize: 17, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Carbon Accounting Software
+              Carbon Accounting Intelligence
             </span>
             <h1 style={{ fontSize: 58, fontWeight: 800, color: '#111827', lineHeight: 1.1, margin: 0, letterSpacing: '-1px' }}>
               {m.headline}
