@@ -600,8 +600,8 @@ export default function ProfilePage() {
           </button>
         </form>
 
-        {/* Delete account */}
-        <div className="mt-10 rounded-xl border border-red-100 bg-red-50 p-6">
+        {/* Delete account — owners only */}
+        {!isTeamMember && <div id="delete" className="mt-10 rounded-xl border border-red-100 bg-red-50 p-6">
           <h2 className="text-sm font-semibold text-red-700 mb-1">Delete account</h2>
           <p className="text-xs text-red-600 mb-4">
             Permanently delete your account and all associated data. This cannot be undone.
@@ -612,7 +612,7 @@ export default function ProfilePage() {
           >
             Delete my account
           </button>
-        </div>
+        </div>}
 
       </div>
 

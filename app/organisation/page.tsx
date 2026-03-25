@@ -689,6 +689,21 @@ export default function OrganisationPage() {
           </div>
         )}
       </div>
+
+      {/* Account deletion notice — owners only */}
+      {!isTeamMember && <div className="mx-auto max-w-2xl mt-10 rounded-xl border border-red-100 bg-red-50 p-5">
+        <h2 className="text-sm font-semibold text-red-700 mb-1">Delete your account</h2>
+        <p className="text-xs text-red-600 mb-3">
+          Deleting your account will permanently remove <strong>all your organisation data</strong> — including every emissions entry, Scope 3 activity, report, and team member. Your Greenio subscription will also be cancelled. <strong>This cannot be undone.</strong>
+        </p>
+        <a
+          href="/profile#delete"
+          className="inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-white px-4 py-2 text-xs font-medium text-red-600 hover:bg-red-600 hover:text-white transition-colors"
+        >
+          Go to account deletion →
+        </a>
+      </div>}
+
     </main>
   );
 }
