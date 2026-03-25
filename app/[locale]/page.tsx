@@ -16,32 +16,32 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://greenio.co';
 const SEO: Record<string, { title: string; description: string; keywords: string; ogLocale: string }> = {
   en: {
     ogLocale: 'en_GB',
-    title: 'Carbon Accounting Software for UK SMEs | Greenio',
-    description: 'Greenio helps UK small businesses track, report and reduce their carbon footprint. SECR-aligned reporting, automatic CO2e calculations and Leadership Snapshot PDF. Free to start.',
+    title: 'Free Carbon Accounting Software for UK SMEs | Greenio',
+    description: 'Track and report your UK business carbon footprint with Greenio. SECR-aligned CO2e reports, automatic calculations, audit-ready. Free to start.',
     keywords: 'carbon accounting software UK, SECR reporting tool, SME carbon footprint tracker, carbon accounting UK SME, CO2 tracking software',
   },
   ie: {
     ogLocale: 'en_IE',
-    title: 'Carbon Accounting Software for Irish SMEs | Greenio',
+    title: 'Carbon Accounting & CSRD Reporting for Irish SMEs | Greenio',
     description: 'Track your business carbon footprint and meet CSRD requirements with Greenio. Simple CO2e reporting built for Irish SMEs. Free to start.',
     keywords: 'carbon accounting Ireland, CSRD reporting software Ireland, SME carbon footprint Ireland, CO2 tracking Ireland',
   },
   de: {
     ogLocale: 'de_DE',
-    title: 'CO2-Bilanz Software fuer KMU | Greenio',
-    description: 'Greenio hilft kleinen und mittleren Unternehmen in Deutschland, ihren CO2-Fussabdruck zu erfassen und CSRD-konforme Berichte zu erstellen. Kostenlos starten.',
+    title: 'CO2-Bilanz und CSRD Reporting Software fuer KMU | Greenio',
+    description: 'Greenio hilft KMU in Deutschland, ihren CO2-Fussabdruck zu erfassen und CSRD-konforme Berichte zu erstellen. Kostenlos starten.',
     keywords: 'CO2 Bilanz Software Deutschland, Klimabilanz KMU, CSRD Berichterstattung Software, Treibhausgas Rechner Deutschland',
   },
   fr: {
     ogLocale: 'fr_FR',
-    title: 'Logiciel de Bilan Carbone pour PME | Greenio',
-    description: "Calculez et reduisez l'empreinte carbone de votre entreprise avec Greenio. Reporting CSRD simplifie pour les PME francaises. Gratuit pour commencer.",
+    title: 'Logiciel de Bilan Carbone et Reporting CSRD pour PME | Greenio',
+    description: "Calculez et reduisez l'empreinte carbone de votre entreprise avec Greenio. Reporting CSRD simplifie pour les PME francaises. Gratuit.",
     keywords: 'logiciel bilan carbone PME France, reporting CSRD France, empreinte carbone entreprise, calcul CO2 entreprise France',
   },
   it: {
     ogLocale: 'it_IT',
     title: 'Software per la Contabilita del Carbonio per PMI | Greenio',
-    description: "Greenio aiuta le PMI italiane a calcolare e rendicontare le emissioni di CO2. Conformita CSRD semplificata. Inizia gratuitamente.",
+    description: 'Greenio aiuta le PMI italiane a calcolare e rendicontare le emissioni di CO2. Conformita CSRD semplificata. Inizia gratuitamente.',
     keywords: 'software contabilita carbonio PMI Italia, rendicontazione CSRD Italia, impronta carbonio azienda, CO2 calcolo impresa Italia',
   },
   es: {
@@ -52,7 +52,7 @@ const SEO: Record<string, { title: string; description: string; keywords: string
   },
   nl: {
     ogLocale: 'nl_NL',
-    title: 'CO2-boekhouding Software voor MKB | Greenio',
+    title: 'CO2-boekhouding en CSRD Rapportage voor MKB | Greenio',
     description: 'Greenio helpt Nederlandse MKB-bedrijven hun CO2-uitstoot bij te houden en CSRD-rapporten te genereren. Gratis beginnen.',
     keywords: 'CO2 boekhouding software Nederland, CSRD rapportage MKB, koolstofvoetafdruk bedrijf, CO2 berekening MKB Nederland',
   },
@@ -64,13 +64,13 @@ const SEO: Record<string, { title: string; description: string; keywords: string
   },
   sv: {
     ogLocale: 'sv_SE',
-    title: 'Koldioxidredovisning for Svenska SMF | Greenio',
+    title: 'Koldioxidredovisning och CSRD Rapportering for SMF | Greenio',
     description: 'Greenio hjalper svenska smaforetag att spara och rapportera sina koldioxidutslapp. CSRD-anpassad rapportering. Gratis att borja.',
     keywords: 'koldioxidredovisning Sverige, CSRD rapportering SMF, koldioxidavtryck foretag Sverige, CO2 berakning foretag',
   },
   da: {
     ogLocale: 'da_DK',
-    title: 'CO2-regnskab Software til Danske SMV | Greenio',
+    title: 'CO2-regnskab og CSRD Rapportering til Danske SMV | Greenio',
     description: 'Greenio hjaelper danske sma og mellemstore virksomheder med at spore og rapportere CO2-udledninger. CSRD-tilpasset. Gratis at starte.',
     keywords: 'CO2 regnskab software Danmark, CSRD rapportering SMV, kulstofaftryk virksomhed Danmark, CO2 beregning firma',
   },
@@ -82,7 +82,7 @@ const SEO: Record<string, { title: string; description: string; keywords: string
   },
   in: {
     ogLocale: 'en_IN',
-    title: 'Carbon Accounting & BRSR Reporting Software for India | Greenio',
+    title: 'Carbon Accounting & BRSR Reporting for India | Greenio',
     description: 'Greenio helps Indian businesses track Scope 1, 2 & 3 emissions and generate BRSR-ready ESG reports. India-specific CEA/BEE emission factors. Free to start.',
     keywords: 'BRSR reporting software India, carbon accounting India, ESG software India, CCTS compliance India, carbon footprint tracker India, Scope 3 emissions India',
   },
