@@ -157,6 +157,17 @@ export default function OnboardingPage() {
       return;
     }
 
+    // Send welcome email (fire-and-forget — don't block navigation on failure)
+    fetch('/api/welcome-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: contact_name,
+        email: cleanEmail,
+        company: company_name,
+      }),
+    }).catch(() => {/* silent fail */});
+
     // India accounts go to BRSR profile step before dashboard
     if (country === 'IN') {
       router.push('/dashboard/brsr-profile?onboarding=1');
