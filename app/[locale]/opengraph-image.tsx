@@ -4,6 +4,7 @@
 
 import { ImageResponse } from 'next/og';
 
+export const runtime = 'edge';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -91,8 +92,8 @@ export default function Image({ params }: Props) {
           {/* Bottom row */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', gap: 16 }}>
-              {['Scope 1', 'Scope 2', 'Scope 3'].map(s => (
-                <div key={s} style={{
+              {(['Scope 1', 'Scope 2', 'Scope 3'] as const).map((s, i) => (
+                <div key={i} style={{
                   display: 'flex', alignItems: 'center', gap: 8,
                   background: 'white', border: '1.5px solid #d1fae5',
                   borderRadius: 999, padding: '8px 18px',
