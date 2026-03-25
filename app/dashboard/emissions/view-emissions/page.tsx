@@ -190,7 +190,7 @@ async function getCurrentPlan(): Promise<Plan> {
 
 /* ---------- MAIN REPORT BUILDER ---------- */
 async function getEmissionsReport(
-  
+
   period: PeriodKey,
   customStart?: string | null,
   customEnd?: string | null
@@ -239,7 +239,7 @@ async function getEmissionsReport(
     console.error('Error loading scope 3 activities for report', scope3Error);
   }
 
-  // Get country-aware factors from the first row's country_code
+  // country_code is kept in sync with profiles.country via DB trigger
   const countryCode = data[0]?.country_code ?? 'GB';
   const ef = getFactorsForCountry(countryCode);
 

@@ -35,9 +35,9 @@ export default function BillingClient({ initialLocale }: { initialLocale: string
         setCurrentPlan((planRow?.plan as CurrentPlan) ?? 'free');
         // Derive region from locale first, currency as fallback
         const detectedLocale =
-          profile?.locale === 'in' || profile?.currency === 'INR' ? 'in' :
-          profile?.locale === 'en' || profile?.currency === 'GBP' ? 'en' :
-          profile?.locale ?? 'en';
+          profile?.country === 'IN' || profile?.currency === 'INR' || profile?.locale?.startsWith('en-IN') ? 'in' :
+          profile?.currency === 'GBP' || profile?.locale === 'en' ? 'en' :
+          'en';
         // Persist in cookie so server can read it on next request (no hydration mismatch)
         document.cookie = `greenio_locale=${detectedLocale}; path=/; max-age=31536000; SameSite=Lax`;
         setLocale(detectedLocale);

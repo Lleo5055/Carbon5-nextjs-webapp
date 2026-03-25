@@ -877,6 +877,7 @@ const updatedTotalCo2e =
           const { error: updateError } = await supabase
             .from('emissions')
             .update({
+              country_code: profile?.country ?? 'GB',
               electricity_kw: updatedElectricity,
 diesel_litres: updatedDiesel,
 petrol_litres: updatedPetrol,
@@ -954,6 +955,7 @@ if (Object.keys(changes).length > 0) {
               user_id: user.id,
               month: monthLabel,
               month_key: monthKeyValue,
+              country_code: profile?.country ?? 'GB',
               electricity_kw: elec,
               diesel_litres: diesel,
               petrol_litres: petrol,
