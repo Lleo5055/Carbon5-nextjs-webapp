@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
 
 // ─── Supported countries (ISO 3166-1 alpha-2) ────────────────────────────────
@@ -99,9 +100,14 @@ function getComplianceConfig(country: string): ComplianceConfig {
 const PROFILE_CACHE_KEY = 'greenio_profile_cache';
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isTeamMember, setIsTeamMember] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const [form, setForm] = useState({
     company_name: '',
@@ -143,6 +149,7 @@ export default function ProfilePage() {
       const { data: auth } = await supabase.auth.getUser();
       const userId = auth.user?.id;
       if (!userId) return;
+      setUserId(userId);
 
       // Check if this user is a team member
       const { data: memberRow } = await supabase
@@ -592,7 +599,75 @@ export default function ProfilePage() {
             {saving ? 'Saving…' : isTeamMember ? 'Save contact details' : 'Save changes'}
           </button>
         </form>
+
+        {/* Delete account */}
+        <div className="mt-10 rounded-xl border border-red-100 bg-red-50 p-6">
+          <h2 className="text-sm font-semibold text-red-700 mb-1">Delete account</h2>
+          <p className="text-xs text-red-600 mb-4">
+            Permanently delete your account and all associated data. This cannot be undone.
+          </p>
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="rounded-full border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-600 hover:text-white transition-colors"
+          >
+            Delete my account
+          </button>
+        </div>
+
       </div>
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="text-base font-semibold text-slate-900 mb-2">Delete your account?</h2>
+            <p className="text-sm text-slate-500 mb-4">
+              This will permanently delete all your emissions data, reports, and account. This cannot be undone.
+            </p>
+            <p className="text-sm font-medium text-slate-700 mb-2">
+              Type <span className="font-mono bg-slate-100 px-1 rounded">DELETE</span> to confirm
+            </p>
+            <input
+              type="text"
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-4"
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder="Type DELETE"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteConfirm(''); }}
+                className="flex-1 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={deleteConfirm !== 'DELETE' || deleting}
+                onClick={async () => {
+                  if (!userId) return;
+                  setDeleting(true);
+                  const res = await fetch('/api/account/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId }),
+                  });
+                  if (res.ok) {
+                    await supabase.auth.signOut();
+                    router.push('/');
+                  } else {
+                    alert('Failed to delete account. Please contact hello@greenio.co');
+                    setDeleting(false);
+                  }
+                }}
+                className="flex-1 rounded-full bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-40"
+              >
+                {deleting ? 'Deleting…' : 'Yes, delete everything'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }

@@ -2049,14 +2049,25 @@ const annualBaselineTonnes =
                 )}
               </>
             ) : (
-              <section className="rounded-xl bg-white border p-8 text-center shadow">
-                <p className="text-sm font-medium text-slate-800">
-                  No emissions data yet.
+              <section className="rounded-xl bg-white border p-8 shadow">
+                <p className="text-[10px] uppercase tracking-widest text-emerald-600 font-semibold mb-3">Get started</p>
+                <h2 className="text-lg font-semibold text-slate-900 mb-2">Add your first emissions data</h2>
+                <p className="text-sm text-slate-500 mb-6">
+                  Log a month of electricity, fuel, or gas usage to start building your carbon baseline and unlock benchmarking.
                 </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  Use the "+ Add emission" action on the left to log your first
-                  activities.
-                </p>
+                <div className="space-y-3">
+                  {[
+                    { href: '/dashboard/emissions', label: 'Log electricity, fuel or gas', icon: '⚡' },
+                    { href: '/dashboard/emissions/scope3', label: 'Log Scope 3 activities (travel, supply chain)', icon: '🚗' },
+                    { href: '/dashboard/organisation', label: 'Complete your company profile', icon: '🏢' },
+                  ].map(({ href, label, icon }) => (
+                    <a key={href} href={href} className="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-700 hover:bg-slate-900 hover:text-white transition-colors group">
+                      <span>{icon}</span>
+                      <span className="flex-1">{label}</span>
+                      <span className="text-slate-400 group-hover:text-slate-300">→</span>
+                    </a>
+                  ))}
+                </div>
               </section>
             )}
           </div>
