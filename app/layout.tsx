@@ -4,6 +4,11 @@ import AuthCacheGuard from '@/components/AuthCacheGuard';
 export const metadata = {
   title: 'Carbon Accounting Software | Greenio',
   description: 'Greenio helps businesses track, report and reduce their carbon footprint. Country-specific emission factors, SECR, CSRD and BRSR reporting. Free to start.',
+  icons: {
+    icon: '/logogreenio.svg',
+    shortcut: '/logogreenio.svg',
+    apple: '/logogreenio.svg',
+  },
 };
 
 export default function RootLayout({
