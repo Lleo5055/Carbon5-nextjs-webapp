@@ -75,9 +75,13 @@ export default function BillingClient({ initialLocale }: { initialLocale: string
     if (!userId) return;
     try {
       setCancelling(true);
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch('/api/billing/cancel', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token ?? ''}`,
+        },
         body: JSON.stringify({ user_id: userId, reason: cancelReason }),
       });
       if (!res.ok) { alert(`Error: ${await res.text()}`); return; }

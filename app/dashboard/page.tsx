@@ -627,6 +627,9 @@ const [indiaEnvTotals, setIndiaEnvTotals] = React.useState<{
     return c ? JSON.parse(c) : null;
   } catch { return null; }
 });
+const [emailVerified, setEmailVerified] = React.useState(true); // default true to avoid flash
+const [resendingVerification, setResendingVerification] = React.useState(false);
+const [verificationSent, setVerificationSent] = React.useState(false);
 const [showProfileMenu, setShowProfileMenu] = React.useState(false);
 const profileMenuRef = React.useRef<HTMLDivElement>(null);
 
@@ -669,6 +672,8 @@ React.useEffect(() => {
     const { data: { session } } = await supabase.auth.getSession(); // local, no network
     const user = session?.user;
     if (!user || cancelled) return;
+
+    if (!user.email_confirmed_at) setEmailVerified(false);
 
     // Fire team membership, own plan, and dashboard data all at once
     const [{ data: memberRow }, { data: ownPlanRow }, dashData] = await Promise.all([
@@ -1207,6 +1212,45 @@ const youTonnes = dashData.totalCo2eKg / 1000;
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-10 space-y-6">
+        {/* EMAIL VERIFICATION BANNER */}
+        {!emailVerified && (
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <div className="flex items-center gap-3">
+              <span className="text-amber-500 text-base">✉</span>
+              <p className="text-xs text-amber-800">
+                <span className="font-semibold">Please verify your email address.</span>
+                {' '}Check your inbox for a confirmation link from Greenio.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {verificationSent ? (
+                <span className="text-xs text-emerald-700 font-medium">Sent ✓</span>
+              ) : (
+                <button
+                  disabled={resendingVerification}
+                  onClick={async () => {
+                    setResendingVerification(true);
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (session?.user?.email) {
+                      await supabase.auth.resend({ type: 'signup', email: session.user.email });
+                    }
+                    setResendingVerification(false);
+                    setVerificationSent(true);
+                  }}
+                  className="rounded-full bg-amber-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-amber-700 disabled:opacity-60"
+                >
+                  {resendingVerification ? 'Sending…' : 'Resend email'}
+                </button>
+              )}
+              <button
+                onClick={() => setEmailVerified(true)}
+                className="text-amber-400 hover:text-amber-600 text-base leading-none"
+                aria-label="Dismiss"
+              >✕</button>
+            </div>
+          </div>
+        )}
+
         {/* ONBOARDING CARD — hidden for team members who don't own the account */}
         {!isTeamMember && profile && !profile.onboarding_complete && (
           <section className="rounded-xl bg-pink-50 border border-amber-200 px-4 py-4 shadow">
