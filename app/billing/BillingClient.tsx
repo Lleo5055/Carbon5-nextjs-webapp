@@ -30,7 +30,7 @@ export default function BillingClient({ initialLocale }: { initialLocale: string
       if (uid) {
         const [{ data: planRow }, { data: profile }] = await Promise.all([
           supabase.from('user_plans').select('plan').eq('user_id', uid).single(),
-          supabase.from('profiles').select('locale, currency').eq('id', uid).single(),
+          supabase.from('profiles').select('locale, currency, country').eq('id', uid).single(),
         ]);
         setCurrentPlan((planRow?.plan as CurrentPlan) ?? 'free');
         // Derive region from locale first, currency as fallback
