@@ -1,6 +1,6 @@
 // app/[locale]/opengraph-image.tsx
-// OG image styled to match the homepage hero:
-// dark slate-900→emerald-950 gradient, white text, emerald-400 accents.
+// OG image styled to match the homepage hero.
+// No emoji flags (require emoji font), no CSS filter (Satori unsupported).
 
 import { ImageResponse } from 'next/og';
 
@@ -12,7 +12,6 @@ interface Props {
 }
 
 const LOCALE_META: Record<string, {
-  flag: string;
   badge: string;
   headline: string;
   highlight: string;
@@ -22,95 +21,95 @@ const LOCALE_META: Record<string, {
   compliance: string;
 }> = {
   en: {
-    flag: '🇬🇧', badge: 'Built for UK businesses',
+    badge: 'Built for UK businesses',
     headline: 'Audit-ready carbon accounting',
     highlight: 'done in minutes.',
-    sub: 'DEFRA-aligned reports, automatic CO₂e calculations and Leadership Snapshots.',
+    sub: 'DEFRA-aligned reports, automatic CO2e calculations and Leadership Snapshots.',
     stat1: 'No consultants needed', stat2: 'Free to start',
     compliance: 'SECR',
   },
   ie: {
-    flag: '🇮🇪', badge: 'Built for Irish businesses',
+    badge: 'Built for Irish businesses',
     headline: 'Carbon accounting for Irish SMEs,',
     highlight: 'CSRD-ready.',
-    sub: 'Automatic CO₂e calculations, audit-grade reports and compliance exports.',
+    sub: 'Automatic CO2e calculations, audit-grade reports and compliance exports.',
     stat1: 'No consultants needed', stat2: 'Free to start',
     compliance: 'CSRD',
   },
   de: {
-    flag: '🇩🇪', badge: 'Für deutsche Unternehmen',
-    headline: 'CO₂-Bilanz für KMU,',
+    badge: 'Fur deutsche Unternehmen',
+    headline: 'CO2-Bilanz fur KMU,',
     highlight: 'in Minuten fertig.',
-    sub: 'CSRD-konforme Berichte, automatische CO₂e-Berechnungen und Prüfexporte.',
-    stat1: 'Keine Berater nötig', stat2: 'Kostenlos starten',
+    sub: 'CSRD-konforme Berichte, automatische CO2e-Berechnungen und Prufexporte.',
+    stat1: 'Keine Berater notig', stat2: 'Kostenlos starten',
     compliance: 'CSRD',
   },
   fr: {
-    flag: '🇫🇷', badge: 'Pour les entreprises françaises',
+    badge: 'Pour les entreprises francaises',
     headline: 'Bilan carbone pour PME,',
     highlight: 'en quelques minutes.',
-    sub: 'Rapports conformes CSRD, calculs CO₂e automatiques et exports audit.',
+    sub: 'Rapports conformes CSRD, calculs CO2e automatiques et exports audit.',
     stat1: 'Sans consultant', stat2: 'Gratuit pour commencer',
     compliance: 'CSRD',
   },
   it: {
-    flag: '🇮🇹', badge: 'Per le aziende italiane',
-    headline: 'Contabilità carbonio per PMI,',
+    badge: 'Per le aziende italiane',
+    headline: 'Contabilita carbonio per PMI,',
     highlight: 'pronta in minuti.',
-    sub: 'Report conformi CSRD, calcoli CO₂e automatici ed esportazioni audit.',
+    sub: 'Report conformi CSRD, calcoli CO2e automatici ed esportazioni audit.',
     stat1: 'Senza consulenti', stat2: 'Gratis per iniziare',
     compliance: 'CSRD',
   },
   es: {
-    flag: '🇪🇸', badge: 'Para empresas españolas',
+    badge: 'Para empresas espanolas',
     headline: 'Contabilidad de carbono para PYMEs,',
     highlight: 'lista en minutos.',
-    sub: 'Informes conformes CSRD, cálculos CO₂e automáticos y exportaciones.',
+    sub: 'Informes conformes CSRD, calculos CO2e automaticos y exportaciones.',
     stat1: 'Sin consultores', stat2: 'Gratis para empezar',
     compliance: 'CSRD',
   },
   nl: {
-    flag: '🇳🇱', badge: 'Voor Nederlandse bedrijven',
-    headline: 'CO₂-boekhouding voor MKB,',
+    badge: 'Voor Nederlandse bedrijven',
+    headline: 'CO2-boekhouding voor MKB,',
     highlight: 'klaar in minuten.',
-    sub: 'CSRD-conforme rapporten, automatische CO₂e-berekeningen en audit-exports.',
+    sub: 'CSRD-conforme rapporten, automatische CO2e-berekeningen en audit-exports.',
     stat1: 'Geen consultants nodig', stat2: 'Gratis beginnen',
     compliance: 'CSRD',
   },
   pl: {
-    flag: '🇵🇱', badge: 'Dla polskich firm',
-    headline: 'Emisje CO₂ dla MŚP,',
+    badge: 'Dla polskich firm',
+    headline: 'Emisje CO2 dla MSP,',
     highlight: 'gotowe w minuty.',
-    sub: 'Raporty zgodne z CSRD, automatyczne obliczenia CO₂e i eksporty audytu.',
-    stat1: 'Bez konsultantów', stat2: 'Bezpłatny start',
+    sub: 'Raporty zgodne z CSRD, automatyczne obliczenia CO2e i eksporty audytu.',
+    stat1: 'Bez konsultantow', stat2: 'Bezplatny start',
     compliance: 'CSRD',
   },
   sv: {
-    flag: '🇸🇪', badge: 'För svenska företag',
-    headline: 'Koldioxidredovisning för SMF,',
-    highlight: 'klar på minuter.',
-    sub: 'CSRD-anpassade rapporter, automatiska CO₂e-beräkningar och revisionsexporter.',
-    stat1: 'Inga konsulter behövs', stat2: 'Gratis att börja',
+    badge: 'For svenska foretag',
+    headline: 'Koldioxidredovisning for SMF,',
+    highlight: 'klar pa minuter.',
+    sub: 'CSRD-anpassade rapporter, automatiska CO2e-berakningar och revisionsexporter.',
+    stat1: 'Inga konsulter behovs', stat2: 'Gratis att borja',
     compliance: 'CSRD',
   },
   da: {
-    flag: '🇩🇰', badge: 'Til danske virksomheder',
-    headline: 'CO₂-regnskab til SMV,',
-    highlight: 'klar på minutter.',
-    sub: 'CSRD-tilpassede rapporter, automatiske CO₂e-beregninger og revisionseksporter.',
+    badge: 'Til danske virksomheder',
+    headline: 'CO2-regnskab til SMV,',
+    highlight: 'klar pa minutter.',
+    sub: 'CSRD-tilpassede rapporter, automatiske CO2e-beregninger og revisionseksporter.',
     stat1: 'Ingen konsulenter', stat2: 'Gratis at starte',
     compliance: 'CSRD',
   },
   pt: {
-    flag: '🇵🇹', badge: 'Para empresas portuguesas',
+    badge: 'Para empresas portuguesas',
     headline: 'Contabilidade de carbono para PMEs,',
     highlight: 'pronta em minutos.',
-    sub: 'Relatórios conformes CSRD, cálculos CO₂e automáticos e exportações auditoria.',
-    stat1: 'Sem consultores', stat2: 'Gratuito para começar',
+    sub: 'Relatorios conformes CSRD, calculos CO2e automaticos e exportacoes auditoria.',
+    stat1: 'Sem consultores', stat2: 'Gratuito para comecar',
     compliance: 'CSRD',
   },
   in: {
-    flag: '🇮🇳', badge: 'Built for Indian businesses',
+    badge: 'Built for Indian businesses',
     headline: 'Carbon accounting & BRSR reporting',
     highlight: 'for India.',
     sub: 'CEA/BEE emission factors, BRSR-ready ESG reports and CCTS compliance tools.',
@@ -130,13 +129,11 @@ export default function Image({ params }: Props) {
           height: 630,
           display: 'flex',
           position: 'relative',
-          overflow: 'hidden',
-          // Match homepage: bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950
           background: 'linear-gradient(135deg, #0f172a 0%, #0f172a 55%, #052e16 100%)',
           fontFamily: 'system-ui, -apple-system, sans-serif',
         }}
       >
-        {/* Grid texture — matches homepage */}
+        {/* Grid texture */}
         <div style={{
           position: 'absolute', inset: 0,
           backgroundImage: 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)',
@@ -144,12 +141,11 @@ export default function Image({ params }: Props) {
           display: 'flex',
         }} />
 
-        {/* Emerald glow blob — top right, matches homepage */}
+        {/* Emerald glow blob — radial gradient, no filter */}
         <div style={{
           position: 'absolute', top: -80, right: 180,
           width: 500, height: 500, borderRadius: '50%',
-          background: 'rgba(16,185,129,0.12)',
-          filter: 'blur(80px)',
+          background: 'radial-gradient(circle, rgba(16,185,129,0.18) 0%, rgba(16,185,129,0.04) 60%, transparent 100%)',
           display: 'flex',
         }} />
 
@@ -160,10 +156,8 @@ export default function Image({ params }: Props) {
           justifyContent: 'space-between',
         }}>
 
-          {/* Top row: wordmark + compliance badge */}
+          {/* Top row: wordmark + locale badge */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-
-            {/* Wordmark — simple leaf + Greenio text, matches nav style */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{
                 width: 44, height: 44, borderRadius: 12,
@@ -180,14 +174,12 @@ export default function Image({ params }: Props) {
               </span>
             </div>
 
-            {/* Locale badge — matches hero badge style */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 8,
               border: '1px solid rgba(52,211,153,0.3)',
               background: 'rgba(52,211,153,0.1)',
               borderRadius: 999, padding: '8px 18px',
             }}>
-              <span style={{ fontSize: 20 }}>{m.flag}</span>
               <span style={{ fontSize: 14, fontWeight: 700, color: '#34d399', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                 {m.badge}
               </span>
@@ -212,10 +204,8 @@ export default function Image({ params }: Props) {
             </p>
           </div>
 
-          {/* Bottom row: stats + compliance tag */}
+          {/* Bottom row */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-
-            {/* Stats — match hero stat dots */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399', display: 'flex' }} />
@@ -227,7 +217,6 @@ export default function Image({ params }: Props) {
               </div>
             </div>
 
-            {/* Compliance + domain */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 8,
