@@ -1,7 +1,4 @@
 // app/[locale]/opengraph-image.tsx
-// Locale-specific OG image via next/og ImageResponse.
-// Satori constraints: no filter/blur, no overflow:hidden, no emoji (needs font).
-
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
@@ -14,7 +11,7 @@ interface Props {
 
 const LOCALE_META: Record<string, { headline: string; sub: string; compliance: string }> = {
   en: { headline: 'Carbon Accounting for UK SMEs',       sub: 'SECR-aligned  •  Audit-ready  •  Free to start',    compliance: 'SECR' },
-  ie: { headline: 'Carbon Accounting for Irish SMEs',    sub: 'CSRD-aligned  •  Audit-ready  •  Free to start',   compliance: 'CSRD' },
+  ie: { headline: 'Carbon Accounting for Irish SMEs',    sub: 'CSRD-aligned  •  Audit-ready  •  Free to start',    compliance: 'CSRD' },
   de: { headline: 'CO2-Bilanz Software fur KMU',         sub: 'CSRD-konform  •  Prufbereit  •  Kostenlos starten', compliance: 'CSRD' },
   fr: { headline: 'Bilan Carbone pour PME',              sub: 'Conforme CSRD  •  Pret pour audit  •  Gratuit',     compliance: 'CSRD' },
   it: { headline: 'Contabilita Carbonio per PMI',        sub: 'Conforme CSRD  •  Pronto per audit  •  Gratuito',   compliance: 'CSRD' },
@@ -47,7 +44,7 @@ export default function Image({ params }: Props) {
         <div style={{ position: 'absolute', top: -80, right: -80, width: 400, height: 400, borderRadius: '50%', background: 'rgba(16,185,129,0.08)', display: 'flex' }} />
         <div style={{ position: 'absolute', bottom: -60, left: -60, width: 300, height: 300, borderRadius: '50%', background: 'rgba(16,185,129,0.06)', display: 'flex' }} />
 
-        {/* Top accent bar */}
+        {/* Top bar */}
         <div style={{ display: 'flex', width: '100%', height: 6, background: 'linear-gradient(90deg, #059669, #10b981, #34d399)' }} />
 
         {/* Content */}
@@ -92,16 +89,18 @@ export default function Image({ params }: Props) {
           {/* Bottom row */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', gap: 16 }}>
-              {(['Scope 1', 'Scope 2', 'Scope 3'] as const).map((s, i) => (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  background: 'white', border: '1.5px solid #d1fae5',
-                  borderRadius: 999, padding: '8px 18px',
-                }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#059669', display: 'flex' }} />
-                  <span style={{ fontSize: 16, fontWeight: 600, color: '#065f46' }}>{s}</span>
-                </div>
-              ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'white', border: '1.5px solid #d1fae5', borderRadius: 999, padding: '8px 18px' }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#059669', display: 'flex' }} />
+                <span style={{ fontSize: 16, fontWeight: 600, color: '#065f46' }}>Scope 1</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'white', border: '1.5px solid #d1fae5', borderRadius: 999, padding: '8px 18px' }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#059669', display: 'flex' }} />
+                <span style={{ fontSize: 16, fontWeight: 600, color: '#065f46' }}>Scope 2</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'white', border: '1.5px solid #d1fae5', borderRadius: 999, padding: '8px 18px' }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#059669', display: 'flex' }} />
+                <span style={{ fontSize: 16, fontWeight: 600, color: '#065f46' }}>Scope 3</span>
+              </div>
             </div>
             <span style={{ fontSize: 18, fontWeight: 600, color: '#9ca3af' }}>greenio.co</span>
           </div>
@@ -109,6 +108,6 @@ export default function Image({ params }: Props) {
         </div>
       </div>
     ),
-    { width: 1200, height: 630, fonts: [] }
+    { width: 1200, height: 630 }
   );
 }
