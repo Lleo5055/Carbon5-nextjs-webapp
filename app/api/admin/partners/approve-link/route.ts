@@ -143,7 +143,10 @@ export async function GET(req: NextRequest) {
     options: { redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/partner-portal` },
   });
   const magicLink = (linkData as any)?.properties?.action_link ?? 'https://greenio.co/partner-login';
-  const firstName = app.name.split(' ')[0];
+  const TITLES = ['mr', 'mrs', 'ms', 'dr', 'prof', 'miss'];
+  const nameParts = app.name.trim().split(/\s+/);
+  const firstSignificant = nameParts.find((p: string) => !TITLES.includes(p.toLowerCase())) ?? nameParts[0];
+  const firstName = firstSignificant.charAt(0).toUpperCase() + firstSignificant.slice(1).toLowerCase();
   const refLink = `https://greenio.co/r/${refCode}`;
 
   // Send welcome email to partner
