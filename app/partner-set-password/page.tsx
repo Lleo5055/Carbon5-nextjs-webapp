@@ -5,19 +5,37 @@ import { supabase } from '@/lib/supabaseClient';
 
 export default function PartnerSetPasswordPage() {
   const [ready, setReady] = useState(false);
+  const [expired, setExpired] = useState(false);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Supabase processes the recovery token from the URL hash and fires PASSWORD_RECOVERY
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
+    // Subscribe to PASSWORD_RECOVERY event (fires after Supabase processes the URL token)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
         setReady(true);
       }
     });
-    return () => subscription.unsubscribe();
+
+    // Also check if session already exists (token may have been processed before mount)
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) setReady(true);
+    });
+
+    // If still not ready after 10s, the link is invalid/expired
+    const timeout = setTimeout(() => {
+      setReady(prev => {
+        if (!prev) setExpired(true);
+        return prev;
+      });
+    }, 10000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -40,6 +58,16 @@ export default function PartnerSetPasswordPage() {
     }
     window.location.href = '/partner-portal';
   }
+
+  if (expired) return (
+    <main className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+      <div className="text-center space-y-3">
+        <p className="text-xl">⛔</p>
+        <h1 className="text-lg font-semibold text-slate-900">Link expired or invalid</h1>
+        <p className="text-sm text-slate-500">Please contact <a href="mailto:hello@greenio.co" className="text-emerald-600 underline">hello@greenio.co</a> to get a new link.</p>
+      </div>
+    </main>
+  );
 
   if (!ready) return (
     <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">
