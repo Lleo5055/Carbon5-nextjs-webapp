@@ -136,13 +136,13 @@ export async function GET(req: NextRequest) {
   // Update application status
   await supabaseAdmin.from('affiliate_applications').update({ status: 'approved' }).eq('id', id);
 
-  // Generate set-password link for first access
-  const { data: recoveryData } = await supabaseAdmin.auth.admin.generateLink({
-    type: 'recovery',
+  // Generate magic link → logs partner in and redirects to portal
+  const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+    type: 'magiclink',
     email: app.email,
-    options: { redirectTo: 'https://greenio.co/partner-set-password' },
+    options: { redirectTo: 'https://greenio.co/partner-portal' },
   });
-  const setPasswordLink = (recoveryData as any)?.properties?.action_link ?? 'https://greenio.co/partner-login';
+  const setPasswordLink = (linkData as any)?.properties?.action_link ?? 'https://greenio.co/partner-login';
 
   const TITLES = ['mr', 'mrs', 'ms', 'dr', 'prof', 'miss'];
   const nameParts = app.name.trim().split(/\s+/);
@@ -178,7 +178,7 @@ export async function GET(req: NextRequest) {
               <a href="${setPasswordLink}" style="display:inline-block;padding:14px 32px;color:#fff;font-size:15px;font-weight:600;text-decoration:none;">Access your partner portal →</a>
             </td></tr>
           </table>
-          <p style="color:#6b7280;font-size:13px;">Enter your email at the login page and we'll send you a link each time you want to access your portal.</p>
+          <p style="color:#6b7280;font-size:13px;">This link logs you in automatically. To sign in again later, visit <a href="https://greenio.co/partner-login" style="color:#16a34a;">greenio.co/partner-login</a>.</p>
           <p style="color:#374151;font-size:15px;margin-top:24px;">— The Greenio Team</p>
         </td></tr>
         <tr><td style="background:#f9fafb;padding:20px 40px;border-radius:0 0 16px 16px;">
