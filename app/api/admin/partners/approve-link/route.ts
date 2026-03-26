@@ -136,13 +136,7 @@ export async function GET(req: NextRequest) {
   // Update application status
   await supabaseAdmin.from('affiliate_applications').update({ status: 'approved' }).eq('id', id);
 
-  // Generate magic login link
-  const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
-    type: 'magiclink',
-    email: app.email,
-    options: { redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/partner-portal` },
-  });
-  const magicLink = (linkData as any)?.properties?.action_link ?? 'https://greenio.co/partner-login';
+  const loginLink = 'https://greenio.co/partner-login';
   const TITLES = ['mr', 'mrs', 'ms', 'dr', 'prof', 'miss'];
   const nameParts = app.name.trim().split(/\s+/);
   const firstSignificant = nameParts.find((p: string) => !TITLES.includes(p.toLowerCase())) ?? nameParts[0];
@@ -174,10 +168,10 @@ export async function GET(req: NextRequest) {
           <p style="color:#374151;font-size:15px;line-height:1.7;">Earn <strong>15% of their monthly subscription for 12 months</strong> for every paying customer you refer.</p>
           <table cellpadding="0" cellspacing="0" style="margin:16px 0 24px;">
             <tr><td style="background:#16a34a;border-radius:10px;">
-              <a href="${magicLink}" style="display:inline-block;padding:14px 32px;color:#fff;font-size:15px;font-weight:600;text-decoration:none;">Access your partner portal →</a>
+              <a href="${loginLink}" style="display:inline-block;padding:14px 32px;color:#fff;font-size:15px;font-weight:600;text-decoration:none;">Access your partner portal →</a>
             </td></tr>
           </table>
-          <p style="color:#6b7280;font-size:13px;">After clicking the link, set a password so you can log in again at <a href="https://greenio.co/partner-login" style="color:#16a34a;">greenio.co/partner-login</a>.</p>
+          <p style="color:#6b7280;font-size:13px;">Enter your email at the login page and we'll send you a link each time you want to access your portal.</p>
           <p style="color:#374151;font-size:15px;margin-top:24px;">— The Greenio Team</p>
         </td></tr>
         <tr><td style="background:#f9fafb;padding:20px 40px;border-radius:0 0 16px 16px;">
