@@ -25,7 +25,7 @@ function verifyToken(action: string, id: string, expires: string, sig: string): 
     const sigBuf = Buffer.from(sig.padEnd(expected.length, '0').substring(0, expected.length), 'hex');
     const expBuf = Buffer.from(expected, 'hex');
     if (sigBuf.length !== expBuf.length) return false;
-    return crypto.timingSafeEqual(sigBuf, expBuf);
+    return crypto.timingSafeEqual(new Uint8Array(sigBuf), new Uint8Array(expBuf));
   } catch { return false; }
 }
 
@@ -147,7 +147,7 @@ export async function GET(req: NextRequest) {
   const refLink = `https://greenio.co/r/${refCode}`;
 
   // Send welcome email to partner
-  transporter.sendMail({
+  await transporter.sendMail({
     from: '"Greenio" <hello@greenio.co>',
     to: app.email,
     subject: "You're approved as a Greenio partner 🎉",
@@ -184,7 +184,7 @@ export async function GET(req: NextRequest) {
     </td></tr>
   </table>
 </body></html>`,
-  }).catch(() => {});
+  }).catch(console.error);
 
   return htmlPage(
     'Partner approved!',
