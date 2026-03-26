@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
 
 export default function PartnerLoginPage() {
@@ -15,18 +14,16 @@ export default function PartnerLoginPage() {
     setLoading(true);
     setError(null);
 
-    const { error: magicError } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/partner-portal`,
-        shouldCreateUser: false,
-      },
+    const res = await fetch('/api/partner-portal/send-login-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
     });
 
-    if (magicError) {
-      setError('Could not send login link. Make sure you applied and were approved as a partner.');
+    if (!res.ok) {
+      setError('Something went wrong. Please try again.');
     } else {
-      setMessage('Login link sent! Check your email — it expires in 24 hours.');
+      setMessage('If this email is registered as a partner, a login link has been sent.');
     }
     setLoading(false);
   }
