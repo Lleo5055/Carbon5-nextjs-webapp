@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
+import type { Session } from '@supabase/supabase-js';
 
 type Stats = {
   ref_code: string;
@@ -27,19 +28,12 @@ export default function PartnerPortalPage() {
   const [payoutError, setPayoutError] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!data.session) {
-        window.location.href = '/partner-login';
-        return;
-      }
-
-      // Block regular Greenio accounts from accessing partner portal
-      if (data.session.user.user_metadata?.account_type !== 'partner') {
+    async function loadPortal(session: Session) {
+      if (session.user.user_metadata?.account_type !== 'partner') {
         window.location.href = '/dashboard';
         return;
       }
-
-      const token = data.session.access_token;
+      const token = session.access_token;
       const res = await fetch('/api/partner-portal/stats', {
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -49,7 +43,19 @@ export default function PartnerPortalPage() {
         setStats(await res.json());
       }
       setLoading(false);
+    }
+
+    // onAuthStateChange fires immediately with existing session AND after magic link hash exchange
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        setLoading(false);
+        window.location.href = '/partner-login';
+        return;
+      }
+      loadPortal(session);
     });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   async function requestPayout() {
