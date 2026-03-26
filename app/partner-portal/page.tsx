@@ -113,9 +113,9 @@ export default function PartnerPortalPage() {
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-3xl px-4 py-8 space-y-5">
 
-        <div className="flex items-center gap-2">
-          <Link href="/dashboard" className="inline-flex items-center gap-1.5 h-[32px] px-4 rounded-full bg-slate-900 text-white text-xs font-medium hover:bg-slate-800">
-            ← Dashboard
+        <div className="flex items-center justify-between">
+          <Link href="/" className="inline-flex items-center gap-1.5 h-[32px] px-4 rounded-full bg-slate-900 text-white text-xs font-medium hover:bg-slate-800">
+            greenio.co
           </Link>
           <button
             onClick={async () => { await supabase.auth.signOut(); window.location.href = '/partner-login'; }}
@@ -228,6 +228,33 @@ export default function PartnerPortalPage() {
             </div>
           </div>
         )}
+
+        {/* How it works */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+          <h2 className="text-sm font-semibold text-slate-900">How earnings are calculated</h2>
+          <div className="space-y-3 text-sm text-slate-600">
+            <div className="flex gap-3">
+              <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center justify-center">1</span>
+              <p>Share your referral link. Anyone who signs up via it is attributed to you for 30 days.</p>
+            </div>
+            <div className="flex gap-3">
+              <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center justify-center">2</span>
+              <p>When a referred user pays for a subscription, you earn <strong>15% of their monthly plan</strong>.</p>
+            </div>
+            <div className="flex gap-3">
+              <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center justify-center">3</span>
+              <p>Commissions are calculated on the <strong>1st of each month</strong> for the previous month's payments.</p>
+            </div>
+            <div className="flex gap-3">
+              <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center justify-center">4</span>
+              <p>You earn for up to <strong>12 months</strong> per referred customer.</p>
+            </div>
+            <div className="flex gap-3">
+              <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center justify-center">5</span>
+              <p>Once your available balance reaches <strong>£50</strong>, you can request a payout. We process within 5 business days.</p>
+            </div>
+          </div>
+        </div>
 
         <p className="text-center text-xs text-slate-400">
           Questions? <a href="mailto:hello@greenio.co" className="text-emerald-600 hover:underline">hello@greenio.co</a>
