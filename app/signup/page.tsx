@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import Link from 'next/link';
 
@@ -11,6 +11,13 @@ export default function SignupPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [refCode, setRefCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Read ref code from cookie (set by /r/[code] redirect)
+    const match = document.cookie.match(/(?:^|;\s*)greenio_ref=([^;]+)/);
+    if (match) setRefCode(decodeURIComponent(match[1]));
+  }, []);
 
   const handleSignup = async (e: FormEvent) => {
     e.preventDefault();
@@ -24,6 +31,7 @@ export default function SignupPage() {
         data: {
           full_name: fullName,
           company_name: companyName,
+          ...(refCode ? { ref_code: refCode } : {}),
         },
         // IMPORTANT: must be https and correct domain
         emailRedirectTo: 'https://greenio.co/login',
@@ -39,6 +47,15 @@ export default function SignupPage() {
     // IMPORTANT: do not allow auto-login
     if (data.session) {
       await supabase.auth.signOut();
+    }
+
+    // Store referral attribution if ref code present
+    if (refCode && data.user?.id) {
+      fetch('/api/partners/attribute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: data.user.id, ref_code: refCode }),
+      }).catch(() => {});
     }
 
     setMessage('Check your email to confirm your account.');

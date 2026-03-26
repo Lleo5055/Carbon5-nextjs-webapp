@@ -673,6 +673,12 @@ React.useEffect(() => {
     const user = session?.user;
     if (!user || cancelled) return;
 
+    // Partner accounts must not access the main dashboard
+    if (user.user_metadata?.account_type === 'partner') {
+      window.location.replace('/partner-portal');
+      return;
+    }
+
     if (!user.email_confirmed_at) setEmailVerified(false);
 
     // Fire team membership, own plan, and dashboard data all at once

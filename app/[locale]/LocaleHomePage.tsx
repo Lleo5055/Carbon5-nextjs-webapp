@@ -587,6 +587,7 @@ export default function LocaleHomePage({ locale }: Props) {
               <span>{t.footer.madeIn}</span>
               <span>{t.footer.flag}</span>
             </span>
+            <a href="/partners" className="text-slate-400 transition-colors hover:text-white">Partners</a>
             <a href="/privacy" className="text-slate-400 transition-colors hover:text-white">{t.footer.privacy}</a>
             <a href="/terms" className="text-slate-400 transition-colors hover:text-white">{t.footer.terms}</a>
           </div>
