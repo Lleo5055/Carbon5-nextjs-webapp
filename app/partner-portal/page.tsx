@@ -113,9 +113,17 @@ export default function PartnerPortalPage() {
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-3xl px-4 py-8 space-y-5">
 
-        <Link href="/dashboard" className="inline-flex items-center gap-1.5 h-[32px] px-4 rounded-full bg-slate-900 text-white text-xs font-medium hover:bg-slate-800">
-          ← Dashboard
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/dashboard" className="inline-flex items-center gap-1.5 h-[32px] px-4 rounded-full bg-slate-900 text-white text-xs font-medium hover:bg-slate-800">
+            ← Dashboard
+          </Link>
+          <button
+            onClick={async () => { await supabase.auth.signOut(); window.location.href = '/partner-login'; }}
+            className="inline-flex items-center h-[32px] px-4 rounded-full border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-slate-50"
+          >
+            Sign out
+          </button>
+        </div>
 
         {/* Header */}
         <div className="rounded-xl border border-slate-200 bg-gradient-to-r from-white via-white to-emerald-50 px-6 py-5 shadow-sm">
