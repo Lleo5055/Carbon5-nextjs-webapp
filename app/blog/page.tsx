@@ -8,7 +8,7 @@ const BASE_URL = 'https://greenio.co';
 export const metadata: Metadata = {
   title: 'Carbon Accounting Guides & Resources | Greenio Blog',
   description:
-    'Plain-English guides on BRSR, CCTS, SECR and CSRD compliance for businesses across 14 countries. Free resources for carbon accounting, ESG reporting and net zero.',
+    'Practical guides on BRSR, CCTS, SECR and CSRD compliance for businesses across 14 countries. Free resources for carbon accounting, ESG reporting and net zero.',
   keywords:
     'carbon accounting blog, BRSR guide, CCTS explained, SECR reporting, CSRD compliance, ESG reporting guide',
   alternates: { canonical: `${BASE_URL}/blog` },
@@ -126,7 +126,7 @@ export default function BlogPage() {
                 Carbon Accounting<br className="hidden sm:block" /> Guides &amp; Resources
               </h1>
               <p className="mt-4 max-w-xl text-base text-white/60">
-                Plain-English guides on BRSR, CCTS, SECR and CSRD compliance. Written for sustainability managers, CFOs and founders across 14 countries.
+                Practical guides on BRSR, CCTS, SECR and CSRD compliance for businesses across 14 countries.
               </p>
               {/* Regulation pills */}
               <div className="mt-6 flex flex-wrap gap-2">
