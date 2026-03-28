@@ -6,14 +6,14 @@ import BlogListClient from './BlogListClient';
 const BASE_URL = 'https://greenio.co';
 
 export const metadata: Metadata = {
-  title: 'Carbon Accounting Insights | Greenio Blog',
+  title: 'Carbon Accounting Guides & Resources | Greenio Blog',
   description:
-    'Expert guides on BRSR, CCTS, SECR and CSRD compliance for businesses across 14 countries. Free resources for carbon accounting, ESG reporting and net zero.',
+    'Plain-English guides on BRSR, CCTS, SECR and CSRD compliance for businesses across 14 countries. Free resources for carbon accounting, ESG reporting and net zero.',
   keywords:
     'carbon accounting blog, BRSR guide, CCTS explained, SECR reporting, CSRD compliance, ESG reporting guide',
   alternates: { canonical: `${BASE_URL}/blog` },
   openGraph: {
-    title: 'Carbon Accounting Insights | Greenio Blog',
+    title: 'Carbon Accounting Guides & Resources | Greenio Blog',
     description:
       'Expert guides on BRSR, CCTS, SECR and CSRD compliance for businesses across 14 countries.',
     url: `${BASE_URL}/blog`,
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Carbon Accounting Insights | Greenio Blog',
+    title: 'Carbon Accounting Guides & Resources | Greenio Blog',
     description:
       'Expert guides on BRSR, CCTS, SECR and CSRD compliance for businesses across 14 countries.',
   },
@@ -34,7 +34,7 @@ const collectionPageSchema = {
   '@graph': [
     {
       '@type': 'CollectionPage',
-      name: 'Carbon Accounting Insights | Greenio Blog',
+      name: 'Carbon Accounting Guides & Resources | Greenio Blog',
       description:
         'Expert guides on BRSR, CCTS, SECR and CSRD compliance for businesses across 14 countries.',
       url: `${BASE_URL}/blog`,
@@ -100,23 +100,64 @@ export default function BlogPage() {
       </header>
 
       {/* ── HERO ── */}
-      <div className="border-b border-slate-100 bg-slate-50 py-14">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+      <div className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950">
+        {/* Decorative circles */}
+        <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-emerald-500/10" />
+        <div className="pointer-events-none absolute -bottom-24 -left-16 h-80 w-80 rounded-full bg-emerald-400/5" />
+        <div className="pointer-events-none absolute right-1/3 top-1/2 h-48 w-48 rounded-full bg-white/[0.03]" />
+
+        <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
           {/* Breadcrumb */}
-          <nav className="mb-4 text-xs text-slate-500" aria-label="Breadcrumb">
+          <nav className="mb-6 text-xs text-white/40" aria-label="Breadcrumb">
             <ol className="flex items-center gap-1">
-              <li><Link href="/" className="hover:text-slate-700">Home</Link></li>
+              <li><Link href="/" className="hover:text-white/70 transition-colors">Home</Link></li>
               <li aria-hidden="true">›</li>
-              <li className="text-slate-700 font-medium">Blog</li>
+              <li className="text-white/60">Blog</li>
             </ol>
           </nav>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-            Carbon Accounting Insights
-          </h1>
-          <p className="mt-3 max-w-2xl text-base text-slate-600">
-            Expert guides on BRSR, CCTS, SECR and CSRD compliance for businesses
-            across 14 countries.
-          </p>
+
+          <div className="flex flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
+            {/* Left: title + subtitle + regulation pills */}
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-emerald-400">
+                Greenio Blog
+              </p>
+              <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
+                Carbon Accounting<br className="hidden sm:block" /> Guides &amp; Resources
+              </h1>
+              <p className="mt-4 max-w-xl text-base text-white/60">
+                Plain-English guides on BRSR, CCTS, SECR and CSRD compliance. Written for sustainability managers, CFOs and founders across 14 countries.
+              </p>
+              {/* Regulation pills */}
+              <div className="mt-6 flex flex-wrap gap-2">
+                {[
+                  { label: 'BRSR', color: 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/20' },
+                  { label: 'CCTS', color: 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/20' },
+                  { label: 'SECR', color: 'bg-blue-500/20 text-blue-300 border border-blue-400/20' },
+                  { label: 'CSRD', color: 'bg-sky-500/20 text-sky-300 border border-sky-400/20' },
+                  { label: 'GHG Protocol', color: 'bg-white/10 text-white/60 border border-white/10' },
+                ].map(({ label, color }) => (
+                  <span key={label} className={`rounded-full px-3 py-1 text-xs font-semibold ${color}`}>
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Right: stat cluster */}
+            <div className="flex shrink-0 flex-col gap-4 sm:items-end">
+              {[
+                { value: '4', label: 'Regulations covered' },
+                { value: '14', label: 'Countries' },
+                { value: `${posts.length}`, label: 'Guides published' },
+              ].map(({ value, label }) => (
+                <div key={label} className="text-right">
+                  <p className="text-3xl font-bold text-white">{value}</p>
+                  <p className="text-xs text-white/40">{label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
