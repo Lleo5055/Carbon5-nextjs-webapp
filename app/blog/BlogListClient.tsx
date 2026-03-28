@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import BlogCoverImage from '@/components/blog/BlogCoverImage';
 import type { BlogMeta } from '@/lib/blog/types';
 
 const LEVEL_LABELS: Record<number, string> = {
@@ -132,42 +133,30 @@ const filtered = useMemo(() => {
             <Link
               key={post.slug}
               href={`/blog/${post.slug}`}
-              className="group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md"
+              className="group flex flex-col rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md"
             >
-              {/* Country + Level */}
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-xl" aria-label={post.country}>
-                  {post.flag}
-                </span>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    LEVEL_COLORS[post.level] ?? 'bg-slate-100 text-slate-600'
-                  }`}
-                >
-                  {post.levelLabel ?? LEVEL_LABELS[post.level] ?? `Level ${post.level}`}
-                </span>
+              {/* Cover thumbnail */}
+              <div className="p-3 pb-0">
+                <BlogCoverImage
+                  compact
+                  title={post.title}
+                  flag={post.flag}
+                  country={post.country}
+                  regulation={post.regulation ?? ''}
+                  levelLabel={post.levelLabel ?? LEVEL_LABELS[post.level] ?? ''}
+                  readingTime={post.readingTime}
+                />
               </div>
 
-              {/* Title */}
-              <h2 className="mb-2 flex-1 text-base font-semibold text-slate-900 group-hover:text-emerald-700 transition-colors leading-snug">
-                {post.title}
-              </h2>
-
-              {/* Excerpt */}
-              <p className="mb-4 text-sm text-slate-500 line-clamp-2">{post.excerpt}</p>
-
               {/* Meta */}
-              <div className="mt-auto flex items-center justify-between text-xs text-slate-400">
+              <div className="flex items-center justify-between px-4 py-3 text-xs text-slate-400">
                 <span>{post.country}</span>
-                <span className="flex items-center gap-3">
-                  {post.readingTime && <span>{post.readingTime}</span>}
-                  <span>
-                    {new Date(post.date).toLocaleDateString('en-GB', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                  </span>
+                <span>
+                  {new Date(post.date).toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
                 </span>
               </div>
             </Link>

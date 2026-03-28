@@ -5,6 +5,7 @@ interface Props {
   regulation: string;
   levelLabel: string;
   readingTime?: string;
+  compact?: boolean;
 }
 
 const REGULATION_THEME: Record<string, { gradient: string; badge: string }> = {
@@ -46,8 +47,44 @@ export default function BlogCoverImage({
   regulation,
   levelLabel,
   readingTime,
+  compact = false,
 }: Props) {
   const theme = REGULATION_THEME[regulation] ?? DEFAULT_THEME;
+
+  if (compact) {
+    return (
+      <div
+        className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${theme.gradient} px-5 py-6 text-white`}
+      >
+        <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/5" />
+        <div className="pointer-events-none absolute -bottom-10 -left-6 h-40 w-40 rounded-full bg-white/5" />
+
+        {/* Top row */}
+        <div className="relative mb-3 flex flex-wrap items-center gap-1.5">
+          <span className="text-xl leading-none" aria-label={country}>{flag}</span>
+          <span className="text-xs text-white/70">{country}</span>
+          {regulation && (
+            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${theme.badge}`}>
+              {regulation}
+            </span>
+          )}
+          {levelLabel && (
+            <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/80">
+              {levelLabel}
+            </span>
+          )}
+        </div>
+
+        {/* Title */}
+        <p className="relative text-sm font-bold leading-snug tracking-tight text-white line-clamp-3">
+          {title}
+        </p>
+
+        {/* Reading time */}
+        <p className="relative mt-3 text-xs text-white/50">{readingTime ?? '5 min read'}</p>
+      </div>
+    );
+  }
 
   return (
     <div
