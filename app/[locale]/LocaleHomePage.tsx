@@ -98,6 +98,7 @@ export default function LocaleHomePage({ locale }: Props) {
             <a href="#how-it-works" className="transition-colors hover:text-slate-900">{t.nav.howItWorks}</a>
             <a href={isLoggedIn ? '/billing' : '#pricing'} className="transition-colors hover:text-slate-900">{t.nav.pricing}</a>
             <a href="#contact" className="transition-colors hover:text-slate-900">{t.nav.contact}</a>
+            <Link href="/blog" className="transition-colors hover:text-slate-900">Blog</Link>
           </nav>
 
           <div className="flex items-center gap-3">
