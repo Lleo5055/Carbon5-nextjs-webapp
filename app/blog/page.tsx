@@ -108,11 +108,11 @@ export default function BlogPage() {
 
         <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
           {/* Breadcrumb */}
-          <nav className="mb-6 text-xs text-white/40" aria-label="Breadcrumb">
+          <nav className="mb-6 text-xs" aria-label="Breadcrumb">
             <ol className="flex items-center gap-1">
-              <li><Link href="/" className="hover:text-white/70 transition-colors">Home</Link></li>
-              <li aria-hidden="true">›</li>
-              <li className="text-white/60">Blog</li>
+              <li><Link href="/" className="text-white/80 hover:text-white transition-colors">Home</Link></li>
+              <li aria-hidden="true" className="text-white/40">›</li>
+              <li className="text-white/50">Blog</li>
             </ol>
           </nav>
 
@@ -126,16 +126,16 @@ export default function BlogPage() {
                 Carbon Accounting<br className="hidden sm:block" /> Guides &amp; Resources
               </h1>
               <p className="mt-4 max-w-xl text-base text-white/60">
-                Practical guides on BRSR, CCTS, SECR and CSRD compliance for businesses across 14 countries.
+                Practical guides on GHG Protocol, SECR, CSRD, BRSR and CCTS compliance for businesses across 14 countries.
               </p>
               {/* Regulation pills */}
               <div className="mt-6 flex flex-wrap gap-2">
                 {[
-                  { label: 'BRSR', color: 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/20' },
-                  { label: 'CCTS', color: 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/20' },
+                  { label: 'GHG Protocol', color: 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/20' },
                   { label: 'SECR', color: 'bg-blue-500/20 text-blue-300 border border-blue-400/20' },
                   { label: 'CSRD', color: 'bg-sky-500/20 text-sky-300 border border-sky-400/20' },
-                  { label: 'GHG Protocol', color: 'bg-white/10 text-white/60 border border-white/10' },
+                  { label: 'BRSR', color: 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/20' },
+                  { label: 'CCTS', color: 'bg-teal-500/20 text-teal-300 border border-teal-400/20' },
                 ].map(({ label, color }) => (
                   <span key={label} className={`rounded-full px-3 py-1 text-xs font-semibold ${color}`}>
                     {label}
@@ -147,9 +147,8 @@ export default function BlogPage() {
             {/* Right: stat cluster */}
             <div className="flex shrink-0 flex-col gap-4 sm:items-end">
               {[
-                { value: '4', label: 'Regulations covered' },
+                { value: '5', label: 'Regulations covered' },
                 { value: '14', label: 'Countries' },
-                { value: `${posts.length}`, label: 'Guides published' },
               ].map(({ value, label }) => (
                 <div key={label} className="text-right">
                   <p className="text-3xl font-bold text-white">{value}</p>
