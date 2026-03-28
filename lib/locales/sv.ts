@@ -13,10 +13,10 @@ export const sv: Translations = {
   },
 
   hero: {
-    badge: 'Byggd för europeiska SMF',
-    headline: 'Revisionsredo koldioxidredovisning för SMF,',
-    headlineHighlight: 'klar på minuter.',
-    subtext: 'CSRD-kompatibla koldioxidkonton med revisionsklara rapporter och Leadership Snapshots. Utan konsulter, utan komplexitet.',
+    badge: 'CSRD-kompatibel koldioxidredovisningsprogramvara för svenska SMF',
+    headline: 'Koldioxidredovisningsprogramvara för svenska SMF,',
+    headlineHighlight: 'CSRD-kompatibel på minuter.',
+    subtext: 'Svenska utsläppsfaktorer, CSRD-kompatibla revisionsklara rapporter och Leadership Snapshots. Utan konsulter, utan komplexitet.',
     cta: 'Kom igång gratis – inget kort behövs',
     stat1: 'Designad för SMF med 1–250 anställda',
     stat2: 'Första koldioxidkontot på under 30 minuter',

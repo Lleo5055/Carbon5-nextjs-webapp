@@ -16,10 +16,10 @@ export const india: Translations = {
   },
 
   hero: {
-    badge: 'Built for Indian MSMEs',
-    headline: 'Audit-ready carbon accounting for Indian MSMEs,',
-    headlineHighlight: 'done in minutes.',
-    subtext: 'BRSR-aligned carbon accounts with audit-grade reports and Leadership Snapshots. No consultants, no complexity.',
+    badge: 'BRSR & CCTS carbon accounting software for India',
+    headline: 'Carbon accounting software for Indian companies,',
+    headlineHighlight: 'BRSR-ready in minutes.',
+    subtext: 'BEE-aligned emission factors, BRSR-compliant reports and CCTS-ready carbon accounts. No consultants, no complexity.',
     cta: 'Start free – no card needed',
     stat1: 'Designed for 1–250 employee Indian companies',
     stat2: 'First carbon account in under 30 minutes',

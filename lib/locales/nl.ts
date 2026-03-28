@@ -13,10 +13,10 @@ export const nl: Translations = {
   },
 
   hero: {
-    badge: 'Gebouwd voor Europese mkb-bedrijven',
-    headline: 'Auditklare koolstofboekhouding voor mkb,',
-    headlineHighlight: 'in enkele minuten klaar.',
-    subtext: 'CSRD-conforme koolstofrekeningen met rapporten op auditniveau en Leadership Snapshots. Zonder consultants, zonder complexiteit.',
+    badge: 'CSRD-conforme CO₂-boekhoudsoftware voor Nederlandse mkb',
+    headline: 'Koolstofboekhoudsoftware voor Nederlands mkb,',
+    headlineHighlight: 'CSRD-conform in minuten klaar.',
+    subtext: 'Nederlandse emissiefactoren, CSRD-conforme auditkwaliteitsrapporten en Leadership Snapshots. Zonder consultants, zonder complexiteit.',
     cta: 'Gratis starten – geen kaart vereist',
     stat1: 'Ontworpen voor mkb-bedrijven met 1–250 medewerkers',
     stat2: 'Eerste koolstofrekening in minder dan 30 minuten',

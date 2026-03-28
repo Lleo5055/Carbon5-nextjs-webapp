@@ -13,10 +13,10 @@ export const pt: Translations = {
   },
 
   hero: {
-    badge: 'Desenvolvido para PMEs europeias',
-    headline: 'Contabilidade de carbono pronta para auditoria para PMEs,',
-    headlineHighlight: 'concluída em minutos.',
-    subtext: 'Contas de carbono conformes com a CSRD com relatórios de auditoria e Leadership Snapshots. Sem consultores, sem complexidade.',
+    badge: 'Software de contabilidade de carbono CSRD para PMEs portuguesas',
+    headline: 'Software de contabilidade de carbono para PMEs portuguesas,',
+    headlineHighlight: 'conforme CSRD em minutos.',
+    subtext: 'Fatores de emissão portugueses, relatórios CSRD prontos para auditoria e Leadership Snapshots. Sem consultores, sem complexidade.',
     cta: 'Começar grátis – sem cartão',
     stat1: 'Projetado para PMEs com 1–250 funcionários',
     stat2: 'Primeira conta de carbono em menos de 30 minutos',

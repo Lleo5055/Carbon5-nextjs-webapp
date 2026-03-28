@@ -13,10 +13,10 @@ export const pl: Translations = {
   },
 
   hero: {
-    badge: 'Stworzone dla europejskich MŚP',
-    headline: 'Gotowa do audytu rachunkowość węglowa dla MŚP,',
-    headlineHighlight: 'gotowa w kilka minut.',
-    subtext: 'Rachunki węglowe zgodne z CSRD z raportami audytowymi i Leadership Snapshot. Bez konsultantów, bez złożoności.',
+    badge: 'Oprogramowanie do rachunkowości węglowej CSRD dla polskich MŚP',
+    headline: 'Oprogramowanie do śladu węglowego dla polskich MŚP,',
+    headlineHighlight: 'zgodne z CSRD w kilka minut.',
+    subtext: 'Polskie wskaźniki emisji, raporty CSRD gotowe do audytu i Leadership Snapshot. Bez konsultantów, bez złożoności.',
     cta: 'Zacznij za darmo – bez karty',
     stat1: 'Zaprojektowane dla MŚP zatrudniających 1–250 pracowników',
     stat2: 'Pierwszy bilans węglowy w mniej niż 30 minut',

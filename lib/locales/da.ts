@@ -13,10 +13,10 @@ export const da: Translations = {
   },
 
   hero: {
-    badge: "Bygget til europæiske SMV'er",
-    headline: "Revisionsklart kulstofregnskab for SMV'er,",
-    headlineHighlight: 'gjort på minutter.',
-    subtext: 'CSRD-kompatible kulstofregnskaber med revisionsgodkendte rapporter og Leadership Snapshots. Uden konsulenter, uden kompleksitet.',
+    badge: "CSRD-kompatibel kulstofregnskabssoftware til danske SMV'er",
+    headline: "Kulstofregnskabssoftware til danske SMV'er,",
+    headlineHighlight: 'CSRD-kompatibel på minutter.',
+    subtext: "Danske emissionsfaktorer, CSRD-kompatible revisionsgodkendte rapporter og Leadership Snapshots. Uden konsulenter, uden kompleksitet.",
     cta: 'Kom i gang gratis – intet kort kræves',
     stat1: "Designet til SMV'er med 1–250 medarbejdere",
     stat2: 'Første kulstofregnskab på under 30 minutter',

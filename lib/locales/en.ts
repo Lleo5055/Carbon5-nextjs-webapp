@@ -13,10 +13,10 @@ export const en: Translations = {
   },
 
   hero: {
-    badge: 'Built for UK businesses',
-    headline: 'Audit-ready carbon accounting for UK SMEs,',
-    headlineHighlight: 'done in minutes.',
-    subtext: 'DEFRA-aligned carbon accounts with audit-grade reports and Leadership Snapshots. No consultants, no complexity.',
+    badge: 'SECR-ready carbon accounting software for UK SMEs',
+    headline: 'Carbon accounting software for UK SMEs,',
+    headlineHighlight: 'SECR-compliant in minutes.',
+    subtext: 'DEFRA-aligned emission factors, audit-grade SECR reports and Leadership Snapshots. No consultants, no complexity.',
     cta: 'Start free – no card needed',
     stat1: 'Designed for 1–250 employee UK companies',
     stat2: 'First carbon account in under 30 minutes',

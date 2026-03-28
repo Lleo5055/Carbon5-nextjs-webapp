@@ -15,10 +15,10 @@ export const ie: Translations = {
   },
 
   hero: {
-    badge: 'Built for Irish businesses',
-    headline: 'Audit-ready carbon accounting for Irish SMEs,',
-    headlineHighlight: 'done in minutes.',
-    subtext: 'CSRD-aligned carbon accounts with audit-grade reports and Leadership Snapshots. No consultants, no complexity.',
+    badge: 'CSRD carbon accounting software for Irish SMEs',
+    headline: 'Carbon accounting software for Irish SMEs,',
+    headlineHighlight: 'CSRD-compliant in minutes.',
+    subtext: 'Ireland-specific emission factors, CSRD-aligned audit-grade reports and Leadership Snapshots. No consultants, no complexity.',
     cta: 'Start free – no card needed',
     stat1: 'Designed for 1–250 employee Irish companies',
     stat2: 'First carbon account in under 30 minutes',

@@ -13,10 +13,10 @@ export const es: Translations = {
   },
 
   hero: {
-    badge: 'Diseñado para pymes europeas',
-    headline: 'Contabilidad de carbono lista para auditoría para pymes,',
-    headlineHighlight: 'en minutos.',
-    subtext: 'Cuentas de carbono conformes con la CSRD con informes de auditoría y Leadership Snapshots. Sin consultores, sin complejidad.',
+    badge: 'Software de contabilidad de carbono CSRD para pymes españolas',
+    headline: 'Software de contabilidad de carbono para pymes españolas,',
+    headlineHighlight: 'conforme CSRD en minutos.',
+    subtext: 'Factores de emisión españoles, informes CSRD listos para auditoría y Leadership Snapshots. Sin consultores, sin complejidad.',
     cta: 'Empezar gratis – sin tarjeta',
     stat1: 'Diseñado para pymes de 1 a 250 empleados',
     stat2: 'Primera cuenta de carbono en menos de 30 minutos',

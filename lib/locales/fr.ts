@@ -13,10 +13,10 @@ export const fr: Translations = {
   },
 
   hero: {
-    badge: "Conçu pour les PME européennes",
-    headline: "Comptabilité carbone prête à l'audit pour les PME,",
-    headlineHighlight: "en quelques minutes.",
-    subtext: "Bilans carbone conformes au BEGES et à la CSRD, avec rapports audit et Leadership Snapshots. Sans consultants, sans complexité.",
+    badge: "Logiciel Bilan Carbone CSRD pour PME françaises",
+    headline: "Logiciel de comptabilité carbone pour PME françaises,",
+    headlineHighlight: "conforme CSRD en quelques minutes.",
+    subtext: "Facteurs d'émission français, rapports Bilan Carbone BEGES conformes CSRD et Leadership Snapshots. Sans consultants, sans complexité.",
     cta: "Commencer gratuitement – sans carte",
     stat1: "Conçu pour les PME de 1 à 250 employés",
     stat2: "Premier bilan carbone en moins de 30 minutes",

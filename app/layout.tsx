@@ -14,6 +14,20 @@ export const metadata = {
   },
 };
 
+const organizationSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Greenio',
+  url: 'https://greenio.co',
+  logo: 'https://greenio.co/logogreenio.svg',
+  sameAs: [],
+  contactPoint: {
+    '@type': 'ContactPoint',
+    email: 'hello@greenio.co',
+    contactType: 'customer support',
+  },
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -22,6 +36,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-S544JWJ551"
           strategy="afterInteractive"

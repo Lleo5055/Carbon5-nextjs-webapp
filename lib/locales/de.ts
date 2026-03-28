@@ -13,10 +13,10 @@ export const de: Translations = {
   },
 
   hero: {
-    badge: 'Für europäische KMUs entwickelt',
-    headline: 'Prüfungsreifes Carbon Accounting für KMUs,',
-    headlineHighlight: 'in Minuten erledigt.',
-    subtext: 'CSRD-konforme Klimabilanzen mit revisionssicheren Berichten und Leadership Snapshots. Ohne Berater, ohne Komplexität.',
+    badge: 'CSRD-konforme CO₂-Bilanzierungssoftware für deutsche KMUs',
+    headline: 'CO₂-Bilanzierungssoftware für deutsche KMUs,',
+    headlineHighlight: 'CSRD-konform in Minuten.',
+    subtext: 'Deutsche Emissionsfaktoren, revisionssichere CSRD-Berichte und CO₂-Konten ohne Berater und ohne Komplexität.',
     cta: 'Kostenlos starten – keine Karte nötig',
     stat1: 'Entwickelt für KMUs mit 1–250 Mitarbeitern',
     stat2: 'Erste Klimabilanz in unter 30 Minuten',

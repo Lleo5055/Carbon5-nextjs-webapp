@@ -13,10 +13,10 @@ export const it: Translations = {
   },
 
   hero: {
-    badge: "Pensato per le PMI europee",
-    headline: "Contabilità carbonio pronta per l'audit per le PMI,",
-    headlineHighlight: "in pochi minuti.",
-    subtext: "Bilanci di carbonio conformi alla CSRD con report di audit e Leadership Snapshot. Senza consulenti, senza complessità.",
+    badge: "Software di carbon accounting CSRD per PMI italiane",
+    headline: "Software di contabilità carbonio per PMI italiane,",
+    headlineHighlight: "conforme CSRD in pochi minuti.",
+    subtext: "Fattori di emissione italiani, report CSRD pronti per l'audit e Leadership Snapshot. Senza consulenti, senza complessità.",
     cta: "Inizia gratis – nessuna carta richiesta",
     stat1: "Progettato per PMI da 1 a 250 dipendenti",
     stat2: "Primo bilancio di carbonio in meno di 30 minuti",
