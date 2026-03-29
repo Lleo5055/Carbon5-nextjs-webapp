@@ -61,6 +61,11 @@ const filtered = useMemo(() => {
     setPage(1);
   }
 
+  function goToPage(n: number) {
+    setPage(n);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   return (
     <div>
       {/* ── FILTERS ── */}
@@ -168,31 +173,34 @@ const filtered = useMemo(() => {
       {totalPages > 1 && (
         <div className="mt-10 flex items-center justify-center gap-2">
           <button
-            onClick={() => setPage(p => Math.max(1, p - 1))}
+            type="button"
+            onClick={() => goToPage(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             ← Prev
           </button>
 
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
             <button
-              key={p}
-              onClick={() => setPage(p)}
-              className={`rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
-                p === currentPage
+              key={n}
+              type="button"
+              onClick={() => goToPage(n)}
+              className={`cursor-pointer rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
+                n === currentPage
                   ? 'bg-emerald-600 text-white'
                   : 'border border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
               }`}
             >
-              {p}
+              {n}
             </button>
           ))}
 
           <button
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            type="button"
+            onClick={() => goToPage(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Next →
           </button>
