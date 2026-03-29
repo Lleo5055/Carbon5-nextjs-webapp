@@ -109,7 +109,11 @@ async function appendBlogRow(
 
 // ── Claude ─────────────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are an expert carbon accounting and ESG compliance writer with deep knowledge of BRSR, CCTS, SECR, CSRD and the GHG Protocol. Write accurate, comprehensive, SEO-optimized blog posts for Greenio — a carbon accounting platform serving 14 countries.
+function buildSystemPrompt(): string {
+  const currentYear = new Date().getFullYear();
+  return `You are an expert carbon accounting and ESG compliance writer with deep knowledge of BRSR, CCTS, SECR, CSRD and the GHG Protocol. Write accurate, comprehensive, SEO-optimized blog posts for Greenio — a carbon accounting platform serving 14 countries.
+
+The current year is ${currentYear}. When referring to the current regulatory landscape, current year deadlines, or present-day context, always use ${currentYear}. Only use earlier years (e.g. 2024, 2025) when referring to specific historical regulatory phases or past financial year ranges.
 
 Rules:
 1. Always include exactly 2 <BlogCTA> components at the positions specified in the prompt.
@@ -124,12 +128,13 @@ Rules:
 10. Use MDX-compatible syntax. Do not use curly braces in text unless inside a JSX component.
 11. Every H2 heading should contain a target keyword where natural.
 12. Use short paragraphs (2-4 sentences max). Use bullet points and numbered lists to improve scannability.`;
+}
 
 async function generateBlog(client: Anthropic, blog: BlogItem): Promise<string> {
   const message = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 4000,
-    system: SYSTEM_PROMPT,
+    system: buildSystemPrompt(),
     messages: [{ role: 'user', content: blog.prompt }],
   });
 
