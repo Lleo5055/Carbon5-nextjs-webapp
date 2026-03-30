@@ -317,6 +317,8 @@ const countryCode = list[0]?.country_code ?? profile?.country ?? 'GB';
 const ef = getFactorsForCountry(countryCode);
 
 const isGB = countryCode === 'GB';
+const EU_COUNTRIES_SET = new Set(['AT','BE','DK','FR','DE','IE','IT','NL','PL','PT','ES','SE']);
+const isEU = EU_COUNTRIES_SET.has(countryCode);
 const COUNTRY_NAMES: Record<string, string> = {
   GB: 'United Kingdom', DE: 'Germany', FR: 'France', IT: 'Italy',
   ES: 'Spain', NL: 'Netherlands', PL: 'Poland', SE: 'Sweden',
@@ -324,7 +326,7 @@ const COUNTRY_NAMES: Record<string, string> = {
   PT: 'Portugal', IN: 'India',
 };
 const countryName = COUNTRY_NAMES[countryCode] ?? countryCode;
-const reportLabel = isGB ? 'SECR-ready emissions report' : 'Carbon Footprint Report';
+const reportLabel = isGB ? 'SECR-ready emissions report' : isEU ? 'CSRD-aligned emissions report' : 'Carbon Footprint Report';
 // WinAnsi-safe currency label for pdf-lib (₹ and zł are outside Windows-1252)
 const PDF_CURRENCY: Record<string, string> = { IN: 'INR', PL: 'PLN' };
 const currencySymbol = PDF_CURRENCY[countryCode] ?? getCurrencyConfig(countryCode).symbol;
@@ -2242,6 +2244,215 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       }
 
       // Footer
+      page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
+    }
+
+    // ========================= PAGE 7: CSRD / ESRS E1 Disclosure Summary (EU only) =========================
+    if (isEU) {
+      page = addPage();
+      y = 780;
+
+      const EU_BLUE = rgb(0.1, 0.2, 0.55);
+      const AMBER_BADGE = rgb(218 / 255, 128 / 255, 0 / 255);
+      const BTL = 45;
+      const BTW = 510;
+      const BC1 = 55;
+      const BC2 = 325;
+      const BC3 = 455;
+      const BADGE_W = 90;
+
+      const cFuelKwh = totalDieselLitres * 10.9 + totalPetrolLitres * 9.4 + totalGasKwh + totalLpgKg * 12.88 + totalCngKg * 13.9;
+      const cTotalEnergyKwh = totalElecKwh + cFuelKwh;
+      const cTotalEnergyGJ = cTotalEnergyKwh * 0.0036;
+      const cTotalCO2t = scope1_t + scope2_t + scope3_t;
+      const cGhgPerEmp = empCount > 0 ? cTotalCO2t / empCount : null;
+      const cGhgPerRev = revenue > 0 ? cTotalCO2t / revenue : null;
+      const cEnergyPerEmp = empCount > 0 ? cTotalEnergyGJ / empCount : null;
+      const cFmtI = (v: number) => { const d = Math.max(0, -Math.floor(Math.log10(Math.abs(v) || 1)) + 2); return v.toFixed(d); };
+      const hasRenewable = !!(profile as any).renewable_energy_tariff;
+
+      const cWrap = (text: string, maxW: number, sz: number): string[] => {
+        const words = text.split(' ');
+        const lines: string[] = [];
+        let cur = '';
+        for (const w of words) {
+          const test = cur ? cur + ' ' + w : w;
+          if (font.widthOfTextAtSize(test, sz) > maxW) { if (cur) lines.push(cur); cur = w; }
+          else { cur = test; }
+        }
+        if (cur) lines.push(cur);
+        return lines;
+      };
+
+      const cEnsure = (needed: number) => {
+        if (y < 50 + needed) {
+          page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
+          page = addPage();
+          y = 780;
+        }
+      };
+
+      const cGroupHdr = (text: string) => {
+        cEnsure(50);
+        page.drawRectangle({ x: BTL, y: y - 18, width: BTW, height: 22, color: BLUE });
+        page.drawText(text, { x: BC1, y: y - 6, size: 8.5, font: bold, color: rgb(1, 1, 1) });
+        y -= 26;
+      };
+
+      const cRow = (indicator: string, value: string, auto: boolean, note?: string) => {
+        const SZ = 8.5;
+        const NOTE_SZ = 7.5;
+        const NOTE_LH = 11;
+        const indLines = cWrap(indicator, BC2 - BC1 - 8, SZ);
+        const valLines = cWrap(value, BC3 - BC2 - 8, SZ);
+        const mainH = Math.max(22, Math.max(indLines.length, valLines.length) * 13 + 8);
+        const noteLines = note ? cWrap(note, 230, NOTE_SZ) : [];
+        const rowH = mainH + (noteLines.length > 0 ? noteLines.length * NOTE_LH + 6 : 0);
+        cEnsure(rowH + 4);
+
+        const rowBg = auto ? rgb(0.97, 0.99, 0.97) : rgb(0.99, 0.99, 1);
+        page.drawRectangle({ x: BTL, y: y - rowH, width: BTW, height: rowH, color: rowBg });
+        page.drawLine({ start: { x: BTL, y: y - rowH }, end: { x: BTL + BTW, y: y - rowH }, thickness: 0.3, color: rgb(0.87, 0.87, 0.87) });
+
+        const indStartY = y - Math.round((mainH - indLines.length * 13) / 2) - 10;
+        for (let li = 0; li < indLines.length; li++) {
+          page.drawText(indLines[li], { x: BC1, y: indStartY - li * 13, size: SZ, font, color: TEXT });
+        }
+        const valColor = auto ? BLUE : rgb(0.5, 0.5, 0.52);
+        const valStartY = y - Math.round((mainH - valLines.length * 13) / 2) - 10;
+        for (let vi = 0; vi < valLines.length; vi++) {
+          page.drawText(valLines[vi], { x: BC2, y: valStartY - vi * 13, size: SZ, font: auto ? bold : font, color: valColor });
+        }
+        const badgeY = y - Math.round(mainH / 2) - 7;
+        page.drawRectangle({ x: BC3, y: badgeY, width: BADGE_W, height: 14, color: auto ? BLUE : AMBER_BADGE });
+        const badgeStr = auto ? 'Auto-filled' : 'Needs input';
+        const badgeStrW = bold.widthOfTextAtSize(badgeStr, 7.5);
+        page.drawText(badgeStr, { x: BC3 + Math.round((BADGE_W - badgeStrW) / 2), y: badgeY + 3, size: 7.5, font: bold, color: rgb(1, 1, 1) });
+        if (noteLines.length > 0) {
+          let noteY = y - mainH - 9;
+          for (const nl of noteLines) {
+            page.drawText(nl, { x: BC1 + 4, y: noteY, size: NOTE_SZ, font, color: rgb(0.5, 0.5, 0.52) });
+            noteY -= NOTE_LH;
+          }
+        }
+        y -= rowH + 2;
+      };
+
+      // PAGE HEADER
+      page.drawText('7. CSRD / ESRS E1 Climate Disclosure', { x: 50, y, size: 18, font: bold, color: TEXT });
+      page.drawLine({ start: { x: 50, y: y - 6 }, end: { x: 545, y: y - 6 }, thickness: 1, color: EU_BLUE });
+      y -= 28;
+      page.drawText('EU CSRD | ESRS E1 - Climate Change (auto-populated from Greenio data)', { x: 50, y, size: 10, font, color: rgb(0.45, 0.45, 0.47) });
+      y -= 22;
+      {
+        const cDark = rgb(0.15, 0.15, 0.17);
+        const introStr = 'The following disclosures are prepared in accordance with ESRS E1 (Climate Change) under the EU Corporate Sustainability Reporting Directive (CSRD). Quantitative datapoints are auto-populated from Greenio emissions data. Fields marked "Needs input" require additional information from your organisation.';
+        const introWords = introStr.split(' ');
+        let introLine = '';
+        for (const iw of introWords) {
+          const test = introLine ? introLine + ' ' + iw : iw;
+          if (font.widthOfTextAtSize(test, 10) > 495) {
+            page.drawText(introLine.trim(), { x: 50, y, size: 10, font, color: cDark });
+            y -= 15;
+            introLine = iw;
+          } else { introLine = test; }
+        }
+        if (introLine.trim()) { page.drawText(introLine.trim(), { x: 50, y, size: 10, font, color: cDark }); y -= 15; }
+        y -= 10;
+      }
+
+      // Column headers
+      page.drawRectangle({ x: BTL, y: y - 18, width: BTW, height: 22, color: rgb(0, 0, 0) });
+      page.drawText('ESRS E1 Indicator', { x: BC1, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
+      page.drawText('Value', { x: BC2, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
+      page.drawText('Status', { x: BC3 + 15, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
+      y -= 26;
+
+      // E1-6: GHG Emissions
+      cGroupHdr('E1-6 - Gross GHG Emissions (Scope 1, 2, 3)');
+      cRow('Gross Scope 1 GHG emissions (tCO2e) - direct combustion, fugitive', `${scope1_t.toFixed(2)} tCO2e`, true);
+      cRow('Gross Scope 2 GHG emissions (tCO2e) - location-based electricity', `${scope2_t.toFixed(2)} tCO2e`, true, `Location-based grid factor: ${ef.electricity} kg CO2e/kWh (${countryName})`);
+      cRow('Gross Scope 3 GHG emissions (tCO2e) - partial value chain', scope3_t > 0 ? `${scope3_t.toFixed(2)} tCO2e` : 'Not provided', scope3_t > 0, scope3_t > 0 ? 'Partial Scope 3 only. Full value-chain inventory recommended for CSRD completeness.' : 'Log Scope 3 activities in Greenio to auto-populate.');
+      cRow('Total GHG emissions Scope 1+2+3 (tCO2e)', `${cTotalCO2t.toFixed(2)} tCO2e`, true);
+
+      // E1-5: Energy
+      cGroupHdr('E1-5 - Energy Consumption and Mix');
+      cRow('Total energy consumption (GJ)', `${cTotalEnergyGJ.toFixed(2)} GJ`, true);
+      cRow('Energy from electricity (GJ)', `${(totalElecKwh * 0.0036).toFixed(2)} GJ`, true);
+      cRow('Energy from fossil fuels (GJ)', `${(cFuelKwh * 0.0036).toFixed(2)} GJ`, true);
+      cRow('Share of renewable energy in electricity mix', hasRenewable ? 'Renewable tariff confirmed' : 'Not confirmed', hasRenewable, hasRenewable ? 'Organisation has confirmed use of a renewable energy tariff.' : 'Confirm renewable energy tariff in your Greenio profile.');
+
+      // Intensity
+      cGroupHdr('GHG Intensity Metrics');
+      if (cGhgPerEmp != null) {
+        cRow('GHG intensity per employee (tCO2e / FTE)', `${cFmtI(cGhgPerEmp)} tCO2e / FTE`, true);
+      } else {
+        cRow('GHG intensity per employee (tCO2e / FTE)', 'Not calculable', false, 'Add employee headcount in your Greenio profile.');
+      }
+      if (cGhgPerRev != null) {
+        cRow('GHG intensity per EUR revenue (tCO2e / EUR)', `${cFmtI(cGhgPerRev)} tCO2e / EUR`, true);
+      } else {
+        cRow('GHG intensity per EUR revenue (tCO2e / EUR)', 'Not calculable', false, 'Add annual revenue in your Greenio profile.');
+      }
+      if (cEnergyPerEmp != null) {
+        cRow('Energy intensity per employee (GJ / FTE)', `${cFmtI(cEnergyPerEmp)} GJ / FTE`, true);
+      } else {
+        cRow('Energy intensity per employee (GJ / FTE)', 'Not calculable', false, 'Add employee headcount in your Greenio profile.');
+      }
+
+      // Governance & Targets
+      cGroupHdr('E1-1 / E1-4 - Climate Governance and Targets');
+      cRow('Calculation methodology confirmed', methodologyConfirmed ? 'Confirmed' : 'Not confirmed', !!methodologyConfirmed, methodologyConfirmed ? 'Methodology confirmed by operator.' : 'Confirm methodology in your Greenio profile.');
+      cRow('Climate transition plan (E1-1)', 'Needs input', false, 'Document your transition plan for climate change mitigation.');
+      cRow('Climate targets set (E1-4)', 'Needs input', false, 'Set reduction targets in your Greenio profile to auto-populate.');
+      cRow('Internal carbon price used (E1-8)', 'Needs input', false, 'Disclose whether an internal carbon price is used in investment decisions.');
+
+      // COMPLETENESS SCORECARD
+      cEnsure(120);
+      y -= 20;
+      page.drawText('CSRD / ESRS E1 Completeness Scorecard', { x: 50, y, size: 12, font: bold, color: TEXT });
+      y -= 22;
+
+      const cMissing: string[] = [];
+      if (!empCount) cMissing.push('employee headcount');
+      if (revenue <= 0) cMissing.push('annual revenue (EUR)');
+      if (scope3_t <= 0) cMissing.push('Scope 3 activities');
+      if (!hasRenewable) cMissing.push('renewable energy confirmation');
+      if (!methodologyConfirmed) cMissing.push('methodology confirmation');
+
+      const cAutoCount = 6 + (empCount ? 1 : 0) + (revenue > 0 ? 1 : 0) + (scope3_t > 0 ? 1 : 0) + (hasRenewable ? 1 : 0) + (methodologyConfirmed ? 1 : 0);
+      const cTotalCount = 11;
+      const cPct = Math.round((cAutoCount / cTotalCount) * 100);
+      const cBarW = 400;
+      const cFillW = Math.round(cBarW * cPct / 100);
+      const cPctColor = cPct >= 80 ? BLUE : cPct >= 50 ? AMBER_BADGE : rgb(0.72, 0.15, 0.05);
+      const cBarBottomY = y - 16;
+      page.drawRectangle({ x: BTL, y: cBarBottomY, width: cBarW, height: 12, color: rgb(0.9, 0.9, 0.9) });
+      page.drawRectangle({ x: BTL, y: cBarBottomY, width: cFillW, height: 12, color: BLUE });
+      page.drawText(`${cPct}%`, { x: BTL + cBarW + 10, y: cBarBottomY + 3, size: 10, font: bold, color: cPctColor });
+      y = cBarBottomY - 10;
+      page.drawText(`${cAutoCount} of ${cTotalCount} datapoints auto-populated`, { x: BTL, y, size: 8, font, color: rgb(0.45, 0.45, 0.47) });
+      y -= 16;
+
+      cEnsure(70);
+      const cTipText = cMissing.length > 0
+        ? `To improve ESRS E1 completeness: Add (${cMissing.map((m, i) => `${i + 1}) ${m}`).join(', ')}) to your Greenio profile. Remaining indicators will auto-populate in your next report.`
+        : 'All auto-populatable ESRS E1 datapoints are complete. Add transition plan, climate targets, and internal carbon price details to reach full disclosure.';
+      const cTipBg = cMissing.length > 0 ? rgb(0.98, 0.97, 0.88) : rgb(0.94, 0.99, 0.94);
+      const cTipAccent = cMissing.length > 0 ? AMBER_BADGE : BLUE;
+      const cTipTextColor = cMissing.length > 0 ? rgb(0.45, 0.35, 0) : rgb(0.1, 0.4, 0.1);
+      const cTipLines = cWrap(cTipText, 450, 8.5);
+      const cTipH = cTipLines.length * 13 + 20;
+      page.drawRectangle({ x: BTL, y: y - cTipH, width: BTW, height: cTipH, color: cTipBg });
+      page.drawRectangle({ x: BTL, y: y - cTipH, width: 4, height: cTipH, color: cTipAccent });
+      for (let ti = 0; ti < cTipLines.length; ti++) {
+        page.drawText(cTipLines[ti], { x: BC1 + 8, y: y - 13 - ti * 13, size: 8.5, font: ti === 0 ? bold : font, color: cTipTextColor });
+      }
+      y -= cTipH + 12;
+
+      const discStr = 'This CSRD/ESRS E1 summary is based solely on data entered into Greenio and does not constitute third-party assurance. For companies subject to mandatory CSRD reporting, limited assurance by an accredited auditor is required from FY2024 (large companies) or FY2026 (listed SMEs). ESRS E1 also requires qualitative disclosures (transition plans, risk analysis, governance) which are not auto-generated.';
+      for (const dl of cWrap(discStr, 495, 8.5)) { page.drawText(dl, { x: 50, y, size: 8.5, font, color: rgb(0.35, 0.35, 0.37) }); y -= 13; }
+
       page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
     }
 

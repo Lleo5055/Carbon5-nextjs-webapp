@@ -606,6 +606,9 @@ const [isTeamMember, setIsTeamMember] = React.useState(false);
 const [isPro, setIsPro] = React.useState(false);
 // null = not yet known (hides all country-specific content until confirmed)
 const [isIndia, setIsIndia] = React.useState<boolean | null>(null);
+const [isGB, setIsGB] = React.useState<boolean | null>(null);
+const EU_COUNTRIES_SET = React.useMemo(() => new Set(['AT','BE','DK','FR','DE','IE','IT','NL','PL','PT','ES','SE']), []);
+const [isEU, setIsEU] = React.useState<boolean | null>(null);
 const [brsrResult, setBrsrResult] = React.useState<BrsrCompletenessResult | null>(() => {
   try {
     const c = sessionStorage.getItem('greenio_brsr_result_v1');
@@ -641,6 +644,8 @@ React.useEffect(() => {
       const parsed = JSON.parse(cached);
       if (parsed?.profile?.country !== undefined) {
         setIsIndia(parsed.profile.country === 'IN');
+        setIsGB(parsed.profile.country === 'GB');
+        setIsEU(EU_COUNTRIES_SET.has(parsed.profile.country ?? ''));
       }
     }
   } catch {}
@@ -743,6 +748,8 @@ supabase
 
     // 2b️⃣ BRSR completeness — India accounts only (non-blocking)
     setIsIndia(data?.country === 'IN');
+    setIsGB(data?.country === 'GB');
+    setIsEU(EU_COUNTRIES_SET.has(data?.country ?? ''));
     if (data?.country === 'IN' && !cancelled) {
       const [brsrRes, scope1Res, scope2Res, scope3Res, waterRes, wasteRes] = await Promise.all([
         supabase.from('brsr_profile').select('industry_sector,permanent_employees,permanent_workers,is_listed_company,renewable_elec_pct,has_ghg_reduction_plan').eq('account_id', user.id).maybeSingle(),
@@ -1430,6 +1437,68 @@ const youTonnes = dashData.totalCo2eKg / 1000;
                         <span className="text-slate-400 group-hover:text-slate-300">→</span>
                       </Link>
                     )}
+                  </div>
+                </section>
+                )}
+
+                {/* COMPLIANCE & REGULATORY CARD — UK (GB) only */}
+                {isGB === true && (
+                <section className="rounded-xl bg-white border p-6 shadow">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-3">
+                    Compliance &amp; Regulatory
+                  </p>
+                  <div className="space-y-2">
+                    <Link
+                      href="/dashboard/secr-profile"
+                      className="flex items-center justify-between rounded-lg px-3 py-2.5 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-900 hover:text-white transition-colors group"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="text-emerald-600 group-hover:text-emerald-400">📋</span>
+                        SECR Profile
+                      </span>
+                      <span className="text-slate-400 group-hover:text-slate-300">→</span>
+                    </Link>
+                    <Link
+                      href="/dashboard/uk-ets"
+                      className="flex items-center justify-between rounded-lg px-3 py-2.5 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-900 hover:text-white transition-colors group"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="text-emerald-600 group-hover:text-emerald-400">🌱</span>
+                        UK ETS Dashboard
+                      </span>
+                      <span className="text-slate-400 group-hover:text-slate-300">→</span>
+                    </Link>
+                  </div>
+                </section>
+                )}
+
+                {/* COMPLIANCE & REGULATORY CARD — EU only */}
+                {isEU === true && (
+                <section className="rounded-xl bg-white border p-6 shadow">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-3">
+                    Compliance &amp; Regulatory
+                  </p>
+                  <div className="space-y-2">
+                    <Link
+                      href="/dashboard/csrd-profile"
+                      className="flex items-center justify-between rounded-lg px-3 py-2.5 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-900 hover:text-white transition-colors group"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="text-emerald-600 group-hover:text-emerald-400">📋</span>
+                        CSRD Profile
+                      </span>
+                      <span className="text-slate-400 group-hover:text-slate-300">→</span>
+                    </Link>
+                    <Link
+                      href="/dashboard/eu-ets"
+                      className="flex items-center justify-between rounded-lg px-3 py-2.5 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-900 hover:text-white transition-colors group"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="text-emerald-600 group-hover:text-emerald-400">🌱</span>
+                        EU ETS Dashboard
+                      </span>
+                      <span className="text-slate-400 group-hover:text-slate-300">→</span>
+                    </Link>
                   </div>
                 </section>
                 )}

@@ -445,6 +445,33 @@ export default function ProfilePage() {
           </section>
 
           {/* REGULATORY REPORTING — title + fields adapt per country */}
+          {compliance.framework === 'SECR' ? (
+            <section>
+              <h2 className="text-sm font-semibold text-slate-700 mb-3">SECR reporting</h2>
+              <div className="rounded-lg bg-blue-50 border border-blue-100 px-4 py-4 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-medium text-blue-800">SECR reporting details have a dedicated profile page.</p>
+                  <p className="text-xs text-blue-600 mt-0.5">Complete your SECR profile to generate compliant reports. Includes applicability, energy intensity, efficiency actions and methodology.</p>
+                </div>
+                <a href="/dashboard/secr-profile" className="shrink-0 inline-flex items-center whitespace-nowrap rounded-full bg-blue-700 text-white px-4 py-1.5 text-xs font-semibold hover:bg-blue-800">
+                  SECR profile →
+                </a>
+              </div>
+            </section>
+          ) : compliance.framework === 'CSRD' ? (
+            <section>
+              <h2 className="text-sm font-semibold text-slate-700 mb-3">CSRD reporting</h2>
+              <div className="rounded-lg bg-blue-50 border border-blue-100 px-4 py-4 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-medium text-blue-800">CSRD reporting details have a dedicated profile page.</p>
+                  <p className="text-xs text-blue-600 mt-0.5">Complete your CSRD profile to generate compliant reports. Includes applicability, double materiality, intensity ratio and methodology.</p>
+                </div>
+                <a href="/dashboard/csrd-profile" className="shrink-0 inline-flex items-center whitespace-nowrap rounded-full bg-blue-700 text-white px-4 py-1.5 text-xs font-semibold hover:bg-blue-800">
+                  CSRD profile →
+                </a>
+              </div>
+            </section>
+          ) : (
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold text-slate-700">
@@ -529,6 +556,7 @@ export default function ProfilePage() {
               I confirm that the calculation methodology used is correct.
             </label>
           </section>
+          )}
 
           {/* SUSTAINABILITY */}
           <section>
