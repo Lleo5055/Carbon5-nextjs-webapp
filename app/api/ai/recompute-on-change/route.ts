@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkOrgRoleForUser } from '@/lib/orgAuth';
 import { supabase } from '@/lib/supabaseClient';
 import OpenAI from 'openai';
 
@@ -15,13 +16,19 @@ function safeNumber(v: any) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { user_id, month } = body;
+    const { user_id, month, org_id } = body;
 
     if (!user_id || !month) {
       return NextResponse.json(
         { error: 'Missing user_id/month' },
         { status: 400 }
       );
+    }
+
+    // Enterprise org role check (member minimum)
+    if (org_id) {
+      const authResult = await checkOrgRoleForUser(user_id, org_id, 'member');
+      if (!authResult.ok) return NextResponse.json({ error: authResult.error }, { status: authResult.status });
     }
 
     // 1. Fetch emissions

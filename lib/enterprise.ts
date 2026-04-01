@@ -30,6 +30,7 @@ export type Entity = {
   fy_start_month: number | null;
   secr_required: boolean | null;
   csrd_required: boolean | null;
+  brsr_required: boolean | null;
   industry: string | null;
   company_size: string | null;
   annual_revenue: number | null;

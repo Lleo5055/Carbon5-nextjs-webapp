@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireOrgRole } from '@/lib/orgAuth';
 import { supabase } from '../../../../lib/supabaseClient';
 
 export const runtime = 'nodejs';
@@ -33,6 +34,15 @@ export async function GET(req: NextRequest) {
     // Optional period filter
     const url = new URL(req.url);
     const period = url.searchParams.get('period') ?? 'all';
+
+    // Enterprise org role check (viewer minimum)
+    const orgId = url.searchParams.get('org_id');
+    if (orgId) {
+      const authResult = await requireOrgRole(req, orgId, 'viewer');
+      if (!authResult.ok) {
+        return new NextResponse(authResult.error, { status: authResult.status, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+      }
+    }
     void period;
 
     // Load emissions data

@@ -8,6 +8,7 @@ import { supabase } from '../../../lib/supabaseClient';
 import { calcRefrigerantCo2e } from '../../../lib/emissionFactors';
 import { getFactorsForCountry } from '@/lib/factors';
 import { logActivity } from '../../../lib/logActivity';
+import { isEnterpriseUser, getUserOrgs, getOrgWithHierarchy, type Site } from '@/lib/enterprise';
 import { Suspense } from 'react';
 // --------------------------------
 // FIX 1: Safe default Scope 3 key
@@ -285,6 +286,11 @@ function EmissionsPageInner() {
   const [airPm, setAirPm] = useState('');
   const [airOtherName, setAirOtherName] = useState('');
   const [airOtherTonnes, setAirOtherTonnes] = useState('');
+  const [isEnterprise, setIsEnterprise] = useState(false);
+  const [availableSites, setAvailableSites] = useState<Site[]>([]);
+  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
+  const [orgRole, setOrgRole] = useState<string | null>(null); // null = SME or not yet loaded
+  const [enterpriseLoading, setEnterpriseLoading] = useState(true);
   // -------------------------------
   // Load existing row when editing
   // -------------------------------
@@ -478,6 +484,47 @@ useEffect(() => {
         }
       });
   });
+}, []);
+
+// Load enterprise sites on mount
+useEffect(() => {
+  async function loadEnterprise() {
+    setEnterpriseLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (!user) return;
+      const enterprise = await isEnterpriseUser(user.id);
+      setIsEnterprise(enterprise);
+      if (enterprise) {
+        const orgs = await getUserOrgs(user.id);
+        if (orgs.length > 0) {
+          const orgData = await getOrgWithHierarchy(orgs[0].id);
+          if (orgData) {
+            const allSites = orgData.entities.flatMap(e => e.sites);
+            setAvailableSites(allSites);
+            const primary = allSites.find(s => s.is_primary);
+            setSelectedSiteId(primary?.id ?? allSites[0]?.id ?? null);
+
+            // Fetch current user's role in this org
+            try {
+              const res = await fetch(`/api/org/members?org_id=${orgs[0].id}`);
+              if (res.ok) {
+                const allMembers = await res.json();
+                const myMember = allMembers.find((m: any) => m.user_id === user.id);
+                if (myMember) setOrgRole(myMember.role);
+              }
+            } catch {
+              // Non-fatal — default to full access on error
+            }
+          }
+        }
+      }
+    } finally {
+      setEnterpriseLoading(false);
+    }
+  }
+  loadEnterprise();
 }, []);
 
   // -------------------------------------------
@@ -894,6 +941,10 @@ total_co2e: updatedTotalCo2e,
               ef_lpg: ef.lpgKg,
               ef_cng: ef.cngKg,
               calc_breakdown: updatedCalcBreakdown,
+              ...(isEnterprise && selectedSiteId ? {
+                site_id: selectedSiteId,
+                org_id: availableSites.find(s => s.id === selectedSiteId)?.org_id ?? null,
+              } : {}),
             })
             .eq('id', existing.id);
 
@@ -974,6 +1025,10 @@ if (Object.keys(changes).length > 0) {
               ef_lpg: ef.lpgKg,
               ef_cng: ef.cngKg,
               calc_breakdown: calcBreakdown,
+            ...(isEnterprise && selectedSiteId ? {
+              site_id: selectedSiteId,
+              org_id: availableSites.find(s => s.id === selectedSiteId)?.org_id ?? null,
+            } : {}),
             });
 if (insertError) throw insertError;
           await supabase.from('report_locks').upsert({
@@ -1173,7 +1228,8 @@ await supabase.from('edit_history').insert({
           const { error: we } = await supabase.from('water_entries').update(waterPayload).eq('id', existingWater.id);
           if (we) throw we;
         } else {
-          const { error: we } = await supabase.from('water_entries').insert(waterPayload);
+          const waterPayloadFinal = isEnterprise && selectedSiteId ? { ...waterPayload, site_id: selectedSiteId, org_id: availableSites.find(s => s.id === selectedSiteId)?.org_id ?? null } : waterPayload;
+          const { error: we } = await supabase.from('water_entries').insert(waterPayloadFinal);
           if (we) throw we;
         }
       }
@@ -1215,7 +1271,8 @@ await supabase.from('edit_history').insert({
           const { error: wse } = await supabase.from('waste_entries').update(wastePayload).eq('id', existingWaste.id);
           if (wse) throw wse;
         } else {
-          const { error: wse } = await supabase.from('waste_entries').insert(wastePayload);
+          const wastePayloadFinal = isEnterprise && selectedSiteId ? { ...wastePayload, site_id: selectedSiteId, org_id: availableSites.find(s => s.id === selectedSiteId)?.org_id ?? null } : wastePayload;
+          const { error: wse } = await supabase.from('waste_entries').insert(wastePayloadFinal);
           if (wse) throw wse;
         }
       }
@@ -1247,7 +1304,8 @@ await supabase.from('edit_history').insert({
           const { error: ae } = await supabase.from('air_emissions').update(airPayload).eq('id', existingAir.id);
           if (ae) throw ae;
         } else {
-          const { error: ae } = await supabase.from('air_emissions').insert(airPayload);
+          const airPayloadFinal = isEnterprise && selectedSiteId ? { ...airPayload, site_id: selectedSiteId, org_id: availableSites.find(s => s.id === selectedSiteId)?.org_id ?? null } : airPayload;
+          const { error: ae } = await supabase.from('air_emissions').insert(airPayloadFinal);
           if (ae) throw ae;
         }
       }
@@ -1951,7 +2009,41 @@ await supabase.from('edit_history').insert({
               )}
             </div>
           ) : (
+          isEnterprise && !enterpriseLoading && availableSites.length === 0 ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              No sites found. Please set up your organisation first.{' '}
+              <a href="/organisation/enterprise" className="underline font-medium">
+                Go to Organisation →
+              </a>
+            </div>
+          ) : (
+          <>
+          {isEnterprise && orgRole === 'viewer' && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 mb-4">
+              You have view-only access to this organisation. Data entry is disabled.
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* SITE SWITCHER — enterprise only */}
+            {isEnterprise && availableSites.length > 0 && (
+              <div className="mb-4">
+                <label className="text-xs font-medium text-slate-600">
+                  Site <span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                  value={selectedSiteId ?? ''}
+                  onChange={(e) => setSelectedSiteId(e.target.value)}
+                >
+                  {availableSites.map(site => (
+                    <option key={site.id} value={site.id}>
+                      {site.name}{site.city ? ` — ${site.city}` : ''}
+                      {site.is_primary ? ' ★' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {/* MONTH SELECTION */}
             <div>
               <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">
@@ -2583,7 +2675,7 @@ await supabase.from('edit_history').insert({
             <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || (isEnterprise && orgRole === 'viewer')}
                 className="inline-flex items-center justify-center rounded-full bg-slate-900 text-white text-xs font-medium px-5 py-2 hover:bg-slate-800 disabled:opacity-60"
               >
                 {loading
@@ -2594,6 +2686,8 @@ await supabase.from('edit_history').insert({
               </button>
             </div>
           </form>
+          </>
+          )
           )}
         </section>
       </div>

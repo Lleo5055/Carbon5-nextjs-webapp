@@ -1,19 +1,27 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { checkOrgRoleForUser } from '@/lib/orgAuth';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const { userId, month, locked } = await req.json();
+  const body = await req.json();
+  const { userId, month, locked, org_id } = body;
 
   if (!userId || !month || typeof locked !== 'boolean') {
     return NextResponse.json(
       { error: 'Invalid request payload' },
       { status: 400 }
     );
+  }
+
+  // Enterprise org role check (admin minimum to lock/unlock reports)
+  if (org_id) {
+    const authResult = await checkOrgRoleForUser(userId, org_id, 'admin');
+    if (!authResult.ok) return NextResponse.json({ error: authResult.error }, { status: authResult.status });
   }
 
   // Snapshot the emission and scope3 row IDs in scope at lock time

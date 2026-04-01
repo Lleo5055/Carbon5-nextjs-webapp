@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkOrgRoleForUser } from '@/lib/orgAuth';
 import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 
@@ -74,6 +75,13 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser(token);
     if (!user || user.id !== userId) {
       return NextResponse.json({ status: 'error', error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Enterprise org role check (member minimum to upload data)
+    const orgId = formData.get('org_id') as string | null;
+    if (orgId) {
+      const authResult = await checkOrgRoleForUser(userId, orgId, 'member');
+      if (!authResult.ok) return NextResponse.json({ status: 'error', error: authResult.error }, { status: authResult.status });
     }
 
     // Parse Excel

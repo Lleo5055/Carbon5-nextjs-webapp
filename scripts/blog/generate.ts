@@ -153,8 +153,8 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   const day = parseInt(args[dayFlagIdx + 1], 10);
-  if (isNaN(day) || day < 1 || day > 30) {
-    console.error('--day must be a number between 1 and 30');
+  if (isNaN(day) || day < 1 || day >60) {
+    console.error('--day must be a number between 1 and 60');
     process.exit(1);
   }
 

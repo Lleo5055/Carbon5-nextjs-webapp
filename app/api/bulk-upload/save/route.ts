@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkOrgRoleForUser } from '@/lib/orgAuth';
 import { createClient } from '@supabase/supabase-js';
 import { getFactorsForCountry } from '@/lib/factors';
 import { calcRefrigerantCo2e } from '@/lib/emissionFactors';
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
       { global: { fetch: (url, options) => fetch(url, { ...options, cache: 'no-store' }) } }
     );
 
-    const { userId, token, rows } = await req.json();
+    const { userId, token, rows, org_id: orgId } = await req.json();
 
     if (!userId || !token || !rows) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
@@ -23,6 +24,12 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser(token);
     if (!user || user.id !== userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Enterprise org role check (member minimum to save data)
+    if (orgId) {
+      const authResult = await checkOrgRoleForUser(userId, orgId, 'member');
+      if (!authResult.ok) return NextResponse.json({ error: authResult.error }, { status: authResult.status });
     }
 
     const { data: profile } = await supabase

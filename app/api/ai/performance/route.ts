@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireOrgRole } from '@/lib/orgAuth';
 import { supabase } from '@/lib/supabaseClient';
 import OpenAI from 'openai';
 
@@ -22,6 +23,13 @@ const client = new OpenAI({
  */
 export async function GET(req: NextRequest) {
   try {
+    // Enterprise org role check (viewer minimum)
+    const orgId = new URL(req.url).searchParams.get('org_id');
+    if (orgId) {
+      const authResult = await requireOrgRole(req, orgId, 'viewer');
+      if (!authResult.ok) return NextResponse.json({ error: authResult.error }, { status: authResult.status });
+    }
+
     // Load last 6 months of emissions
     const { data, error } = await supabase
       .from('emissions')

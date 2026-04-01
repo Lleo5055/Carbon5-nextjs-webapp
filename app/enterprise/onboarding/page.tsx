@@ -61,6 +61,7 @@ export default function EnterpriseOnboardingPage() {
   const [entityFyStart, setEntityFyStart] = useState(4);
   const [entitySecrRequired, setEntitySecrRequired] = useState(false);
   const [entityCsrdRequired, setEntityCsrdRequired] = useState(false);
+  const [entityBrsrRequired, setEntityBrsrRequired] = useState(false);
 
   // Step 3 — Site
   const [siteName, setSiteName] = useState('');
@@ -142,6 +143,7 @@ export default function EnterpriseOnboardingPage() {
         fy_start_month: entityFyStart,
         secr_required: entitySecrRequired,
         csrd_required: entityCsrdRequired,
+        brsr_required: entityBrsrRequired,
         industry: entityIndustry.trim() || null,
         company_size: null,
         annual_revenue: null,
@@ -161,7 +163,7 @@ export default function EnterpriseOnboardingPage() {
       // 4. Mark onboarding complete
       const { error: profileError } = await supabase
         .from('profiles')
-        .upsert({ id: user.id, onboarding_complete: true });
+        .update({ onboarding_complete: true }).eq('id', user.id);
 
       if (profileError) throw new Error(`Failed to update profile: ${profileError.message}`);
 
@@ -276,6 +278,10 @@ export default function EnterpriseOnboardingPage() {
               <h2 className="text-sm font-semibold text-slate-700 mb-3">
                 First legal entity
               </h2>
+              <p className="text-xs text-slate-500 mb-4">
+                Set up your first legal entity here. You can add more entities and sites
+                later from your Organisation settings.
+              </p>
               <div className="space-y-4">
 
                 <div>
@@ -300,7 +306,12 @@ export default function EnterpriseOnboardingPage() {
                   <select
                     className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
                     value={entityCountry}
-                    onChange={(e) => setEntityCountry(e.target.value)}
+                    onChange={(e) => {
+                      setEntityCountry(e.target.value);
+                      setEntitySecrRequired(false);
+                      setEntityCsrdRequired(false);
+                      setEntityBrsrRequired(false);
+                    }}
                     required
                   >
                     <option value="">Select country…</option>
@@ -338,39 +349,63 @@ export default function EnterpriseOnboardingPage() {
                   </select>
                 </div>
 
-                <div className="space-y-2 pt-1">
-                  <label className="flex items-start gap-2 text-sm text-slate-700">
-                    <input
-                      type="checkbox"
-                      className="mt-0.5"
-                      checked={entitySecrRequired}
-                      onChange={(e) => setEntitySecrRequired(e.target.checked)}
-                    />
-                    <span>
-                      This entity is required to comply with{' '}
-                      <strong>SECR</strong> (Streamlined Energy and Carbon Reporting).
-                      <span className="block text-xs text-slate-400 mt-0.5">
-                        Required for large UK companies under the Companies Act.
-                      </span>
-                    </span>
-                  </label>
+                {entityCountry && (
+                  <div className="space-y-2 pt-1">
+                    {entityCountry === 'GB' && (
+                      <label className="flex items-start gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5"
+                          checked={entitySecrRequired}
+                          onChange={(e) => setEntitySecrRequired(e.target.checked)}
+                        />
+                        <span>
+                          This entity is required to comply with <strong>SECR</strong>{' '}
+                          (Streamlined Energy and Carbon Reporting).
+                          <span className="block text-xs text-slate-400 mt-0.5">
+                            Required for large UK companies under the Companies Act.
+                          </span>
+                        </span>
+                      </label>
+                    )}
 
-                  <label className="flex items-start gap-2 text-sm text-slate-700">
-                    <input
-                      type="checkbox"
-                      className="mt-0.5"
-                      checked={entityCsrdRequired}
-                      onChange={(e) => setEntityCsrdRequired(e.target.checked)}
-                    />
-                    <span>
-                      This entity is required to comply with{' '}
-                      <strong>CSRD</strong> (Corporate Sustainability Reporting Directive).
-                      <span className="block text-xs text-slate-400 mt-0.5">
-                        EU mandatory sustainability disclosure for qualifying companies.
-                      </span>
-                    </span>
-                  </label>
-                </div>
+                    {['AT','BE','DK','FR','DE','IE','IT','NL','PL','PT','ES','SE'].includes(entityCountry) && (
+                      <label className="flex items-start gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5"
+                          checked={entityCsrdRequired}
+                          onChange={(e) => setEntityCsrdRequired(e.target.checked)}
+                        />
+                        <span>
+                          This entity is required to comply with <strong>CSRD</strong>{' '}
+                          (Corporate Sustainability Reporting Directive).
+                          <span className="block text-xs text-slate-400 mt-0.5">
+                            EU mandatory sustainability disclosure for qualifying companies.
+                          </span>
+                        </span>
+                      </label>
+                    )}
+
+                    {entityCountry === 'IN' && (
+                      <label className="flex items-start gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5"
+                          checked={entityBrsrRequired}
+                          onChange={(e) => setEntityBrsrRequired(e.target.checked)}
+                        />
+                        <span>
+                          This entity is required to comply with <strong>BRSR</strong>{' '}
+                          (Business Responsibility and Sustainability Reporting).
+                          <span className="block text-xs text-slate-400 mt-0.5">
+                            Mandatory for top 1000 listed companies by market cap on NSE/BSE.
+                          </span>
+                        </span>
+                      </label>
+                    )}
+                  </div>
+                )}
 
               </div>
             </section>
