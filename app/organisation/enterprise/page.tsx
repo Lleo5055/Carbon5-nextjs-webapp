@@ -272,9 +272,20 @@ export default function EnterpriseOrgPage() {
 
   // ── Mount: guard + load ───────────────────────────────────────────────────
   useEffect(() => {
+    // Seed from cache for instant paint
+    try {
+      const cached = sessionStorage.getItem('greenio_enterprise_org_v1');
+      if (cached) {
+        const { orgData: cachedOrg, members: cachedMembers } = JSON.parse(cached);
+        if (cachedOrg) { setOrgData(cachedOrg); setLoading(false); }
+        if (cachedMembers) setMembers(cachedMembers);
+      }
+    } catch {}
+
     async function load() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
         if (!user) { router.replace('/login'); return; }
 
         setCurrentUserId(user.id);
@@ -287,20 +298,27 @@ export default function EnterpriseOrgPage() {
         const data = await getOrgWithHierarchy(orgs[0].id);
         if (!data) throw new Error('Organisation not found.');
         setOrgData(data);
+        setLoading(false);
 
-        // Fetch member emails from API
+        // Fetch member emails from API — include auth token
         try {
-          const res = await fetch(`/api/org/members?org_id=${data.id}`);
+          const token = session?.access_token;
+          const res = await fetch(`/api/org/members?org_id=${data.id}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
           if (res.ok) {
             const resolved = await res.json();
             setMembers(resolved);
+            // Write to cache so next visit is instant
+            try { sessionStorage.setItem('greenio_enterprise_org_v1', JSON.stringify({ orgData: data, members: resolved })); } catch {}
+          } else {
+            try { sessionStorage.setItem('greenio_enterprise_org_v1', JSON.stringify({ orgData: data, members: [] })); } catch {}
           }
         } catch {
-          // Non-fatal — members tab falls back to user_id display
+          try { sessionStorage.setItem('greenio_enterprise_org_v1', JSON.stringify({ orgData: data, members: [] })); } catch {}
         }
       } catch (err: any) {
         setError(err?.message ?? 'Failed to load organisation.');
-      } finally {
         setLoading(false);
       }
     }
@@ -503,8 +521,14 @@ export default function EnterpriseOrgPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <p className="text-sm text-slate-500">Loading organisation…</p>
+      <main className="min-h-screen bg-slate-50 px-4 py-12">
+        <div className="mx-auto max-w-4xl space-y-6 animate-pulse">
+          <div className="h-8 w-64 bg-slate-200 rounded" />
+          <div className="flex gap-2">{[1,2,3,4,5].map(i => <div key={i} className="h-8 w-24 bg-slate-200 rounded-full" />)}</div>
+          <div className="rounded-xl bg-white border border-slate-200 shadow p-6 space-y-4">
+            {[1,2,3,4].map(i => <div key={i} className="h-6 bg-slate-100 rounded w-full" />)}
+          </div>
+        </div>
       </main>
     );
   }

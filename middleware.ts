@@ -1,30 +1,56 @@
 // middleware.ts  (repo root)
 //
-// Feature 1.4 — Geo-IP redirect to greenio.co/in
-//
-// Detects Indian visitors via Vercel/Cloudflare IP-country headers and
-// redirects them to the /in route automatically, unless:
-//   - The request path already starts with /in
-//   - The geo_override=manual cookie is set (user manually navigated away)
-//
-// Override cookie: set on any navigation FROM /in to / with max-age 1 year.
-//
-// DO NOT BUILD: this middleware never re-redirects a user who has the cookie,
-// regardless of their IP.
+// 1. Geo-IP redirect: Indian visitors → /in
+// 2. Locale redirect: / → /{locale} based on Accept-Language header (server-side,
+//    eliminates the client-side spinner on greenio.co homepage)
 
 import { NextRequest, NextResponse } from 'next/server';
 
 const GEO_COOKIE = 'geo_override';
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
-// Only these paths are eligible for geo-redirect (marketing homepage).
-// Everything else — app routes, auth, API — always bypasses.
+// Only these paths are eligible for geo/locale redirect (marketing homepage).
 const GEO_REDIRECT_ELIGIBLE = ['/', '/en', '/ie', '/de', '/fr', '/it', '/es', '/nl', '/pl', '/sv', '/da', '/pt'];
+
+/** BCP-47 primary tag → locale slug (mirrors lib/locales/index.ts) */
+const LANG_TO_LOCALE: Record<string, string> = {
+  en: 'en', 'en-GB': 'en', 'en-US': 'en', 'en-AU': 'en',
+  'en-IE': 'ie',
+  de: 'de', 'de-DE': 'de', 'de-AT': 'de', 'de-CH': 'de',
+  fr: 'fr', 'fr-FR': 'fr', 'fr-BE': 'fr', 'fr-CH': 'fr',
+  it: 'it', 'it-IT': 'it',
+  es: 'es', 'es-ES': 'es',
+  nl: 'nl', 'nl-NL': 'nl', 'nl-BE': 'nl',
+  pl: 'pl', 'pl-PL': 'pl',
+  sv: 'sv', 'sv-SE': 'sv',
+  da: 'da', 'da-DK': 'da',
+  pt: 'pt', 'pt-PT': 'pt', 'pt-BR': 'pt',
+  hi: 'in', 'hi-IN': 'in',
+};
+
+/** Parse Accept-Language header and return best matching locale slug. */
+function detectLocaleFromHeader(acceptLanguage: string | null): string {
+  if (!acceptLanguage) return 'en';
+  // Parse "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7" → [{ lang, q }] sorted by q desc
+  const tags = acceptLanguage
+    .split(',')
+    .map((entry) => {
+      const [tag, q] = entry.trim().split(';q=');
+      return { tag: tag.trim(), q: q ? parseFloat(q) : 1.0 };
+    })
+    .sort((a, b) => b.q - a.q);
+
+  for (const { tag } of tags) {
+    const locale = LANG_TO_LOCALE[tag] ?? LANG_TO_LOCALE[tag.split('-')[0]];
+    if (locale) return locale;
+  }
+  return 'en';
+}
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Only geo-redirect marketing homepage paths; all app routes bypass entirely
+  // Only act on marketing homepage paths; all app/auth/API routes bypass
   const isEligible = GEO_REDIRECT_ELIGIBLE.some(
     (p) => pathname === p || pathname.startsWith(p + '/')
   );
@@ -33,7 +59,6 @@ export function middleware(request: NextRequest) {
   }
 
   // ── Override cookie: set when user navigates away from /in ─────────────────
-  // If the referer is /in and the destination is not /in, plant the cookie.
   const referer = request.headers.get('referer') ?? '';
   const comingFromIn = referer.includes('/in') && !pathname.startsWith('/in');
   if (comingFromIn) {
@@ -46,18 +71,11 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
-  // ── Already on /in — nothing to do ─────────────────────────────────────────
-  if (pathname.startsWith('/in')) {
-    return NextResponse.next();
-  }
+  if (pathname.startsWith('/in')) return NextResponse.next();
 
-  // ── Override cookie present — respect user choice ──────────────────────────
-  if (request.cookies.get(GEO_COOKIE)?.value === 'manual') {
-    return NextResponse.next();
-  }
+  if (request.cookies.get(GEO_COOKIE)?.value === 'manual') return NextResponse.next();
 
-  // ── Country detection ──────────────────────────────────────────────────────
-  // Vercel sets x-vercel-ip-country; Cloudflare sets cf-ipcountry.
+  // ── Country detection (Geo-IP) ─────────────────────────────────────────────
   const country =
     request.headers.get('x-vercel-ip-country') ??
     request.headers.get('cf-ipcountry') ??
@@ -66,6 +84,14 @@ export function middleware(request: NextRequest) {
   if (country === 'IN') {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = '/in' + (pathname === '/' ? '' : pathname);
+    return NextResponse.redirect(redirectUrl, { status: 302 });
+  }
+
+  // ── Locale redirect: / → /{locale} (server-side, eliminates homepage spinner)
+  if (pathname === '/') {
+    const locale = detectLocaleFromHeader(request.headers.get('accept-language'));
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = '/' + locale;
     return NextResponse.redirect(redirectUrl, { status: 302 });
   }
 

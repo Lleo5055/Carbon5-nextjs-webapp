@@ -44,7 +44,7 @@ export default function TeamPage() {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [membersLoading, setMembersLoading] = useState(true);
 
-  // Seed from sessionStorage for instant paint — eliminates the Loading... screen
+  // Seed from sessionStorage for instant paint
   useEffect(() => {
     try {
       const cachedPlan = sessionStorage.getItem('greenio_plan_v1') as Plan | null;
@@ -53,6 +53,14 @@ export default function TeamPage() {
         setLoading(false);
       } else if (sessionStorage.getItem('greenio_is_pro') === '1') {
         setPlan('pro');
+        setLoading(false);
+      }
+      // Seed team members from prefetch cache
+      const cachedTeam = sessionStorage.getItem('greenio_team_data_v1');
+      if (cachedTeam) {
+        const parsed = JSON.parse(cachedTeam);
+        if (parsed.members) { setMembers(parsed.members); setMembersLoading(false); }
+        if (parsed.ownerEmail) setOwnerEmail(parsed.ownerEmail);
         setLoading(false);
       }
     } catch {}
@@ -175,7 +183,17 @@ export default function TeamPage() {
     setTimeout(() => setCopied(false), 2500);
   }
 
-  if (loading) return <p className="p-6 text-sm text-slate-500">Loading...</p>;
+  if (loading) return (
+    <main className="min-h-screen bg-slate-50 px-4 py-20">
+      <div className="mx-auto max-w-2xl space-y-4 animate-pulse">
+        <div className="h-8 w-48 bg-slate-200 rounded" />
+        <div className="h-4 w-72 bg-slate-100 rounded" />
+        <div className="rounded-xl bg-white border border-slate-200 shadow p-6 space-y-4">
+          {[1,2,3].map(i => <div key={i} className="h-5 bg-slate-100 rounded w-full" />)}
+        </div>
+      </div>
+    </main>
+  );
 
   // Team member view — they can't manage the team, just see their membership
   if (membership) {

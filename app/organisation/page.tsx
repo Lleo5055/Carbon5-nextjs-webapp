@@ -392,7 +392,9 @@ export default function OrganisationPage() {
         {tab === 'profile' && (
           <>
             {loading ? (
-              <p className="mt-8 text-sm text-slate-500">Loading profile…</p>
+              <div className="mt-8 space-y-4 animate-pulse">
+                {[1,2,3,4].map(i => <div key={i} className="h-10 bg-slate-100 rounded-lg w-full" />)}
+              </div>
             ) : (
               <>
                 {isTeamMember && (
@@ -676,7 +678,9 @@ export default function OrganisationPage() {
             </div>
 
             {activityLoading ? (
-              <p className="text-sm text-slate-500 py-8 text-center">Loading activity…</p>
+              <div className="py-4 space-y-3 animate-pulse">
+                {[1,2,3,4].map(i => <div key={i} className="h-8 bg-slate-100 rounded w-full" />)}
+              </div>
             ) : filteredActivity.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center">
                 <p className="text-sm text-slate-500">No activity in the last 180 days.</p>

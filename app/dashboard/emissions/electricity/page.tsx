@@ -51,7 +51,7 @@ async function getElectricityInsights(
 ): Promise<ElectricityInsightsData> {
   const vs = loadViewState();
   let emQ = supabase.from('emissions').select('*') as any;
-  if (vs.orgId) {
+  if (vs.orgId && sessionStorage.getItem("greenio_is_enterprise") === "1") {
     if (vs.mode === 'enterprise') emQ = emQ.eq('org_id', vs.orgId);
     else if (vs.mode === 'entity' && vs.siteIds?.length) emQ = emQ.in('site_id', vs.siteIds);
     else if (vs.mode === 'site' && vs.siteId) emQ = emQ.eq('site_id', vs.siteId);
@@ -172,7 +172,7 @@ export default function ElectricityInsightsPage({ searchParams }: { searchParams
   const [viewLabel, setViewLabel] = useState<string | null>(null);
   useEffect(() => {
     const s = loadViewState();
-    if (s?.orgId) setViewLabel(getViewLabel(s));
+    if (s?.orgId && sessionStorage.getItem("greenio_is_enterprise") === "1") setViewLabel(getViewLabel(s));
   }, []);
 
   useEffect(() => {

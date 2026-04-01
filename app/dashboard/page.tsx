@@ -1065,7 +1065,70 @@ supabase
     }
   }
 
+  // 4️⃣ Background prefetch — populates cache so org/team/partner pages load instantly
+  async function prefetchForNavigation() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const uid = session?.user?.id;
+      if (!token || !uid) return;
+
+      // Full profile → organisation page reads greenio_profile_cache
+      supabase.from('profiles').select('*').eq('id', uid).single().then(({ data: p }) => {
+        if (!p) return;
+        try {
+          sessionStorage.setItem('greenio_profile_cache', JSON.stringify({
+            form: {
+              company_name: p.company_name ?? '', industry: p.industry ?? '',
+              country: p.country ?? '', city: p.city ?? '', address: p.address ?? '',
+              postcode: p.postcode ?? '', company_size: p.company_size ?? '',
+              secr_required: !!p.secr_required, data_confirmed_by_user: !!p.data_confirmed_by_user,
+              sustainability_stage: p.sustainability_stage ?? '', contact_name: p.contact_name ?? '',
+              contact_email: p.contact_email ?? '', has_company_vehicles: !!p.has_company_vehicles,
+              renewable_energy_tariff: !!p.renewable_energy_tariff,
+              annual_revenue: p.annual_revenue ?? '', employee_count: p.employee_count ?? '',
+              annual_output_units: p.annual_output_units ?? '',
+              methodology_confirmed: !!p.methodology_confirmed,
+              energy_efficiency_actions: p.energy_efficiency_actions ?? '',
+            },
+            isTeamMember: false,
+          }));
+        } catch {}
+      });
+
+      // Team members → team page reads greenio_team_data_v1
+      fetch('/api/team/members', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(json => {
+          if (json?.members) {
+            try { sessionStorage.setItem('greenio_team_data_v1', JSON.stringify({ members: json.members, ownerEmail: session.user?.email ?? '' })); } catch {}
+          }
+        })
+        .catch(() => {});
+
+      // Enterprise org → /organisation/enterprise reads greenio_enterprise_org_v1
+      if (sessionStorage.getItem('greenio_is_enterprise') === '1') {
+        const { getUserOrgs, getOrgWithHierarchy } = await import('@/lib/enterprise');
+        getUserOrgs(uid).then(orgs => {
+          if (!orgs[0]) return;
+          getOrgWithHierarchy(orgs[0].id).then(orgData => {
+            if (!orgData) return;
+            fetch(`/api/org/members?org_id=${orgData.id}`, { headers: { Authorization: `Bearer ${token}` } })
+              .then(r => r.ok ? r.json() : [])
+              .then(members => {
+                try { sessionStorage.setItem('greenio_enterprise_org_v1', JSON.stringify({ orgData, members })); } catch {}
+              })
+              .catch(() => {
+                try { sessionStorage.setItem('greenio_enterprise_org_v1', JSON.stringify({ orgData, members: [] })); } catch {}
+              });
+          });
+        });
+      }
+    } catch {}
+  }
+
   load();
+  prefetchForNavigation();
 
   return () => {
     cancelled = true;

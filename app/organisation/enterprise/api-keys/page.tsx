@@ -169,8 +169,12 @@ export default function ApiKeysPage() {
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <p className="text-sm text-slate-500">Loading API keys…</p>
+      <main className="min-h-screen bg-slate-50 px-4 py-12">
+        <div className="mx-auto max-w-3xl space-y-4 animate-pulse">
+          <div className="h-8 w-40 bg-slate-200 rounded" />
+          <div className="h-4 w-64 bg-slate-100 rounded" />
+          {[1,2].map(i => <div key={i} className="h-16 bg-white border border-slate-200 rounded-xl" />)}
+        </div>
       </main>
     );
   }

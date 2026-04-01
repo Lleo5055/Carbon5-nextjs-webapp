@@ -77,7 +77,14 @@ export default function AdminPartnersPage() {
     setActionLoading(null);
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">Loading…</div>;
+  if (loading) return (
+    <main className="min-h-screen bg-slate-50 px-4 py-16">
+      <div className="mx-auto max-w-3xl space-y-4 animate-pulse">
+        <div className="h-8 w-48 bg-slate-200 rounded" />
+        {[1,2,3].map(i => <div key={i} className="h-16 bg-white border border-slate-200 rounded-xl" />)}
+      </div>
+    </main>
+  );
   if (!isAdmin) return <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">Access denied.</div>;
 
   const filtered = applications.filter(a => a.status === filter);

@@ -83,7 +83,15 @@ export default function PartnerPortalPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">Loading…</div>
+    <main className="min-h-screen bg-slate-50 px-4 py-16">
+      <div className="mx-auto max-w-2xl space-y-6 animate-pulse">
+        <div className="h-8 w-56 bg-slate-200 rounded" />
+        <div className="grid grid-cols-3 gap-4">
+          {[1,2,3].map(i => <div key={i} className="h-24 bg-white border border-slate-200 rounded-xl" />)}
+        </div>
+        <div className="h-32 bg-white border border-slate-200 rounded-xl" />
+      </div>
+    </main>
   );
 
   if (notPartner) return (
