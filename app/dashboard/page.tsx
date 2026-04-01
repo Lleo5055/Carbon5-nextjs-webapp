@@ -5,6 +5,7 @@
 import HotspotPieChart from './HotspotPieChart';
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
 
 import { normaliseSharesTo100 } from '@/lib/normalisePercentages';
@@ -14,6 +15,9 @@ import OnboardingCard from './OnboardingCard';
 import { calcRefrigerantCo2e } from '../../lib/emissionFactors';
 import { getFactorsForCountry } from '@/lib/factors';
 import { computeBrsrCompleteness, type BrsrCompletenessResult } from '@/lib/brsrCompleteness';
+import type { OrgWithHierarchy } from '@/lib/enterprise';
+import ViewSwitcher from '@/app/dashboard/ViewSwitcher';
+import { type EnterpriseViewState, loadViewState, saveViewState, getViewLabel, DEFAULT_VIEW } from '@/lib/enterpriseView';
 
 // Safe absolute base URL for server-side fetch (Vercel SSR fix)
 const baseUrl = process.env.VERCEL_URL
@@ -114,11 +118,18 @@ function formatTonnes(v: number) {
 // Shared label style for small section headings
 const SECTION_LABEL = 'text-[10px] uppercase tracking-[0.16em] text-slate-500';
 
+type ViewFilter =
+  | { type: 'enterprise'; orgId: string }
+  | { type: 'entity'; orgId: string; entityId: string; siteIds: string[] }
+  | { type: 'site'; orgId: string; siteId: string }
+  | null;
+
 async function getDashboardData(
   supabase: typeof import('../../lib/supabaseClient').supabase,
 
   period: PeriodKey,
-  userId: string | undefined
+  userId: string | undefined,
+  viewFilter?: ViewFilter
 ): Promise<DashboardData> {
 
   // ✅ ADD THIS BLOCK — EXACTLY HERE
@@ -149,7 +160,17 @@ async function getDashboardData(
     { data: scope3Data, error: scope3Error },
     { data: latestInsight },
   ] = await Promise.all([
-    supabase.from('emissions').select('*').order('month', { ascending: true }),
+    (() => {
+      let q = supabase.from('emissions').select('*')
+      if (viewFilter?.type === 'enterprise') {
+        q = q.eq('org_id', viewFilter.orgId)
+      } else if (viewFilter?.type === 'entity') {
+        q = q.in('site_id', viewFilter.siteIds)
+      } else if (viewFilter?.type === 'site') {
+        q = q.eq('site_id', viewFilter.siteId)
+      }
+      return q.order('month', { ascending: true })
+    })(),
     supabase.from('scope3_activities').select('*'),
     supabase.from('ai_insights').select('*').order('created_at', { ascending: false }).limit(1).maybeSingle(),
   ]);
@@ -162,8 +183,17 @@ async function getDashboardData(
     console.error('Error loading scope 3 for dashboard', scope3Error);
   }
 
+  // For entity/site views, scope3 has no site attribution so we attribute by month:
+  // only include scope3 entries whose month appears in this entity/site's emissions.
+  const filteredScope3Data = (viewFilter?.type === 'entity' || viewFilter?.type === 'site') && scope3Data && emissionsData
+    ? (() => {
+        const emissionMonths = new Set(emissionsData.map((r: any) => r.month));
+        return scope3Data.filter((r: any) => emissionMonths.has(r.month));
+      })()
+    : scope3Data;
+
   const hasEmissions = emissionsData && emissionsData.length > 0;
-  const hasScope3 = scope3Data && scope3Data.length > 0;
+  const hasScope3 = filteredScope3Data && filteredScope3Data.length > 0;
 
   const countryCode = (emissionsData?.[0] as any)?.country_code ?? 'GB';
   const ef = getFactorsForCountry(countryCode);
@@ -249,8 +279,8 @@ async function getDashboardData(
   }
 
   // ---- Scope 3 from scope3_activities table ----
-  if (scope3Data) {
-    scope3Data.forEach((row: any) => {
+  if (filteredScope3Data) {
+    filteredScope3Data.forEach((row: any) => {
       const monthLabel = row.month ?? 'Unknown month';
       const amount = Number(row.co2e_kg ?? 0);
       if (!amount) return;
@@ -554,6 +584,8 @@ function normaliseIndustry(raw?: string | null): string {
 
 export default function DashboardPage() {
 
+  const router = useRouter();
+
   // 🔒 Hydration + cache guard
   const [mounted, setMounted] = React.useState(false);
 
@@ -573,6 +605,7 @@ export default function DashboardPage() {
     }
     // Seed isPro from cache so nav link renders correctly on first paint
     if (sessionStorage.getItem('greenio_is_pro') === '1') setIsPro(true);
+    if (sessionStorage.getItem('greenio_is_enterprise') === '1') setIsEnterprise(true);
   }, [mounted]);
 
   // STEP 6.2 — READ PERIOD (CLIENT-SAFE)
@@ -604,6 +637,7 @@ const [state, setState] = React.useState<{
 
 const [isTeamMember, setIsTeamMember] = React.useState(false);
 const [isPro, setIsPro] = React.useState(false);
+const [isEnterprise, setIsEnterprise] = React.useState(false);
 // null = not yet known (hides all country-specific content until confirmed)
 const [isIndia, setIsIndia] = React.useState<boolean | null>(null);
 const [isGB, setIsGB] = React.useState<boolean | null>(null);
@@ -634,6 +668,107 @@ const [emailVerified, setEmailVerified] = React.useState(true); // default true 
 const [resendingVerification, setResendingVerification] = React.useState(false);
 const [verificationSent, setVerificationSent] = React.useState(false);
 const [showProfileMenu, setShowProfileMenu] = React.useState(false);
+const [enterpriseView, setEnterpriseView] = React.useState<EnterpriseViewState>(() => {
+  try { return loadViewState(); } catch { return DEFAULT_VIEW; }
+});
+const [orgEntities, setOrgEntities] = React.useState<{ id: string; name: string }[]>([]);
+const [orgSites, setOrgSites] = React.useState<{ id: string; name: string; entity_id: string }[]>([]);
+const [orgData, setOrgData] = React.useState<OrgWithHierarchy | null>(null);
+const [consolidationData, setConsolidationData] = React.useState<any>(null);
+function handleViewChange(newView: EnterpriseViewState) {
+  const viewWithOrg: EnterpriseViewState = { ...newView, orgId: enterpriseView.orgId };
+  // Attach siteIds for entity view so insights pages can filter without extra API calls
+  if (viewWithOrg.mode === 'entity' && viewWithOrg.entityId) {
+    viewWithOrg.siteIds = orgSites
+      .filter(s => s.entity_id === viewWithOrg.entityId)
+      .map(s => s.id);
+  } else {
+    delete viewWithOrg.siteIds;
+  }
+  setEnterpriseView(viewWithOrg);
+  saveViewState(viewWithOrg);
+  refreshDashboardData(viewWithOrg);
+  if (viewWithOrg.mode === 'enterprise' && viewWithOrg.orgId) {
+    refreshConsolidationData(viewWithOrg.orgId, new Date().getFullYear());
+  }
+}
+async function refreshDashboardData(view: EnterpriseViewState) {
+  if (!view.orgId) return;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return;
+  let filter: ViewFilter = null;
+  if (view.mode === 'enterprise') {
+    filter = { type: 'enterprise', orgId: view.orgId };
+  } else if (view.mode === 'entity' && view.entityId) {
+    // Use view.siteIds if already computed (by handleViewChange); fallback to orgSites lookup
+    const siteIds = view.siteIds?.length
+      ? view.siteIds
+      : orgSites.filter((s) => s.entity_id === view.entityId).map((s) => s.id);
+    filter = { type: 'entity', orgId: view.orgId, entityId: view.entityId, siteIds };
+  } else if (view.mode === 'site' && view.siteId) {
+    filter = { type: 'site', orgId: view.orgId, siteId: view.siteId };
+  }
+  const newDashData = await getDashboardData(supabase, period, session.user.id, filter);
+  setState((prev) => (prev ? { ...prev, dashData: newDashData } : prev));
+}
+async function refreshConsolidationData(orgId: string, _financialYear: number, siteList?: { id: string; name: string; entity_id: string }[]) {
+  try {
+    const [{ data: emissions, error }, { data: scope3Rows }] = await Promise.all([
+      supabase.from('emissions').select('*').eq('org_id', orgId),
+      supabase.from('scope3_activities').select('month, co2e_kg'),
+    ]);
+    if (error || !emissions) return;
+
+    const sites = siteList ?? orgSites;
+    const siteToEntity = new Map<string, string>();
+    for (const s of sites) siteToEntity.set(s.id, s.entity_id);
+
+    const EF = { diesel: 0.25268, petrol: 0.23646, gas: 0.18254, lpg: 1.5551, cng: 2.5407, refrigerant: 1774, electricity: 0.233 };
+    const safe = (v: any) => { const n = Number(v); return isNaN(n) ? 0 : n; };
+
+    // Map entity → months covered by its emissions (for scope3 attribution)
+    const entityMonths = new Map<string, Set<string>>();
+    const entityTotals = new Map<string, { co2e: number; s1: number; s2: number }>();
+    for (const r of emissions) {
+      const eid = r.site_id ? (siteToEntity.get(r.site_id) ?? '_none') : '_none';
+      const s1 = safe(r.diesel_litres) * EF.diesel + safe(r.petrol_litres) * EF.petrol + safe(r.gas_kwh) * EF.gas + safe(r.lpg_kg) * EF.lpg + safe(r.cng_kg) * EF.cng + safe(r.refrigerant_kg) * EF.refrigerant;
+      const s2 = safe(r.electricity_kwh ?? r.electricity_kw) * EF.electricity;
+      const co2e = safe(r.total_co2e ?? r.total_co2e_kg);
+      const et = entityTotals.get(eid) ?? { co2e: 0, s1: 0, s2: 0 };
+      et.co2e += co2e; et.s1 += s1; et.s2 += s2;
+      entityTotals.set(eid, et);
+      if (r.month) {
+        const ms = entityMonths.get(eid) ?? new Set<string>();
+        ms.add(r.month);
+        entityMonths.set(eid, ms);
+      }
+    }
+
+    // Add scope3 to each entity using month-based attribution
+    for (const r of (scope3Rows ?? [])) {
+      if (!r.month) continue;
+      const amount = safe(r.co2e_kg);
+      if (!amount) continue;
+      entityMonths.forEach((months, eid) => {
+        if (months.has(r.month)) {
+          const et = entityTotals.get(eid) ?? { co2e: 0, s1: 0, s2: 0 };
+          et.co2e += amount;
+          entityTotals.set(eid, et);
+        }
+      });
+    }
+
+    const by_entity = sites
+      .reduce<string[]>((acc, s) => { if (!acc.includes(s.entity_id)) acc.push(s.entity_id); return acc; }, [])
+      .map(eid => {
+        const et = entityTotals.get(eid) ?? { co2e: 0, s1: 0, s2: 0 };
+        const s3 = Math.round((et.co2e - et.s1 - et.s2) * 100) / 100;
+        return { entity_id: eid, total_co2e: Math.round(et.co2e * 100) / 100, scope1_co2e: Math.round(et.s1 * 100) / 100, scope2_co2e: Math.round(et.s2 * 100) / 100, scope3_co2e: s3 > 0 ? s3 : 0 };
+      });
+
+    setConsolidationData({ by_entity });
+  } catch {}
+}
 const profileMenuRef = React.useRef<HTMLDivElement>(null);
 
 // Resolve isIndia from sessionStorage immediately on mount (client-only)
@@ -690,7 +825,7 @@ React.useEffect(() => {
     const [{ data: memberRow }, { data: ownPlanRow }, dashData] = await Promise.all([
       supabase.from('team_members').select('id, owner_id').eq('member_user_id', user.id).eq('status', 'active').maybeSingle(),
       supabase.from('user_plans').select('plan').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-      getDashboardData(supabase, period, user.id),
+      getDashboardData(supabase, period, user.id, null),
     ]);
     if (cancelled) return;
 
@@ -706,16 +841,67 @@ React.useEffect(() => {
     }
     const proUser = ['pro', 'enterprise'].includes(planRow?.plan ?? '');
     if (proUser) setIsPro(true);
+    const enterpriseUser = planRow?.plan === 'enterprise';
+    if (enterpriseUser) setIsEnterprise(true);
     try { sessionStorage.setItem('greenio_is_pro', proUser ? '1' : '0'); } catch {}
+    try { sessionStorage.setItem('greenio_is_enterprise', enterpriseUser ? '1' : '0'); } catch {}
 
-    if (!cancelled) {
+    // Enterprise users with no organisation yet → enterprise onboarding
+    let enterpriseStateSet = false;
+    if (!cancelled && planRow?.plan === 'enterprise' && !memberRow) {
+      const { getUserOrgs, getOrgWithHierarchy } = await import('@/lib/enterprise');
+      const orgs = await getUserOrgs(user.id);
+      if (!cancelled && orgs.length === 0) {
+        router.push('/enterprise/onboarding');
+        return;
+      }
+      if (!cancelled && orgs.length > 0) {
+        const orgData = await getOrgWithHierarchy(orgs[0].id);
+        if (!cancelled && orgData) {
+          setOrgData(orgData);
+          const ents = orgData.entities.map((e) => ({ id: e.id, name: e.name }));
+          const siteList: { id: string; name: string; entity_id: string }[] = [];
+          for (const e of orgData.entities) {
+            for (const s of (e.sites ?? [])) {
+              siteList.push({ id: s.id, name: s.name, entity_id: e.id });
+            }
+          }
+          setOrgEntities(ents);
+          setOrgSites(siteList);
+          refreshConsolidationData(orgData.id, new Date().getFullYear(), siteList);
+          // Restore saved view state — attach orgId, keep mode/entity/site selection
+          const savedView = loadViewState();
+          const initView: EnterpriseViewState = { ...savedView, orgId: orgData.id };
+          // Rehydrate siteIds for entity view from the loaded org hierarchy
+          if (initView.mode === 'entity' && initView.entityId) {
+            initView.siteIds = siteList.filter(s => s.entity_id === initView.entityId).map(s => s.id);
+          }
+          setEnterpriseView(initView);
+          saveViewState(initView);
+          let initFilter: ViewFilter = { type: 'enterprise', orgId: orgData.id };
+          if (initView.mode === 'entity' && initView.entityId) {
+            initFilter = { type: 'entity', orgId: orgData.id, entityId: initView.entityId, siteIds: initView.siteIds ?? [] };
+          } else if (initView.mode === 'site' && initView.siteId) {
+            initFilter = { type: 'site', orgId: orgData.id, siteId: initView.siteId };
+          }
+          const entDashData = await getDashboardData(supabase, period, user.id, initFilter);
+          if (!cancelled) {
+            setState({ dashData: entDashData, profile: null, finalActions: [] });
+            enterpriseStateSet = true;
+          }
+        }
+      }
+    }
+
+    // Only set the unfiltered dashData for non-enterprise users; enterprise already set correct filtered state above
+    if (!cancelled && !enterpriseStateSet) {
       setState({
         dashData,
         profile: null,
         finalActions: [],
       });
     }
-if (!cancelled) {
+if (!cancelled && !enterpriseStateSet) {
   sessionStorage.setItem(
     'dashboard_state',
     JSON.stringify({
@@ -1264,6 +1450,39 @@ const youTonnes = dashData.totalCo2eKg / 1000;
           </div>
         )}
 
+        {isEnterprise && (
+          <section className="rounded-xl bg-white border border-indigo-100 px-4 py-4 shadow">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.16em] text-indigo-500">Enterprise</p>
+                {enterpriseView.mode === 'site' && enterpriseView.entityName && (
+                  <p className="text-[12px] text-slate-500 mt-0.5">{enterpriseView.entityName}</p>
+                )}
+                <p className="text-sm font-semibold text-slate-900 mt-0.5">
+                  {enterpriseView.mode === 'enterprise'
+                    ? 'Consolidated View'
+                    : getViewLabel(enterpriseView)}
+                </p>
+                {orgData && enterpriseView.mode === 'enterprise' && (
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {orgData.entities.length}{' '}{orgData.entities.length === 1 ? 'entity' : 'entities'}{' · '}{orgData.entities.flatMap(e => e.sites).length}{' '}{orgData.entities.flatMap(e => e.sites).length === 1 ? 'site' : 'sites'}
+                  </p>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {isEnterprise && enterpriseView.mode === 'enterprise' && orgData && dashData.totalCo2eKg === 0 && (
+          <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <span>⚠</span>
+            <p className="text-[11px]">
+              No emissions data found for the current period across all entities.
+              <a href='/dashboard/emissions' className='ml-1 underline font-medium'>Add emissions →</a>
+            </p>
+          </div>
+        )}
+
         {/* ONBOARDING CARD — hidden for team members who don't own the account */}
         {!isTeamMember && profile && !profile.onboarding_complete && (
           <section className="rounded-xl bg-pink-50 border border-amber-200 px-4 py-4 shadow">
@@ -1303,7 +1522,11 @@ const youTonnes = dashData.totalCo2eKg / 1000;
     <div className="absolute right-0 mt-2 w-40 bg-white border border-slate-200
         rounded-lg shadow-lg py-1 text-sm">
       {isPro ? (
-        <Link href="/organisation" className="block px-4 py-2 hover:bg-slate-100" onClick={() => setShowProfileMenu(false)}>
+        <Link
+          href={isEnterprise ? '/organisation/enterprise' : '/organisation'}
+          className="block px-4 py-2 hover:bg-slate-100"
+          onClick={() => setShowProfileMenu(false)}
+        >
           Organisation
         </Link>
       ) : (
@@ -1311,9 +1534,11 @@ const youTonnes = dashData.totalCo2eKg / 1000;
           Profile
         </Link>
       )}
-      <Link href="/dashboard/team" className="block px-4 py-2 hover:bg-slate-100" onClick={() => setShowProfileMenu(false)}>
-        Team
-      </Link>
+      {!isEnterprise && (
+        <Link href="/dashboard/team" className="block px-4 py-2 hover:bg-slate-100" onClick={() => setShowProfileMenu(false)}>
+          Team
+        </Link>
+      )}
       <Link href="/billing" className="block px-4 py-2 hover:bg-slate-100" onClick={() => setShowProfileMenu(false)}>
         Billing
       </Link>
@@ -1360,6 +1585,16 @@ const youTonnes = dashData.totalCo2eKg / 1000;
                 );
               })}
             </div>
+
+            {/* Enterprise view switcher */}
+            {isEnterprise && orgEntities.length > 0 && (
+              <ViewSwitcher
+                entities={orgEntities}
+                sites={orgSites}
+                value={enterpriseView}
+                onChange={handleViewChange}
+              />
+            )}
 
             {/* EF transparency — tap/click to expand full source attribution */}
             <details className="mt-3 ml-4">
@@ -1686,6 +1921,94 @@ const youTonnes = dashData.totalCo2eKg / 1000;
             {hasData ? (
               <>
                 {/* RECENT ACTIVITY TABLE (ONLY 3 ROWS, WITH TRENDS) */}
+{isEnterprise && enterpriseView.mode === 'enterprise' && !orgData ? (
+                <section className="rounded-xl bg-white border p-6 shadow animate-pulse">
+                  <div className="h-3 w-32 bg-slate-100 rounded mb-4" />
+                  <div className="space-y-3">
+                    {[1,2].map(i => <div key={i} className="h-8 bg-slate-50 rounded" />)}
+                  </div>
+                </section>
+                ) : isEnterprise && enterpriseView.mode === 'enterprise' && orgData ? (
+                <section className="rounded-xl bg-white border p-6 shadow">
+                  <div className="flex justify-between items-center mb-1">
+                    <h2 className="text-sm font-semibold text-slate-900">
+                      Entity overview
+                    </h2>
+                    <span className="text-[11px] text-slate-400">Click a row to drill into that entity</span>
+                  </div>
+                  <div className="overflow-x-auto mt-3">
+                    <table className="min-w-full text-xs">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="p-2 text-left font-medium text-slate-500">Entity</th>
+                          <th className="p-2 text-right font-medium text-slate-500">Scope 1 (kg)</th>
+                          <th className="p-2 text-right font-medium text-slate-500">Scope 2 (kg)</th>
+                          <th className="p-2 text-right font-medium text-slate-500">Scope 3 (kg)</th>
+                          <th className="p-2 text-right font-medium text-slate-500">Total CO₂e (kg)</th>
+                          <th className="p-2 text-right font-medium text-slate-500">Sites</th>
+                          <th className="p-2 text-right font-medium text-slate-500">Compliance</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {orgData.entities.map(entity => {
+                          const flagEmoji = (code: string) =>
+                            code.toUpperCase().split('').map((c: string) =>
+                              String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)
+                            ).join('');
+                          const complianceLabel =
+                            entity.secr_required ? 'SECR' :
+                            entity.csrd_required ? 'CSRD' :
+                            entity.brsr_required ? 'BRSR' : '—';
+                          const complianceColor =
+                            entity.secr_required || entity.csrd_required || entity.brsr_required
+                              ? 'bg-indigo-50 text-indigo-700'
+                              : 'bg-slate-100 text-slate-500';
+                          return (
+                            <tr
+                              key={entity.id}
+                              className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60 transition cursor-pointer"
+                              onClick={() => handleViewChange({
+                                mode: 'entity',
+                                orgId: enterpriseView.orgId ?? orgData.id,
+                                entityId: entity.id,
+                                entityName: entity.name,
+                              })}
+                            >
+                              <td className="p-2">
+                                <span className="mr-1">{flagEmoji(entity.country_code)}</span>
+                                <span className="font-medium text-slate-900">{entity.name}</span>
+                              </td>
+                              {(() => {
+                                const entityData = consolidationData?.by_entity?.find(
+                                  (e: any) => e.entity_id === entity.id
+                                );
+                                const s1 = entityData?.scope1_co2e != null ? entityData.scope1_co2e.toFixed(2) : '—';
+                                const s2 = entityData?.scope2_co2e != null ? entityData.scope2_co2e.toFixed(2) : '—';
+                                const s3 = entityData?.scope3_co2e != null ? entityData.scope3_co2e.toFixed(2) : '—';
+                                const total = entityData?.total_co2e != null ? entityData.total_co2e.toFixed(2) : '—';
+                                return (
+                                  <>
+                                    <td className="p-2 text-right text-slate-600">{s1}</td>
+                                    <td className="p-2 text-right text-slate-600">{s2}</td>
+                                    <td className="p-2 text-right text-slate-600">{s3}</td>
+                                    <td className="p-2 text-right font-medium text-slate-900">{total}</td>
+                                  </>
+                                );
+                              })()}
+                              <td className="p-2 text-right text-slate-500">{entity.sites.length}</td>
+                              <td className="p-2 text-right">
+                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${complianceColor}`}>
+                                  {complianceLabel}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+                ) : (
                 <section className="rounded-xl bg-white border p-6 shadow">
                   <div className="flex justify-between items-center mb-1">
                     <h2 className="text-sm font-semibold text-slate-900">
@@ -1791,6 +2114,7 @@ const youTonnes = dashData.totalCo2eKg / 1000;
                     </table>
                   </div>
                 </section>
+                )}
 
                 {/* TOTALS + TREND & RISK  +  PERFORMANCE & BENCHMARKING */}
                 <section className="grid md:grid-cols-2 gap-4">
@@ -2178,7 +2502,7 @@ const annualBaselineTonnes =
                   {[
                     { href: '/dashboard/emissions', label: 'Log electricity, fuel or gas', icon: '⚡' },
                     { href: '/dashboard/emissions/scope3', label: 'Log Scope 3 activities (travel, supply chain)', icon: '🚗' },
-                    { href: '/dashboard/organisation', label: 'Complete your company profile', icon: '🏢' },
+                    { href: '/organisation', label: 'Complete your company profile', icon: '🏢' },
                   ].map(({ href, label, icon }) => (
                     <a key={href} href={href} className="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-700 hover:bg-slate-900 hover:text-white transition-colors group">
                       <span>{icon}</span>

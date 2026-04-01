@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getFactorsForCountry } from '@/lib/factors';
 import { calcRefrigerantCo2e } from '@/lib/emissionFactors';
 import { getCurrencyConfig } from '@/lib/currency';
+import { checkOrgRoleForUser } from '@/lib/orgAuth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -159,6 +160,13 @@ if (!sessionUser || sessionUser.id !== userId) {
   return new NextResponse('Unauthorized', { status: 401 });
 }
 
+// Enterprise org role check (viewer minimum for GET)
+const orgId = searchParams.get('org_id');
+if (orgId) {
+  const authResult = await checkOrgRoleForUser(userId, orgId, 'viewer');
+  if (!authResult.ok) return new NextResponse(authResult.error, { status: authResult.status });
+}
+
 const periodType = searchParams.get('periodType'); // 'quick' | 'custom'
 const period = searchParams.get('period');         // '3M' | '6M' | '12M' | 'All'
 
@@ -190,17 +198,39 @@ if (!userId) {
 }
 
 
-// ======================== LOAD DATA (USER ONLY) ========================
+// ======================== VIEW FILTER PARAMS ========================
+const viewOrgId = orgId; // already read above for auth check
+const entitySiteIds = searchParams.get('entity_siteids'); // comma-separated site IDs for entity view
+const viewSiteId = searchParams.get('site_id');
+
+// ======================== LOAD DATA ========================
 let emissionsQuery = supabase
   .from('emissions')
   .select('*')
-  .eq('user_id', userId)
   .order('month', { ascending: true });
 
+if (viewOrgId && entitySiteIds !== null) {
+  // Entity view: filter by site IDs belonging to the entity
+  const siteIdList = entitySiteIds.split(',').filter(Boolean);
+  if (siteIdList.length > 0) {
+    emissionsQuery = emissionsQuery.in('site_id', siteIdList) as any;
+  } else {
+    emissionsQuery = emissionsQuery.eq('org_id', viewOrgId) as any;
+  }
+} else if (viewOrgId) {
+  // Enterprise view: all emissions for the org
+  emissionsQuery = emissionsQuery.eq('org_id', viewOrgId) as any;
+} else if (viewSiteId) {
+  // Site view: filter by site_id
+  emissionsQuery = emissionsQuery.eq('site_id', viewSiteId) as any;
+} else {
+  // Individual user view (no enterprise context)
+  emissionsQuery = emissionsQuery.eq('user_id', userId) as any;
+}
 
-const { data: rows, error: emissionsError } = await emissionsQuery;                
+const { data: rows, error: emissionsError } = await emissionsQuery;
 
-// ======================== PERIOD FILTERING (ORIGINAL LOGIC) ========================
+// ======================== PERIOD FILTERING ========================
 
 let filteredRows = rows ?? [];
 
@@ -225,15 +255,11 @@ if (emissionsError) {
   return new NextResponse('Failed to load emissions', { status: 500 });
 }
 
-let scope3Query = supabase
+const { data: scope3Rows, error: scope3Error } = await supabase
   .from('scope3_activities')
   .select('*')
   .eq('user_id', userId)
   .order('month', { ascending: true });
-
-;
-
-const { data: scope3Rows, error: scope3Error } = await scope3Query;
 
 
 if (scope3Error) {
@@ -241,8 +267,17 @@ if (scope3Error) {
   return new NextResponse('Failed to load scope 3', { status: 500 });
 }
 
+// For entity/site views, attribute scope3 by month-matching (scope3 has no site_id)
+const isViewFiltered = !!(viewOrgId && entitySiteIds !== null) || !!viewSiteId;
+const attributedS3 = isViewFiltered && scope3Rows && rows
+  ? (() => {
+      const emissionMonths = new Set(rows.map((r: any) => r.month));
+      return scope3Rows.filter((r: any) => emissionMonths.has(r.month));
+    })()
+  : (scope3Rows ?? []);
+
 // Keep your sorting exactly the same, but use scope3Rows instead of scope3.data
-const s3 = (scope3Rows || []).sort((a, b) => {
+const s3 = attributedS3.sort((a: any, b: any) => {
   const da = new Date(a.month + ' 1');
   const db = new Date(b.month + ' 1');
   return da.getTime() - db.getTime();

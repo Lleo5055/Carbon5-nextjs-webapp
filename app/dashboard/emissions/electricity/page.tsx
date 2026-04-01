@@ -2,6 +2,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import ViewIndicator from '@/app/dashboard/ViewIndicator';
+import { loadViewState, getViewLabel } from '@/lib/enterpriseView';
 import Link from 'next/link';
 import { supabase } from '../../../../lib/supabaseClient';
 import { calcRefrigerantCo2e } from '../../../../lib/emissionFactors';
@@ -47,8 +49,15 @@ type ElectricityInsightsData = {
 async function getElectricityInsights(
   period: PeriodKey
 ): Promise<ElectricityInsightsData> {
+  const vs = loadViewState();
+  let emQ = supabase.from('emissions').select('*') as any;
+  if (vs.orgId) {
+    if (vs.mode === 'enterprise') emQ = emQ.eq('org_id', vs.orgId);
+    else if (vs.mode === 'entity' && vs.siteIds?.length) emQ = emQ.in('site_id', vs.siteIds);
+    else if (vs.mode === 'site' && vs.siteId) emQ = emQ.eq('site_id', vs.siteId);
+  }
   const [{ data, error }, { data: s3Data }] = await Promise.all([
-    supabase.from('emissions').select('*'),
+    emQ,
     supabase.from('scope3_activities').select('month, co2e_kg'),
   ]);
   if (error || !data) {
@@ -160,6 +169,11 @@ export default function ElectricityInsightsPage({ searchParams }: { searchParams
 
   const [data, setData] = useState<ElectricityInsightsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [viewLabel, setViewLabel] = useState<string | null>(null);
+  useEffect(() => {
+    const s = loadViewState();
+    if (s?.orgId) setViewLabel(getViewLabel(s));
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -184,6 +198,7 @@ export default function ElectricityInsightsPage({ searchParams }: { searchParams
           </div>
           <header>
             <h1 className="text-2xl md:text-3xl font-semibold text-slate-900">Electricity Insights</h1>
+            {viewLabel && <ViewIndicator label={viewLabel} />}
             <p className="text-sm text-slate-600 mt-1">Understand how electricity contributes to your footprint in this period.</p>
           </header>
           <div className="grid gap-4 md:grid-cols-3">
@@ -236,6 +251,7 @@ export default function ElectricityInsightsPage({ searchParams }: { searchParams
         {/* Header */}
         <header className="space-y-2">
           <h1 className="text-2xl md:text-3xl font-semibold text-slate-900">Electricity Insights</h1>
+            {viewLabel && <ViewIndicator label={viewLabel} />}
           <p className="text-sm text-slate-600 max-w-2xl">Understand how electricity contributes to your footprint in this period. Based on your logged electricity use and grid factors.</p>
           {/* Period filter */}
           <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-white border border-slate-200 p-1 text-[11px]">

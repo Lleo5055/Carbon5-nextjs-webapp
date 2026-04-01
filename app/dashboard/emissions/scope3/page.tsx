@@ -2,6 +2,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import ViewIndicator from '@/app/dashboard/ViewIndicator';
+import { loadViewState, getViewLabel } from '@/lib/enterpriseView';
 import Link from 'next/link';
 import { supabase } from '../../../../lib/supabaseClient';
 import { calcRefrigerantCo2e } from '../../../../lib/emissionFactors';
@@ -61,9 +63,16 @@ async function getScope3Insights(period: PeriodKey): Promise<Scope3InsightsData>
     topCategory: null,
   };
 
+  const vs = loadViewState();
+  let emQ = supabase.from('emissions').select('*') as any;
+  if (vs.orgId) {
+    if (vs.mode === 'enterprise') emQ = emQ.eq('org_id', vs.orgId);
+    else if (vs.mode === 'entity' && vs.siteIds?.length) emQ = emQ.in('site_id', vs.siteIds);
+    else if (vs.mode === 'site' && vs.siteId) emQ = emQ.eq('site_id', vs.siteId);
+  }
   const [{ data: s3Data, error: s3Error }, { data: emData }] = await Promise.all([
     supabase.from('scope3_activities').select('*').order('month', { ascending: false }),
-    supabase.from('emissions').select('*'),
+    emQ,
   ]);
 
   if (s3Error || !s3Data) {
@@ -71,8 +80,15 @@ async function getScope3Insights(period: PeriodKey): Promise<Scope3InsightsData>
     return empty;
   }
 
+  // For entity/site views, attribute scope3 by month-matching against filtered emissions
+  let s3Attributed = s3Data as any[];
+  if (vs.orgId && (vs.mode === 'entity' || vs.mode === 'site') && emData) {
+    const emMonths = new Set((emData as any[]).map((r: any) => r.month));
+    s3Attributed = s3Attributed.filter((r: any) => emMonths.has(r.month));
+  }
+
   // Apply period filter
-  let filtered = s3Data as any[];
+  let filtered = s3Attributed;
   if (period !== 'all') {
     const n = period === '3m' ? 3 : period === '6m' ? 6 : 12;
     const cutoff = new Date();
@@ -177,6 +193,11 @@ export default function Scope3InsightsPage({ searchParams }: { searchParams?: { 
 
   const [data, setData] = useState<Scope3InsightsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [viewLabel, setViewLabel] = useState<string | null>(null);
+  useEffect(() => {
+    const s = loadViewState();
+    if (s?.orgId) setViewLabel(getViewLabel(s));
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -205,6 +226,7 @@ export default function Scope3InsightsPage({ searchParams }: { searchParams?: { 
           </div>
           <header>
             <h1 className="text-2xl md:text-3xl font-semibold text-slate-900">Scope 3 Insights</h1>
+            {viewLabel && <ViewIndicator label={viewLabel} />}
           </header>
           <div className="grid gap-4 md:grid-cols-3">
             {[1,2,3].map(i => <div key={i} className="rounded-xl bg-white border p-6 shadow h-28 animate-pulse bg-slate-100" />)}
@@ -245,6 +267,7 @@ export default function Scope3InsightsPage({ searchParams }: { searchParams?: { 
         {/* Header */}
         <header className="space-y-2">
           <h1 className="text-2xl md:text-3xl font-semibold text-slate-900">Scope 3 Insights</h1>
+            {viewLabel && <ViewIndicator label={viewLabel} />}
           <p className="text-sm text-slate-600 max-w-2xl">Understand your value-chain emissions — commuting, business travel, purchased goods and more. These are often the largest share of a company's total footprint.</p>
           <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-white border border-slate-200 p-1 text-[11px]">
             {periodPills.map((p) => {

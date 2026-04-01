@@ -18,6 +18,8 @@ import { logActivity } from '../../../../lib/logActivity';
 
 import RowActionsClient from './RowActionsClient';
 import SectionCActions from './SectionCActions';
+import ViewIndicator from '@/app/dashboard/ViewIndicator';
+import { loadViewState, getViewLabel } from '@/lib/enterpriseView';
 const EMISSIONS_CACHE_KEY = 'view_emissions_report_v1';
 const INDIA_ENV_CACHE_KEY  = 'greenio_india_env_v1';
 
@@ -188,15 +190,36 @@ async function getCurrentPlan(): Promise<Plan> {
   return plan;
 }
 
+type ViewEmissionsFilter =
+  | { type: 'enterprise'; orgId: string }
+  | { type: 'entity'; orgId: string; siteIds: string[] }
+  | { type: 'site'; siteId: string }
+  | null;
+
 /* ---------- MAIN REPORT BUILDER ---------- */
 async function getEmissionsReport(
 
   period: PeriodKey,
   customStart?: string | null,
-  customEnd?: string | null
+  customEnd?: string | null,
+  viewFilter?: ViewEmissionsFilter
 ): Promise<EmissionsReport> {
   const [{ data, error }, { data: scope3Rows, error: scope3Error }] = await Promise.all([
-    supabase.from('emissions').select('*').order('month', { ascending: true }),
+    (() => {
+      let q = supabase.from('emissions').select('*')
+      if (viewFilter?.type === 'enterprise') {
+        q = q.eq('org_id', viewFilter.orgId)
+      } else if (viewFilter?.type === 'entity') {
+        if (viewFilter.siteIds.length > 0) {
+          q = q.in('site_id', viewFilter.siteIds)
+        } else {
+          q = q.eq('org_id', viewFilter.orgId)
+        }
+      } else if (viewFilter?.type === 'site') {
+        q = q.eq('site_id', viewFilter.siteId)
+      }
+      return q.order('month', { ascending: true })
+    })(),
     supabase.from('scope3_activities').select('*').order('month', { ascending: true }),
   ]);
 
@@ -293,13 +316,22 @@ async function getEmissionsReport(
       ? applyCustomRange(allMonths, customStart, customEnd)
       : applyFixedPeriod(allMonths, period);
 
+  // For entity/site views, attribute scope3 by month: only include scope3 entries
+  // whose month appears in this entity/site's emissions (no site_id stored on scope3).
+  const attributedScope3 = (viewFilter?.type === 'entity' || viewFilter?.type === 'site') && scope3Rows && data
+    ? (() => {
+        const emissionMonths = new Set(data.map((r: any) => r.month));
+        return scope3Rows.filter((r: any) => emissionMonths.has(r.month));
+      })()
+    : scope3Rows;
+
   // Filter scope3 by period independently of scope1/2 months
   // so scope3-only months are not excluded
   let scope3ForPeriod: any[];
   if (period === 'all') {
-    scope3ForPeriod = scope3Rows ?? [];
+    scope3ForPeriod = attributedScope3 ?? [];
   } else if (period === 'custom' && customStart && customEnd) {
-    scope3ForPeriod = (scope3Rows ?? []).filter(
+    scope3ForPeriod = (attributedScope3 ?? []).filter(
       (r: any) => r.month && r.month >= customStart && r.month <= customEnd
     );
   } else {
@@ -307,7 +339,7 @@ async function getEmissionsReport(
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - n);
     const cutoffStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}`;
-    scope3ForPeriod = (scope3Rows ?? []).filter(
+    scope3ForPeriod = (attributedScope3 ?? []).filter(
       (r: any) => r.month && (r.month as string) >= cutoffStr
     );
   }
@@ -496,7 +528,7 @@ async function getEmissionsReport(
       totalScope1Co2eKg,
       totalScope2Co2eKg,
     },
-    scope3Rows,
+    scope3Rows: attributedScope3,
   };
 }
 
@@ -699,6 +731,7 @@ const [cctsPkgOpen, setCctsPkgOpen] = useState(false);
 const [cctsPkgLoading, setCctsPkgLoading] = useState<'pdf' | 'json' | 'csv' | null>(null);
 const [cctsFY, setCctsFY] = useState<number | null>(null);
 const [orgTargets, setOrgTargets] = useState<{ compliance_year: number; trajectory_period: string }[]>([]);
+const [activeViewFilter, setActiveViewFilter] = useState<ViewEmissionsFilter>(null);
 // -----------------------------
 // RESTORE CACHED REPORT (INSTANT PAINT — runs before browser paint)
 // -----------------------------
@@ -885,18 +918,41 @@ useEffect(() => {
   let mounted = true;
 
   async function load() {
-    // Kick off both fetches concurrently
-    const planPromise = getCurrentPlan();
-    const reportPromise = getEmissionsReport(period, customStart, customEnd);
-
-    // Set plan as soon as it resolves — don't wait for the slow report fetch
-    const p = await planPromise;
+    // Resolve plan first, then build enterprise filter before fetching report
+    const p = await getCurrentPlan();
     if (!mounted) return;
     setPlan(p);
 
-    const r = await reportPromise;
+    // Build enterprise view filter
+    let viewFilter: ViewEmissionsFilter = null;
+    if (p === 'enterprise') {
+      const { loadViewState } = await import('@/lib/enterpriseView');
+      const saved = loadViewState();
+      if (saved?.orgId) {
+        if (saved.mode === 'enterprise') {
+          viewFilter = { type: 'enterprise', orgId: saved.orgId };
+        } else if (saved.mode === 'entity' && saved.entityId) {
+          const { getUserOrgs, getOrgWithHierarchy } = await import('@/lib/enterprise');
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const orgs = await getUserOrgs(user.id);
+            if (orgs.length > 0) {
+              const od = await getOrgWithHierarchy(orgs[0].id);
+              const entity = od?.entities.find(e => e.id === saved.entityId);
+              const siteIds = entity?.sites.map(s => s.id) ?? [];
+              viewFilter = { type: 'entity', orgId: saved.orgId, siteIds };
+            }
+          }
+        } else if (saved.mode === 'site' && saved.siteId) {
+          viewFilter = { type: 'site', siteId: saved.siteId };
+        }
+      }
+    }
+
+    const r = await getEmissionsReport(period, customStart, customEnd, viewFilter);
     if (!mounted) return;
     setReport(r);
+    setActiveViewFilter(viewFilter);
     setHasLoadedOnce(true);
     sessionStorage.setItem(EMISSIONS_CACHE_KEY, JSON.stringify(r));
   }
@@ -1279,6 +1335,14 @@ useEffect(() => {
               <h1 className="text-2xl font-semibold text-slate-900 mt-1">
                 Your emissions history
               </h1>
+              {plan === 'enterprise' && (() => {
+                const saved = loadViewState();
+                return saved ? (
+                  <div className="mb-2">
+                    <ViewIndicator label={getViewLabel(saved)} />
+                  </div>
+                ) : null;
+              })()}
               <p className="text-sm text-slate-600 mt-1 max-w-xl">
                 Review your monthly footprint, switch periods, and export a
                 clean PDF whenever you need it.
@@ -1398,6 +1462,20 @@ useEffect(() => {
       <input type="hidden" name="start" value={customStart ?? ''} />
       <input type="hidden" name="end" value={customEnd ?? ''} />
     </>
+  )}
+
+  {/* Enterprise view filter params */}
+  {activeViewFilter?.type === 'enterprise' && (
+    <input type="hidden" name="org_id" value={(activeViewFilter as any).orgId ?? ''} />
+  )}
+  {activeViewFilter?.type === 'entity' && (
+    <>
+      <input type="hidden" name="org_id" value={(activeViewFilter as any).orgId ?? ''} />
+      <input type="hidden" name="entity_siteids" value={(activeViewFilter as any).siteIds?.join(',') ?? ''} />
+    </>
+  )}
+  {activeViewFilter?.type === 'site' && (
+    <input type="hidden" name="site_id" value={(activeViewFilter as any).siteId ?? ''} />
   )}
 
   <button

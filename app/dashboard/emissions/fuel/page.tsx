@@ -1,6 +1,8 @@
 // app/dashboard/emissions/fuel/page.tsx
 'use client';
 import React, { useEffect, useState } from 'react';
+import ViewIndicator from '@/app/dashboard/ViewIndicator';
+import { loadViewState, getViewLabel } from '@/lib/enterpriseView';
 import Link from 'next/link';
 import { supabase } from '../../../../lib/supabaseClient';
 import { calcRefrigerantCo2e } from '../../../../lib/emissionFactors';
@@ -103,11 +105,23 @@ export default function FuelInsightsPage({ searchParams }: { searchParams?: { pe
     rawPeriod === '3m' || rawPeriod === '6m' || rawPeriod === '12m' ? (rawPeriod as PeriodKey) : 'all';
 
   const [data, setData] = useState<FuelInsightsData | null>(null);
+  const [viewLabel, setViewLabel] = useState<string | null>(null);
+  useEffect(() => {
+    const s = loadViewState();
+    if (s?.orgId) setViewLabel(getViewLabel(s));
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
+      const vs = loadViewState();
+      let emQ = supabase.from('emissions').select('*') as any;
+      if (vs.orgId) {
+        if (vs.mode === 'enterprise') emQ = emQ.eq('org_id', vs.orgId);
+        else if (vs.mode === 'entity' && vs.siteIds?.length) emQ = emQ.in('site_id', vs.siteIds);
+        else if (vs.mode === 'site' && vs.siteId) emQ = emQ.eq('site_id', vs.siteId);
+      }
       const [{ data: rows, error }, { data: s3Data }] = await Promise.all([
-        supabase.from('emissions').select('*'),
+        emQ,
         supabase.from('scope3_activities').select('month, co2e_kg'),
       ]);
 
@@ -245,6 +259,7 @@ export default function FuelInsightsPage({ searchParams }: { searchParams?: { pe
         </div>
         <header>
           <h1 className="text-2xl md:text-3xl font-semibold text-slate-900">Fuel Insights</h1>
+            {viewLabel && <ViewIndicator label={viewLabel} />}
           <p className="text-sm text-slate-600 mt-1">Understand how fuel contributes to your footprint in this period.</p>
         </header>
         <div className="grid gap-4 md:grid-cols-3">
@@ -310,6 +325,7 @@ export default function FuelInsightsPage({ searchParams }: { searchParams?: { pe
         {/* Header */}
         <header className="space-y-2">
           <h1 className="text-2xl md:text-3xl font-semibold text-slate-900">Fuel Insights</h1>
+            {viewLabel && <ViewIndicator label={viewLabel} />}
           <p className="text-sm text-slate-600 max-w-2xl">
             See how diesel, petrol and gas usage contribute to your footprint. This view is ideal for fleet and logistics decisions.
           </p>
