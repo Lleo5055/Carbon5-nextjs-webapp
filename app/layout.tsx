@@ -41,7 +41,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
         />
         <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-S544JWJ551"
+          src="https://www.googletagmanager.com/gtag/js?id=G-S544JWJS51"
           strategy="afterInteractive"
         />
         <Script id="ga4-init" strategy="afterInteractive">
@@ -50,7 +50,7 @@ export default function RootLayout({
             function gtag(){dataLayer.push(arguments);}
             gtag('consent', 'default', { analytics_storage: 'denied' });
             gtag('js', new Date());
-            gtag('config', 'G-S544JWJ551');
+            gtag('config', 'G-S544JWJS51');
           `}
         </Script>
       </head>
