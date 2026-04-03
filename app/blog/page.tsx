@@ -126,7 +126,7 @@ export default function BlogPage() {
                 Carbon Accounting<br className="hidden sm:block" /> Guides &amp; Resources
               </h1>
               <p className="mt-4 max-w-xl text-base text-white/60">
-                Practical guides on GHG Protocol, SECR, CSRD, BRSR and CCTS compliance for businesses across 14 countries.
+                Practical guides on GHG Protocol, SECR, CSRD, BRSR, CCTS, UK ETS, EU ETS and CBAM compliance for businesses across 14 countries.
               </p>
               {/* Regulation pills */}
               <div className="mt-6 flex flex-wrap gap-2">
@@ -136,6 +136,9 @@ export default function BlogPage() {
                   { label: 'CSRD', color: 'bg-sky-500/20 text-sky-300 border border-sky-400/20' },
                   { label: 'BRSR', color: 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/20' },
                   { label: 'CCTS', color: 'bg-teal-500/20 text-teal-300 border border-teal-400/20' },
+                  { label: 'UK ETS', color: 'bg-violet-500/20 text-violet-300 border border-violet-400/20' },
+                  { label: 'EU ETS', color: 'bg-purple-500/20 text-purple-300 border border-purple-400/20' },
+                  { label: 'CBAM', color: 'bg-rose-500/20 text-rose-300 border border-rose-400/20' },
                 ].map(({ label, color }) => (
                   <span key={label} className={`rounded-full px-3 py-1 text-xs font-semibold ${color}`}>
                     {label}
@@ -147,7 +150,7 @@ export default function BlogPage() {
             {/* Right: stat cluster */}
             <div className="flex shrink-0 flex-col gap-4 sm:items-end">
               {[
-                { value: '5', label: 'Regulations covered' },
+                { value: '8', label: 'Regulations covered' },
                 { value: '14', label: 'Countries' },
               ].map(({ value, label }) => (
                 <div key={label} className="text-right">
