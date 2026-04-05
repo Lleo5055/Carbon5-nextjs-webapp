@@ -2689,7 +2689,7 @@ await supabase.from('edit_history').insert({
             <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={loading || (isEnterprise && orgRole === 'viewer')}
+                disabled={loading || (isEnterprise && orgRole === 'viewer') || enterpriseLoading || (isEnterprise && !selectedSiteId)}
                 className="inline-flex items-center justify-center rounded-full bg-slate-900 text-white text-xs font-medium px-5 py-2 hover:bg-slate-800 disabled:opacity-60"
               >
                 {loading
