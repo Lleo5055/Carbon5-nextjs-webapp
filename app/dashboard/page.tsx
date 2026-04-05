@@ -2600,9 +2600,9 @@ const annualBaselineTonnes =
                                 type="button"
                                 disabled={saving}
                                 onClick={() => toggleAutomation(key)}
-                                className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-full border transition ${isOn ? 'bg-emerald-600 border-emerald-600' : 'bg-slate-200 border-slate-300'} ${saving ? 'opacity-50' : ''}`}
+                                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition ${isOn ? 'bg-emerald-600' : 'bg-slate-300'} ${saving ? 'opacity-50' : ''}`}
                               >
-                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${isOn ? 'translate-x-5' : 'translate-x-1'}`} />
+                                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition ${isOn ? 'translate-x-4' : 'translate-x-0.5'}`} />
                               </button>
                             </div>
                           </article>
