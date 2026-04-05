@@ -136,7 +136,7 @@ export async function checkRefrigerantWatch(
             </td>
           </tr>
 
-          <!-- Accent bar -->
+          <!-- Accent bar - same as confirmation but orange -->
           <tr>
             <td style="background:linear-gradient(90deg,#ea580c,#fb923c);height:4px;font-size:0;line-height:0;">&nbsp;</td>
           </tr>
@@ -144,8 +144,11 @@ export async function checkRefrigerantWatch(
           <!-- Body -->
           <tr>
             <td style="padding:40px 40px 32px;">
-              <p style="margin:0 0 24px;color:#374151;font-size:16px;line-height:1.7;font-family:Arial,sans-serif;">
+              <p style="margin:0 0 16px;color:#374151;font-size:16px;line-height:1.7;font-family:Arial,sans-serif;">
                 Refrigerant emissions for <strong>${companyName}</strong> have exceeded your configured alert threshold of <strong>${threshold}%</strong> of total Scope 1 emissions.
+              </p>
+              <p style="margin:0 0 28px;color:#374151;font-size:16px;line-height:1.7;font-family:Arial,sans-serif;">
+                We recommend scheduling a leak-detection inspection as soon as possible.
               </p>
 
               <!-- This month -->
@@ -182,11 +185,7 @@ export async function checkRefrigerantWatch(
                 </tr>
               </table>
 
-              <p style="margin:0 0 32px;color:#374151;font-size:15px;line-height:1.7;font-family:Arial,sans-serif;">
-                We recommend scheduling a leak-detection inspection. Refrigerant leaks are typically the highest-impact and most cost-effective Scope 1 reduction available.
-              </p>
-
-              <!-- CTA -->
+              <!-- CTA - same style as confirmation -->
               <table cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="background:#16a34a;border-radius:10px;">
@@ -207,7 +206,7 @@ export async function checkRefrigerantWatch(
             </td>
           </tr>
 
-          <!-- Footer -->
+          <!-- Footer - identical to confirmation email -->
           <tr>
             <td style="background:#f9fafb;padding:24px 40px;border-top:1px solid #e5e7eb;border-radius:0 0 16px 16px;">
               <p style="margin:0 0 4px;color:#9ca3af;font-size:12px;font-family:Arial,sans-serif;">
