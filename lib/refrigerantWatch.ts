@@ -24,15 +24,13 @@ export async function checkRefrigerantWatch(
   const threshold = Number(settings.refrigerant_threshold_pct ?? 15);
 
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   const { data: rowsRaw } = await supabase
     .from('emissions')
     .select('diesel_litres, petrol_litres, gas_kwh, lpg_kg, cng_kg, refrigerant_kg, refrigerant_code, total_co2e')
     .eq('user_id', userId)
-    .gte('month', monthStart)
-    .lte('month', monthEnd);
+    .eq('month', currentMonth);
 
   const rows = rowsRaw as {
     diesel_litres: number; petrol_litres: number; gas_kwh: number;
