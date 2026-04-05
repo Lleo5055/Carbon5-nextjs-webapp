@@ -977,6 +977,13 @@ if (Object.keys(changes).length > 0) {
   logActivity('update', 'emission', { month: monthLabel, changes });
 }
 
+          // Fire refrigerant watch (non-blocking)
+          fetch('/api/refrigerant-watch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: user.id }),
+          }).catch(() => {});
+
           scope12MessagePart = hasRealScope12 ? `Scope 1 & 2 updated for ${monthLabel}. ` : `Product output saved for ${monthLabel}. `;
         } else {
           // ADD MODE → INSERT NEW ROW
@@ -1058,6 +1065,13 @@ logActivity('create', 'emission', {
       
           
 
+
+          // Fire refrigerant watch (non-blocking)
+          fetch('/api/refrigerant-watch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: user.id }),
+          }).catch(() => {});
 
           scope12MessagePart = hasRealScope12 ? `Scope 1 & 2 saved for ${monthLabel}. ` : `Product output saved for ${monthLabel}. `;
         }

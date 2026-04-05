@@ -24,7 +24,8 @@ export async function checkRefrigerantWatch(
   const threshold = Number(settings.refrigerant_threshold_pct ?? 15);
 
   const now = new Date();
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const currentMonth = `${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
 
   const { data: rowsRaw } = await supabase
     .from('emissions')
