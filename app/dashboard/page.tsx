@@ -90,6 +90,21 @@ const UK_SME_BASELINES: Record<string, number> = {
   other: 1.82,
 };
 
+// EU SME annual baseline emissions (tonnes CO₂e / year)
+// Based on EU average grid factor (~0.275 kg/kWh, EEA) and Eurostat SME energy data
+const EU_SME_BASELINES: Record<string, number> = {
+  logistics: 3.2,
+  supply_chain: 2.8,
+  manufacturing: 3.8,
+  retail: 2.0,
+  hospitality: 2.3,
+  office: 1.5,
+  education: 1.4,
+  healthcare: 1.9,
+  technology: 1.3,
+  other: 1.7,
+};
+
 // India SME annual baseline emissions (tonnes CO₂e / year)
 // Based on India grid factor (0.82 kg/kWh) and BEE industry data
 const IN_SME_BASELINES: Record<string, number> = {
@@ -2393,8 +2408,9 @@ const youTonnes = dashData.totalCo2eKg / 1000;
     // --- SME BASELINE (annual, tonnes CO2e) — country-aware ---
     const industryKey = normaliseIndustry(profile?.industry);
     const EU_COUNTRIES = ['DE','FR','IT','ES','NL','BE','AT','SE','DK','FI','PL','PT','IE','CZ','RO','HU','SK','HR','BG','SI','EE','LV','LT','LU','MT','CY'];
-    const smeBaselines = dashData.countryCode === 'IN' ? IN_SME_BASELINES : UK_SME_BASELINES;
-    const smeLabel = dashData.countryCode === 'IN' ? 'Indian' : EU_COUNTRIES.includes(dashData.countryCode) ? 'European' : 'UK';
+    const isEU = EU_COUNTRIES.includes(dashData.countryCode);
+    const smeBaselines = dashData.countryCode === 'IN' ? IN_SME_BASELINES : isEU ? EU_SME_BASELINES : UK_SME_BASELINES;
+    const smeLabel = dashData.countryCode === 'IN' ? 'Indian' : isEU ? 'European' : 'UK';
 
 const annualBaselineTonnes =
   smeBaselines[industryKey] ??
