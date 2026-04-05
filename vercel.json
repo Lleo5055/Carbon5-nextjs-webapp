@@ -1,8 +1,7 @@
 {
   "crons": [
-    {
-      "path": "/api/cron/commissions",
-      "schedule": "0 6 1 * *"
-    }
+    { "path": "/api/cron/commissions", "schedule": "0 6 1 * *" },
+    { "path": "/api/cron/logging-reminder", "schedule": "0 8 28 * *" },
+    { "path": "/api/cron/leadership-snapshot", "schedule": "0 8 1 * *" }
   ]
 }

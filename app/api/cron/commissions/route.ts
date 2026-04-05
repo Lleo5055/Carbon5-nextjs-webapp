@@ -7,8 +7,9 @@ export const runtime = 'nodejs';
 
 // Call this on the 1st of each month via Vercel Cron or manually
 // Protected by CRON_SECRET env var
-export async function POST(req: NextRequest) {
-  const secret = req.headers.get('x-cron-secret');
+export async function GET(req: NextRequest) {
+  const auth = req.headers.get('authorization');
+  const secret = auth?.replace('Bearer ', '');
   if (secret !== process.env.CRON_SECRET) {
     return new NextResponse('Unauthorized', { status: 401 });
   }

@@ -675,6 +675,25 @@ const [orgEntities, setOrgEntities] = React.useState<{ id: string; name: string 
 const [orgSites, setOrgSites] = React.useState<{ id: string; name: string; entity_id: string }[]>([]);
 const [orgData, setOrgData] = React.useState<OrgWithHierarchy | null>(null);
 const [consolidationData, setConsolidationData] = React.useState<any>(null);
+const [automations, setAutomations] = React.useState({
+  reminder_enabled: false,
+  snapshot_enabled: false,
+  refrigerant_watch_enabled: false,
+});
+const [automationsSaving, setAutomationsSaving] = React.useState<string | null>(null);
+
+async function toggleAutomation(key: 'reminder_enabled' | 'snapshot_enabled' | 'refrigerant_watch_enabled') {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+  const newVal = !automations[key];
+  setAutomations(prev => ({ ...prev, [key]: newVal }));
+  setAutomationsSaving(key);
+  await supabase.from('notification_settings').upsert(
+    { user_id: session.user.id, [key]: newVal, updated_at: new Date().toISOString() },
+    { onConflict: 'user_id' }
+  );
+  setAutomationsSaving(null);
+}
 function handleViewChange(newView: EnterpriseViewState) {
   const viewWithOrg: EnterpriseViewState = { ...newView, orgId: enterpriseView.orgId };
   // Attach siteIds for entity view so insights pages can filter without extra API calls
@@ -1130,6 +1149,23 @@ supabase
   load();
   prefetchForNavigation();
 
+  // Load automation settings
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (!session) return;
+    supabase
+      .from('notification_settings')
+      .select('reminder_enabled, snapshot_enabled, refrigerant_watch_enabled')
+      .eq('user_id', session.user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setAutomations({
+          reminder_enabled: !!data.reminder_enabled,
+          snapshot_enabled: !!data.snapshot_enabled,
+          refrigerant_watch_enabled: !!data.refrigerant_watch_enabled,
+        });
+      });
+  });
+
   return () => {
     cancelled = true;
   };
@@ -1451,24 +1487,13 @@ const youTonnes = dashData.totalCo2eKg / 1000;
       tag: 'Suggested',
     });
 
-    // Refrigerant-specific automation if risk is not low
-    if (riskLevel !== 'Low') {
-      automationCards.push({
-        title: 'Refrigerant leak watch',
-        description:
-          'Create an alert whenever refrigerant makes up an unusually high share of your footprint so ops can investigate leaks quickly.',
-        cadence: 'On change in refrigerant data',
-        tag: 'High impact',
-      });
-    } else {
-      automationCards.push({
-        title: 'Quarterly target review',
-        description:
-          'Every quarter, prompt you to compare actual emissions vs your internal targets and adjust actions for the next period.',
-        cadence: 'Every 3 months',
-        tag: 'Planning',
-      });
-    }
+    automationCards.push({
+      title: 'Refrigerant leak watch',
+      description:
+        'Create an alert whenever refrigerant makes up an unusually high share of your footprint so ops can investigate leaks quickly.',
+      cadence: 'On change in refrigerant data',
+      tag: 'High impact',
+    });
   }
 
   return (
@@ -2505,51 +2530,67 @@ const annualBaselineTonnes =
                 )}
 
                 {/* AUTOMATIONS – KEEP THINGS MOVING AUTOMATICALLY */}
-                {automationCards.length > 0 && (
+                {hasData && (
                   <section className="rounded-xl bg-white border p-6 shadow">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">
-                          Automations
-                        </p>
-                        <h2 className="text-sm font-semibold text-slate-900 mt-1">
-                          Keep things moving automatically
-                        </h2>
-                        <p className="text-[11px] text-slate-500 mt-1">
-                          Turn these into real reminders or workflows later. For
-                          now, use them as a playbook for what to automate
-                          first.
-                        </p>
-                      </div>
+                    <div className="mb-4">
+                      <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Automations</p>
+                      <h2 className="text-sm font-semibold text-slate-900 mt-1">Keep things moving automatically</h2>
+                      <p className="text-[11px] text-slate-500 mt-1">Toggle on to activate real email reminders and alerts.</p>
                     </div>
-
-                    <div className="mt-3 grid gap-3 md:grid-cols-3">
-                      {automationCards.map((auto, idx) => (
-                        <article
-                          key={idx}
-                          className="border border-slate-100 rounded-lg bg-slate-50 px-3 py-3 flex flex-col justify-between"
-                        >
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <h3 className="text-xs font-semibold text-slate-900">
-                                {auto.title}
-                              </h3>
-                              <span className="inline-flex items-center rounded-full bg-slate-900 text-white text-[9px] px-2 py-0.5">
-                                {auto.tag}
-                              </span>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      {([
+                        {
+                          key: 'reminder_enabled' as const,
+                          title: 'Monthly logging reminder',
+                          description: 'Nudge the data owner on a fixed day each month to upload bills, mileage and refrigerant top-ups so this dashboard stays current.',
+                          cadence: 'Once per month',
+                          tag: 'Suggested',
+                          tagColor: 'bg-slate-900 text-white',
+                        },
+                        {
+                          key: 'snapshot_enabled' as const,
+                          title: 'Leadership snapshot email',
+                          description: 'Automatically send a one-page summary of total CO₂e, trend and hotspot to your leadership team at the end of each month.',
+                          cadence: 'End of month',
+                          tag: 'Suggested',
+                          tagColor: 'bg-slate-900 text-white',
+                        },
+                        {
+                          key: 'refrigerant_watch_enabled' as const,
+                          title: 'Refrigerant leak watch',
+                          description: 'Create an alert whenever refrigerant makes up an unusually high share of your footprint so ops can investigate leaks quickly.',
+                          cadence: 'On change in refrigerant data',
+                          tag: 'High impact',
+                          tagColor: 'bg-orange-600 text-white',
+                        },
+                      ] as const).map(({ key, title, description, cadence, tag, tagColor }) => {
+                        const isOn = automations[key];
+                        const saving = automationsSaving === key;
+                        return (
+                          <article key={key} className={`border rounded-lg px-4 py-4 flex flex-col justify-between transition ${isOn ? 'border-emerald-300 bg-emerald-50' : 'border-slate-100 bg-slate-50'}`}>
+                            <div>
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <h3 className="text-xs font-semibold text-slate-900 leading-tight">{title}</h3>
+                                <span className={`shrink-0 inline-flex items-center rounded-full text-[9px] px-2 py-0.5 font-medium ${tagColor}`}>{tag}</span>
+                              </div>
+                              <p className="text-[11px] text-slate-600 leading-relaxed">{description}</p>
                             </div>
-                            <p className="text-[11px] text-slate-600">
-                              {auto.description}
-                            </p>
-                          </div>
-                          <p className="mt-3 text-[10px] text-slate-500">
-                            Cadence:{' '}
-                            <span className="font-medium text-slate-900">
-                              {auto.cadence}
-                            </span>
-                          </p>
-                        </article>
-                      ))}
+                            <div className="mt-4 flex items-center justify-between">
+                              <p className="text-[10px] text-slate-500">
+                                Cadence: <span className="font-medium text-slate-900">{cadence}</span>
+                              </p>
+                              <button
+                                type="button"
+                                disabled={saving}
+                                onClick={() => toggleAutomation(key)}
+                                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition ${isOn ? 'bg-emerald-600 border-emerald-600' : 'bg-slate-200 border-slate-300'} ${saving ? 'opacity-50' : ''}`}
+                              >
+                                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition ${isOn ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                              </button>
+                            </div>
+                          </article>
+                        );
+                      })}
                     </div>
                   </section>
                 )}
