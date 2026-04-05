@@ -54,18 +54,27 @@ export async function GET(req: NextRequest) {
       continue; // data already logged — no nudge needed
     }
 
-    // Determine recipients — fall back to profile contact_email
+    // Determine recipients — fall back to profile contact_email + fetch country
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('contact_email, country')
+      .eq('id', user_id)
+      .single();
+
     let recipients: string[] = Array.isArray(reminder_recipients) ? reminder_recipients.filter(Boolean) : [];
     if (recipients.length === 0) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('contact_email')
-        .eq('id', user_id)
-        .single();
       if (profile?.contact_email) recipients = [profile.contact_email];
     }
 
     if (recipients.length === 0) continue;
+
+    const country = (profile?.country ?? '').toUpperCase();
+    const frameworkLine =
+      country === 'IN' ? 'accurate BRSR reporting.' :
+      country === 'GB' ? 'accurate SECR reporting.' :
+      ['DE','FR','IT','ES','NL','BE','AT','SE','DK','FI','PL','PT','IE','CZ','RO','HU','SK','HR','BG','SI','EE','LV','LT','LU','MT','CY'].includes(country)
+        ? 'accurate CSRD reporting.' :
+        'accurate sustainability reporting.';
 
     await sendMail({
       to: recipients,
@@ -79,7 +88,7 @@ export async function GET(req: NextRequest) {
             <h2 style="color:#0f371e;margin:0 0 16px">Monthly emissions data not yet logged</h2>
             <p style="color:#475a5a;line-height:1.6">
               We noticed you haven't logged your emissions data for <strong>${monthLabel}</strong> yet.
-              Keeping your data up to date ensures accurate BRSR, SECR and CSRD reporting.
+              Keeping your data up to date ensures ${frameworkLine}
             </p>
             <a href="https://greenio.co/dashboard/emissions/add"
                style="display:inline-block;margin-top:20px;padding:12px 24px;background:#21884a;color:#fff;text-decoration:none;border-radius:6px;font-weight:600">

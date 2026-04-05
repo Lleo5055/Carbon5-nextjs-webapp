@@ -2551,7 +2551,7 @@ const annualBaselineTonnes =
                           key: 'snapshot_enabled' as const,
                           title: 'Leadership snapshot email',
                           description: 'Automatically send a one-page summary of total CO₂e, trend and hotspot to your leadership team at the end of each month.',
-                          cadence: 'End of month',
+                          cadence: '1st of every month',
                           tag: 'Suggested',
                           tagColor: 'bg-slate-900 text-white',
                         },
