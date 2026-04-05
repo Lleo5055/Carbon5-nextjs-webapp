@@ -189,6 +189,13 @@ export default function ImportInvoicesPage() {
         return;
       }
 
+      // Fire refrigerant watch check (non-blocking)
+      fetch('/api/refrigerant-watch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id }),
+      }).catch(() => {});
+
       router.push('/dashboard/view-emissions');
     } catch (err) {
       console.error(err);

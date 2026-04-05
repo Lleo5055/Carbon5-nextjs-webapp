@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 import { getFactorsForCountry } from '@/lib/factors';
 import { calculateCo2e } from '@/lib/calcCo2e';
+import { checkRefrigerantWatch } from '@/lib/refrigerantWatch';
 
 export async function POST(req: NextRequest) {
   try {
@@ -131,7 +133,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // 5. AI auto-refresh (background, non-blocking)
+    // 5. Refrigerant watch check (background, non-blocking)
+    if (user_id) {
+      const serviceClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      );
+      checkRefrigerantWatch(serviceClient, user_id).catch(err =>
+        console.error('[REFRIGERANT-WATCH] error:', err)
+      );
+    }
+
+    // 6. AI auto-refresh (background, non-blocking)
     if (user_id) {
       fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/ai/refresh`, {
         method: 'POST',
