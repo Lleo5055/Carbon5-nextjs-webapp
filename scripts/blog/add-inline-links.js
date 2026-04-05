@@ -1,8 +1,8 @@
 /**
  * Adds natural inline external links to blog articles.
  * Rules:
- * - Max 2 external links per article
- * - Only replaces first plain-text occurrence (not already linked text)
+ * - Max 2 external links per article total (including already existing ones)
+ * - Only replaces first unlinked plain-text occurrence
  * - Never modifies frontmatter
  * - Internal links must always outnumber external links
  */
@@ -12,135 +12,130 @@ const path = require('path');
 
 const blogDir = path.join(process.cwd(), 'content/blog');
 
-// Each entry: pattern to find (regex), replacement with link, which slugs to apply to
-// Pattern must match plain text only (not already inside a markdown link)
+// Priority-ordered rules. For each article, the first matching rule that fits
+// within the 2-external and internal>external constraints is applied.
+// slugs: null = all articles, array = only articles whose slug contains one of these strings
 const INLINE_RULES = [
-  // GHG Protocol - apply to any article mentioning it in body
+  // GHG Protocol - highest coverage (58 articles)
   {
-    match: /\bGreenhouse Gas Protocol Corporate Standard\b(?!\])/,
-    replace: '[Greenhouse Gas Protocol Corporate Standard](https://ghgprotocol.org/corporate-standard)',
-    slugs: null, // null = all articles
-  },
-  {
-    match: /\bGHG Protocol Corporate Accounting and Reporting Standard\b(?!\])/,
-    replace: '[GHG Protocol Corporate Accounting and Reporting Standard](https://ghgprotocol.org/corporate-standard)',
+    match: /\bGHG Protocol\b(?!\])/,
+    replace: '[GHG Protocol](https://ghgprotocol.org/corporate-standard)',
     slugs: null,
   },
-  // SEBI - BRSR articles
+  // CSRD - 67 articles
   {
-    match: /\bSecurities and Exchange Board of India \(SEBI\)\b(?!\])/,
-    replace: '[Securities and Exchange Board of India (SEBI)](https://www.sebi.gov.in)',
+    match: /\bCSRD\b(?!\])/,
+    replace: '[CSRD](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022L2464)',
+    slugs: null,
+  },
+  // BRSR - 47 articles
+  {
+    match: /\bBRSR\b(?!\])/,
+    replace: '[BRSR](https://www.sebi.gov.in/legal/circulars/may-2021/business-responsibility-and-sustainability-reporting-by-listed-entities_50096.html)',
+    slugs: null,
+  },
+  // SECR - 34 articles
+  {
+    match: /\bSECR\b(?!\])/,
+    replace: '[SECR](https://www.gov.uk/government/collections/streamlined-energy-and-carbon-reporting)',
+    slugs: null,
+  },
+  // SEBI - 16 articles
+  {
+    match: /\bSEBI\b(?!\])/,
+    replace: '[SEBI](https://www.sebi.gov.in)',
     slugs: ['brsr', 'india'],
   },
-  // CSRD - EU/CSRD articles
+  // CCTS - 18 articles
   {
-    match: /\bCorporate Sustainability Reporting Directive \(CSRD\)\b(?!\])/,
-    replace: '[Corporate Sustainability Reporting Directive (CSRD)](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022L2464)',
-    slugs: ['csrd', 'europe', 'european', 'double-materiality', 'csrd-vs-gri'],
-  },
-  // SECR - UK articles
-  {
-    match: /\bStreamlined Energy and Carbon Reporting \(SECR\)\b(?!\])/,
-    replace: '[Streamlined Energy and Carbon Reporting (SECR)](https://www.gov.uk/government/collections/streamlined-energy-and-carbon-reporting)',
-    slugs: ['secr', 'uk'],
-  },
-  // UK ETS
-  {
-    match: /\bUK Emissions Trading Scheme\b(?!\])/,
-    replace: '[UK Emissions Trading Scheme](https://www.gov.uk/guidance/uk-emissions-trading-scheme)',
-    slugs: ['uk-ets'],
-  },
-  // EU ETS
-  {
-    match: /\bEU Emissions Trading System\b(?!\])/,
-    replace: '[EU Emissions Trading System](https://climate.ec.europa.eu/eu-action/eu-emissions-trading-system-eu-ets_en)',
-    slugs: ['eu-ets', 'cbam'],
-  },
-  // CBAM
-  {
-    match: /\bCarbon Border Adjustment Mechanism \(CBAM\)\b(?!\])/,
-    replace: '[Carbon Border Adjustment Mechanism (CBAM)](https://taxation.ec.europa.eu/carbon-border-adjustment-mechanism_en)',
-    slugs: ['cbam'],
-  },
-  // SBTi
-  {
-    match: /\bScience Based Targets initiative\b(?!\])/,
-    replace: '[Science Based Targets initiative](https://sciencebasedtargets.org)',
-    slugs: ['sbti', 'net-zero', 'carbon-neutral'],
-  },
-  // TCFD
-  {
-    match: /\bTask Force on Climate-related Financial Disclosures\b(?!\])/,
-    replace: '[Task Force on Climate-related Financial Disclosures](https://www.ifrs.org/groups/task-force-on-climate-related-financial-disclosures/)',
-    slugs: ['tcfd', 'cdp', 'csrd-vs-gri', 'esg'],
-  },
-  // CDP
-  {
-    match: /\bCDP \(Carbon Disclosure Project\)\b(?!\])/,
-    replace: '[CDP (Carbon Disclosure Project)](https://www.cdp.net/en)',
-    slugs: ['cdp'],
-  },
-  // GRI
-  {
-    match: /\bGlobal Reporting Initiative \(GRI\)\b(?!\])/,
-    replace: '[Global Reporting Initiative (GRI)](https://www.globalreporting.org/standards/)',
-    slugs: ['gri', 'esg', 'brsr-vs-esg', 'csrd-vs-gri'],
-  },
-  // CCTS / MoEFCC
-  {
-    match: /\bMinistry of Environment, Forest and Climate Change\b(?!\])/,
-    replace: '[Ministry of Environment, Forest and Climate Change](https://moef.gov.in)',
+    match: /\bCCTS\b(?!\])/,
+    replace: '[CCTS](https://moef.gov.in/en/division/environment-divisions/climate-change-2/carbon-credit-trading-scheme/)',
     slugs: ['ccts', 'india'],
   },
-  // ESOS
+  // SBTi - 14 articles
   {
-    match: /\bEnergy Savings Opportunity Scheme \(ESOS\)\b(?!\])/,
-    replace: '[Energy Savings Opportunity Scheme (ESOS)](https://www.gov.uk/guidance/energy-savings-opportunity-scheme-esos)',
-    slugs: ['esos'],
+    match: /\bSBTi\b(?!\])/,
+    replace: '[SBTi](https://sciencebasedtargets.org)',
+    slugs: null,
   },
-  // Paris Agreement / UNFCCC
+  // EU ETS - 12 articles
+  {
+    match: /\bEU ETS\b(?!\])/,
+    replace: '[EU ETS](https://climate.ec.europa.eu/eu-action/eu-emissions-trading-system-eu-ets_en)',
+    slugs: null,
+  },
+  // CBAM - 8 articles
+  {
+    match: /\bCBAM\b(?!\])/,
+    replace: '[CBAM](https://taxation.ec.europa.eu/carbon-border-adjustment-mechanism_en)',
+    slugs: ['cbam', 'export', 'manufacturing'],
+  },
+  // GRI - 8 articles
+  {
+    match: /\bGRI\b(?!\])/,
+    replace: '[GRI](https://www.globalreporting.org/standards/)',
+    slugs: null,
+  },
+  // ISO 14064 - 8 articles
+  {
+    match: /\bISO 14064\b(?!\])/,
+    replace: '[ISO 14064](https://www.iso.org/standard/66453.html)',
+    slugs: null,
+  },
+  // TCFD - 6 articles
+  {
+    match: /\bTCFD\b(?!\])/,
+    replace: '[TCFD](https://www.ifrs.org/groups/task-force-on-climate-related-financial-disclosures/)',
+    slugs: null,
+  },
+  // ESOS - 4 articles
+  {
+    match: /\bESOS\b(?!\])/,
+    replace: '[ESOS](https://www.gov.uk/guidance/energy-savings-opportunity-scheme-esos)',
+    slugs: ['esos', 'uk'],
+  },
+  // CDP - 4 articles
+  {
+    match: /\bCDP\b(?!\])/,
+    replace: '[CDP](https://www.cdp.net/en)',
+    slugs: ['cdp', 'scope-3'],
+  },
+  // UK ETS - 3 articles
+  {
+    match: /\bUK ETS\b(?!\])/,
+    replace: '[UK ETS](https://www.gov.uk/guidance/uk-emissions-trading-scheme)',
+    slugs: null,
+  },
+  // Paris Agreement - 2 articles
   {
     match: /\bParis Agreement\b(?!\])/,
     replace: '[Paris Agreement](https://unfccc.int/process-and-meetings/the-paris-agreement)',
-    slugs: ['net-zero', 'carbon-neutral', 'sbti', 'carbon-credits'],
+    slugs: null,
   },
-  // UK Gov conversion factors - where emission factors are discussed in UK articles
+  // IPCC - 14 articles
   {
-    match: /\bUK government(?:'s)? conversion factors\b/i,
-    replace: '[UK government conversion factors](https://www.gov.uk/government/collections/government-conversion-factors-for-company-reporting)',
-    slugs: ['uk', 'secr'],
-  },
-  // IPCC
-  {
-    match: /\bIPCC(?:'s)? Sixth Assessment Report\b(?!\])/,
-    replace: '[IPCC Sixth Assessment Report](https://www.ipcc.ch/assessment-report/ar6/)',
-    slugs: ['net-zero', 'carbon-neutral', 'carbon-credits', 'sbti'],
+    match: /\bIPCC\b(?!\])/,
+    replace: '[IPCC](https://www.ipcc.ch/assessment-report/ar6/)',
+    slugs: null,
   },
 ];
 
-// Remove frontmatter from content before processing
 function splitFrontmatter(content) {
   const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
   if (!match) return { frontmatter: '', body: content };
   return { frontmatter: '---\n' + match[1] + '\n---\n', body: match[2] };
 }
 
-// Check if a position in text is already inside a markdown link
 function isInsideLink(text, index) {
-  // Look backwards for [
   const before = text.substring(0, index);
   const lastOpen = before.lastIndexOf('[');
   const lastClose = before.lastIndexOf(']');
-  if (lastOpen > lastClose) return true; // inside link text
-  // Check for ](url) pattern after
-  const after = text.substring(index);
-  const parenOpen = after.indexOf('](');
-  if (parenOpen !== -1 && parenOpen < 10) return true;
+  if (lastOpen > lastClose) return true;
   return false;
 }
 
 function countExternalLinks(body) {
-  const matches = body.match(/\]\(https?:\/\/(?!greenio\.co)/g);
+  const matches = body.match(/\]\(https?:\/\/(?!greenio\.co)[^)]+\)/g);
   return matches ? matches.length : 0;
 }
 
@@ -164,31 +159,30 @@ for (const file of files) {
 
   const { frontmatter, body } = splitFrontmatter(content);
   let newBody = body;
-  let externalLinksAdded = 0;
+  let externalCount = countExternalLinks(newBody);
+  const internalCount = countInternalLinks(newBody);
+  let added = 0;
 
   for (const rule of INLINE_RULES) {
-    if (externalLinksAdded >= 2) break;
+    if (externalCount >= 2) break;
     if (!slugMatches(slug, rule.slugs)) continue;
 
-    const match = newBody.match(rule.match);
-    if (!match) continue;
-
     const idx = newBody.search(rule.match);
+    if (idx === -1) continue;
     if (isInsideLink(newBody, idx)) continue;
 
-    // Check that after adding, external <= internal - 1
-    const internalCount = countInternalLinks(newBody);
-    const externalCount = countExternalLinks(newBody);
-    if (externalCount + 1 >= internalCount) continue; // would violate rule
+    // Ensure internal always outnumbers external after adding
+    if (externalCount + 1 >= internalCount) continue;
 
     newBody = newBody.replace(rule.match, rule.replace);
-    externalLinksAdded++;
+    externalCount++;
+    added++;
   }
 
-  if (externalLinksAdded > 0) {
+  if (added > 0) {
     fs.writeFileSync(fp, frontmatter + newBody);
     updated++;
-    console.log(`${file}: +${externalLinksAdded} external link(s) (internal: ${countInternalLinks(newBody)}, external: ${countExternalLinks(newBody)})`);
+    console.log(`${slug}: +${added} link(s) | internal: ${internalCount} external: ${externalCount}`);
   }
 }
 
