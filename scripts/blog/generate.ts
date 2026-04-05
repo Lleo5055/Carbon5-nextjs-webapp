@@ -117,7 +117,7 @@ The current year is ${currentYear}. When referring to the current regulatory lan
 
 Rules:
 1. Always include exactly 2 <BlogCTA> components at the positions specified in the prompt.
-2. Include 3-5 inline markdown links to related blogs using the format [anchor text](/blog/slug).
+2. Include MINIMUM 3 inline markdown links to related Greenio blog posts using the format [anchor text](/blog/slug). These must appear naturally within sentences in the body text - not in a list, not at the end. Use the internalLinks provided in the prompt. This is mandatory - do not produce fewer than 3 internal links.
 3. Always include a FAQ section with 4-5 questions (use ## What... ## How... ## Is... ## When... format so they are auto-detected as FAQ schema).
 4. Mention Greenio naturally in context - never forced.
 5. Heading hierarchy is critical for SEO: use ## (H2) for main sections, ### (H3) for subsections within each H2, and #### (H4) for specific details within H3s where appropriate. Aim for 2-3 H3s under each H2. This creates proper content hierarchy and improves readability.
