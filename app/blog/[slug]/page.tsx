@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { MDXRemote } from 'next-mdx-remote/rsc';
+import remarkGfm from 'remark-gfm';
 import BlogCTA from '@/components/blog/BlogCTA';
 import BlogCoverImage from '@/components/blog/BlogCoverImage';
 import { H2, H3, H4 } from '@/components/blog/HeadingWithAnchor';
@@ -251,8 +252,8 @@ export default function BlogPostPage({ params }: Props) {
               levelLabel={post.levelLabel}
               readingTime={post.readingTime}
             />
-            <div className="prose prose-slate max-w-none prose-headings:scroll-mt-24 prose-a:text-emerald-700 prose-a:no-underline hover:prose-a:underline prose-code:rounded prose-code:bg-slate-100 prose-code:px-1 prose-code:text-sm prose-img:rounded-xl">
-              <MDXRemote source={post.content} components={mdxComponents} />
+            <div className="prose prose-slate max-w-none prose-headings:scroll-mt-24 prose-a:text-emerald-700 prose-a:no-underline hover:prose-a:underline prose-code:rounded prose-code:bg-slate-100 prose-code:px-1 prose-code:text-sm prose-img:rounded-xl prose-table:w-full prose-th:bg-slate-100 prose-th:px-3 prose-th:py-2 prose-td:px-3 prose-td:py-2 prose-td:border prose-th:border prose-table:border-collapse">
+              <MDXRemote source={post.content} components={mdxComponents} options={{ mdxOptions: { remarkPlugins: [remarkGfm] } }} />
             </div>
 
             {/* Tags */}
