@@ -847,6 +847,13 @@ React.useEffect(() => {
     const user = session?.user;
     if (!user || cancelled) return;
 
+    // Check if the link was meant for a specific account (e.g. from alert email)
+    const uidParam = new URLSearchParams(window.location.search).get('uid');
+    if (uidParam && uidParam !== user.id) {
+      window.location.replace(`/login?next=/dashboard?uid=${uidParam}&hint=wrong_account`);
+      return;
+    }
+
     // Partner accounts must not access the main dashboard
     if (user.user_metadata?.account_type === 'partner') {
       window.location.replace('/partner-portal');

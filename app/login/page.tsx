@@ -9,14 +9,28 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [wrongAccount, setWrongAccount] = useState(false);
+  const [nextUrl, setNextUrl] = useState('/dashboard');
 
-  // Redirect to dashboard if already logged in — runs after render so the
-  // form is visible immediately with no blank-page flicker.
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hint = params.get('hint');
+    const next = params.get('next');
+    if (next) setNextUrl(next);
+    if (hint === 'wrong_account') {
+      setWrongAccount(true);
+      return;
+    }
+    // Redirect to dashboard if already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) router.replace('/dashboard');
     });
   }, [router]);
+
+  async function handleSwitchAccount() {
+    await supabase.auth.signOut();
+    router.replace(`/login?next=${encodeURIComponent(nextUrl)}`);
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,13 +47,26 @@ export default function LoginPage() {
       return;
     }
 
-    router.push('/dashboard');
+    router.push(nextUrl);
   };
 
   return (
     <main className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
       <div className="max-w-md w-full bg-white rounded-xl shadow-md p-8">
         <h1 className="text-2xl font-bold mb-6 text-slate-900">Log in</h1>
+
+        {wrongAccount && (
+          <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+            <p className="mb-3">This link is for a different account. Please log out and log in with the correct account to view your dashboard.</p>
+            <button
+              type="button"
+              onClick={handleSwitchAccount}
+              className="inline-flex items-center rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800"
+            >
+              Log out and switch account
+            </button>
+          </div>
+        )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>

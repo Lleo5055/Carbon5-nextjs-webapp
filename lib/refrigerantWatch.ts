@@ -189,7 +189,7 @@ export async function checkRefrigerantWatch(
               <table cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="background:#16a34a;border-radius:10px;">
-                    <a href="https://greenio.co/dashboard/emissions"
+                    <a href="https://greenio.co/dashboard?uid=${userId}"
                        style="display:inline-block;padding:14px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;font-family:Arial,sans-serif;letter-spacing:0.2px;">
                       View emissions dashboard &rarr;
                     </a>
