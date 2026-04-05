@@ -2392,8 +2392,9 @@ const youTonnes = dashData.totalCo2eKg / 1000;
   {months.length > 0 ? (() => {
     // --- SME BASELINE (annual, tonnes CO2e) — country-aware ---
     const industryKey = normaliseIndustry(profile?.industry);
+    const EU_COUNTRIES = ['DE','FR','IT','ES','NL','BE','AT','SE','DK','FI','PL','PT','IE','CZ','RO','HU','SK','HR','BG','SI','EE','LV','LT','LU','MT','CY'];
     const smeBaselines = dashData.countryCode === 'IN' ? IN_SME_BASELINES : UK_SME_BASELINES;
-    const smeLabel = dashData.countryCode === 'IN' ? 'India' : 'UK';
+    const smeLabel = dashData.countryCode === 'IN' ? 'Indian' : EU_COUNTRIES.includes(dashData.countryCode) ? 'European' : 'UK';
 
 const annualBaselineTonnes =
   smeBaselines[industryKey] ??
