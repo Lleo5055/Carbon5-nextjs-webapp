@@ -240,7 +240,7 @@ export async function POST(req: NextRequest) {
 }
 
 async function checkRefrigerantWatch(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ReturnType<typeof createClient<any>>,
   userId: string
 ) {
   // Check if refrigerant watch is enabled for this user
