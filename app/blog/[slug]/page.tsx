@@ -5,7 +5,11 @@ import { MDXRemote } from 'next-mdx-remote/rsc';
 import remarkGfm from 'remark-gfm';
 import BlogCTA from '@/components/blog/BlogCTA';
 import BlogCoverImage from '@/components/blog/BlogCoverImage';
+import BlogPdfDownload from '@/components/blog/BlogPdfDownload';
 import { H2, H3, H4 } from '@/components/blog/HeadingWithAnchor';
+import BrsrPyramidInfographic from '@/components/blog/infographics/BrsrPyramidInfographic';
+import CsrdTimelineInfographic from '@/components/blog/infographics/CsrdTimelineInfographic';
+import SecrDecisionInfographic from '@/components/blog/infographics/SecrDecisionInfographic';
 import {
   getBlogPost,
   getAllBlogSlugs,
@@ -53,6 +57,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 const mdxComponents = {
   BlogCTA,
+  BlogPdfDownload,
+  BrsrPyramidInfographic,
+  CsrdTimelineInfographic,
+  SecrDecisionInfographic,
   h2: H2,
   h3: H3,
   h4: H4,
