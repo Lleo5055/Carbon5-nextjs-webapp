@@ -260,8 +260,7 @@ function EmissionsPageInner() {
   const [indiaAirEnabled, setIndiaAirEnabled] = useState(false);
 
   // ETS installation tagging
-  const [userCountry, setUserCountry] = useState<string>('');
-  const [etsInstallations, setEtsInstallations] = useState<{ id: string; installation_name: string; permit_number: string; scheme: 'uk_ets' | 'eu_ets' }[]>([]);
+  const [etsInstallations, setEtsInstallations] = useState<{ id: string; installation_name: string; permit_number: string; site_id: string | null; scheme: 'uk_ets' | 'eu_ets' }[]>([]);
   const [etsMode, setEtsMode] = useState<'site' | 'installation'>('site');
   const [selectedInstallationId, setSelectedInstallationId] = useState<string>('');
 
@@ -503,13 +502,12 @@ useEffect(() => {
       .eq('id', user.id)
       .maybeSingle();
     const country = profileData?.country ?? '';
-    setUserCountry(country);
 
     const EU_COUNTRIES = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE'];
     if (country === 'GB') {
       const { data } = await supabase
         .from('uk_ets_installations')
-        .select('id, installation_name, permit_number')
+        .select('id, installation_name, permit_number, site_id')
         .eq('profile_id', user.id)
         .eq('is_active', true)
         .order('installation_name');
@@ -517,7 +515,7 @@ useEffect(() => {
     } else if (EU_COUNTRIES.includes(country)) {
       const { data } = await supabase
         .from('eu_ets_installations')
-        .select('id, installation_name, permit_number')
+        .select('id, installation_name, permit_number, site_id')
         .eq('profile_id', user.id)
         .eq('is_active', true)
         .order('installation_name');
@@ -2106,8 +2104,8 @@ await supabase.from('edit_history').insert({
                 </select>
               </div>
             )}
-            {/* ETS INSTALLATION TOGGLE — shown only when user has registered ETS installations */}
-            {etsInstallations.length > 0 && (
+            {/* ETS INSTALLATION TOGGLE — enterprise users with registered ETS installations only */}
+            {isEnterprise && etsInstallations.length > 0 && (
               <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 space-y-3">
                 <p className="text-[10px] uppercase tracking-widest text-blue-700 font-semibold">ETS compliance</p>
                 <div className="flex gap-4">
@@ -2130,11 +2128,13 @@ await supabase.from('edit_history').insert({
                       required
                     >
                       <option value="">Select installation…</option>
-                      {etsInstallations.map(inst => (
-                        <option key={inst.id} value={inst.id}>
-                          {inst.installation_name} — {inst.permit_number}
-                        </option>
-                      ))}
+                      {etsInstallations
+                        .filter(inst => !selectedSiteId || !inst.site_id || inst.site_id === selectedSiteId)
+                        .map(inst => (
+                          <option key={inst.id} value={inst.id}>
+                            {inst.installation_name} — {inst.permit_number}
+                          </option>
+                        ))}
                     </select>
                     <p className="text-[10px] text-blue-600 mt-1">These emissions will be included in your site total AND counted against this installation&apos;s ETS allowance.</p>
                   </div>

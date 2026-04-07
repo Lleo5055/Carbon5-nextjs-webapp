@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
+import { isEnterpriseUser, getUserOrgs, getOrgWithHierarchy, type Site } from '@/lib/enterprise';
 
 const ACTIVITY_TYPES = [
   { value: 'combustion', label: 'Combustion' },
@@ -35,6 +36,7 @@ type Installation = {
   monitoring_plan_approved_date: string | null;
   operator_holding_account: string | null;
   is_active: boolean;
+  site_id: string | null;
   created_at: string;
 };
 
@@ -50,6 +52,7 @@ type FormState = {
   monitoring_plan_approved_date: string;
   operator_holding_account: string;
   is_active: boolean;
+  site_id: string;
 };
 
 const EMPTY_FORM: FormState = {
@@ -64,6 +67,7 @@ const EMPTY_FORM: FormState = {
   monitoring_plan_approved_date: '',
   operator_holding_account: '',
   is_active: true,
+  site_id: '',
 };
 
 export default function UKETSInstallationsPage() {
@@ -77,6 +81,8 @@ export default function UKETSInstallationsPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [availableSites, setAvailableSites] = useState<Site[]>([]);
+  const [isEnterprise, setIsEnterprise] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -98,6 +104,18 @@ export default function UKETSInstallationsPage() {
         .order('created_at', { ascending: false });
 
       setInstallations(data ?? []);
+
+      // Load enterprise sites if applicable
+      const enterprise = await isEnterpriseUser(user.id);
+      setIsEnterprise(enterprise);
+      if (enterprise) {
+        const orgs = await getUserOrgs(user.id);
+        if (orgs.length > 0) {
+          const orgData = await getOrgWithHierarchy(orgs[0].id);
+          if (orgData) setAvailableSites(orgData.entities.flatMap(e => e.sites));
+        }
+      }
+
       setLoading(false);
     }
     load();
@@ -127,6 +145,7 @@ export default function UKETSInstallationsPage() {
       monitoring_plan_approved_date: inst.monitoring_plan_approved_date ?? '',
       operator_holding_account: inst.operator_holding_account ?? '',
       is_active: inst.is_active,
+      site_id: inst.site_id ?? '',
     });
     setEditingId(inst.id);
     setShowForm(true);
@@ -154,6 +173,7 @@ export default function UKETSInstallationsPage() {
       monitoring_plan_approved_date: form.monitoring_plan_approved_date || null,
       operator_holding_account: form.operator_holding_account.trim() || null,
       is_active: form.is_active,
+      site_id: form.site_id || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -371,6 +391,19 @@ export default function UKETSInstallationsPage() {
                   <input type="text" value={form.postcode} onChange={e => update('postcode', e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-white" placeholder="e.g. SW1A 1AA" />
                 </div>
               </div>
+
+              {isEnterprise && availableSites.length > 0 && (
+                <div>
+                  <label className="text-xs font-medium text-slate-700">Site <span className="text-red-500">*</span></label>
+                  <select required value={form.site_id} onChange={e => update('site_id', e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-white">
+                    <option value="">Select site…</option>
+                    {availableSites.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}{s.city ? ` — ${s.city}` : ''}{s.is_primary ? ' ★' : ''}</option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Assign this installation to the site where it operates.</p>
+                </div>
+              )}
 
               <div className="flex items-center gap-2">
                 <input
