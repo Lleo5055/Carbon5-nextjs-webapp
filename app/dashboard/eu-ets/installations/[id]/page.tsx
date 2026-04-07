@@ -191,7 +191,7 @@ export default function EUInstallationDetailPage() {
       const { data: emData } = await supabase
         .from('emissions')
         .select('id, month, electricity_kw, diesel_litres, petrol_litres, gas_kwh, lpg_kg, cng_kg, refrigerant_kg, total_co2e')
-        .eq('user_id', user.id)
+        .eq('installation_id', id)
         .like('month', `${CURRENT_YEAR}-%`)
         .order('month', { ascending: true });
 
@@ -208,12 +208,10 @@ export default function EUInstallationDetailPage() {
     setVerForm(ver ? verToForm(ver) : EMPTY_VER_FORM);
 
     async function reloadEmissions() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
       const { data } = await supabase
         .from('emissions')
         .select('id, month, electricity_kw, diesel_litres, petrol_litres, gas_kwh, lpg_kg, cng_kg, refrigerant_kg, total_co2e')
-        .eq('user_id', user.id)
+        .eq('installation_id', id)
         .like('month', `${selectedYear}-%`)
         .order('month', { ascending: true });
       setEmissions(data ?? []);

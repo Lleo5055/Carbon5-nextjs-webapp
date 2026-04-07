@@ -259,6 +259,12 @@ function EmissionsPageInner() {
   const [indiaWasteEnabled, setIndiaWasteEnabled] = useState(false);
   const [indiaAirEnabled, setIndiaAirEnabled] = useState(false);
 
+  // ETS installation tagging
+  const [userCountry, setUserCountry] = useState<string>('');
+  const [etsInstallations, setEtsInstallations] = useState<{ id: string; installation_name: string; permit_number: string; scheme: 'uk_ets' | 'eu_ets' }[]>([]);
+  const [etsMode, setEtsMode] = useState<'site' | 'installation'>('site');
+  const [selectedInstallationId, setSelectedInstallationId] = useState<string>('');
+
   // Water form state
   const [waterOpen, setWaterOpen] = useState(false);
   const [waterSourceType, setWaterSourceType] = useState('municipal');
@@ -483,6 +489,40 @@ useEffect(() => {
           setIndiaAirEnabled(!!data!.india_air_enabled);
         }
       });
+  });
+}, []);
+
+// Load ETS installations on mount (UK ETS for GB users, EU ETS for EU users)
+useEffect(() => {
+  supabase.auth.getSession().then(async ({ data: { session } }) => {
+    const user = session?.user;
+    if (!user) return;
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('country')
+      .eq('id', user.id)
+      .maybeSingle();
+    const country = profileData?.country ?? '';
+    setUserCountry(country);
+
+    const EU_COUNTRIES = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE'];
+    if (country === 'GB') {
+      const { data } = await supabase
+        .from('uk_ets_installations')
+        .select('id, installation_name, permit_number')
+        .eq('profile_id', user.id)
+        .eq('is_active', true)
+        .order('installation_name');
+      setEtsInstallations((data ?? []).map(i => ({ ...i, scheme: 'uk_ets' as const })));
+    } else if (EU_COUNTRIES.includes(country)) {
+      const { data } = await supabase
+        .from('eu_ets_installations')
+        .select('id, installation_name, permit_number')
+        .eq('profile_id', user.id)
+        .eq('is_active', true)
+        .order('installation_name');
+      setEtsInstallations((data ?? []).map(i => ({ ...i, scheme: 'eu_ets' as const })));
+    }
   });
 }, []);
 
@@ -945,6 +985,10 @@ total_co2e: updatedTotalCo2e,
                 site_id: selectedSiteId,
                 org_id: availableSites.find(s => s.id === selectedSiteId)?.org_id ?? null,
               } : {}),
+              ...(etsMode === 'installation' && selectedInstallationId ? {
+                installation_id: selectedInstallationId,
+                ets_scheme: etsInstallations.find(i => i.id === selectedInstallationId)?.scheme ?? null,
+              } : {}),
             })
             .eq('id', existing.id);
 
@@ -1035,6 +1079,10 @@ if (Object.keys(changes).length > 0) {
             ...(isEnterprise && selectedSiteId ? {
               site_id: selectedSiteId,
               org_id: availableSites.find(s => s.id === selectedSiteId)?.org_id ?? null,
+            } : {}),
+            ...(etsMode === 'installation' && selectedInstallationId ? {
+              installation_id: selectedInstallationId,
+              ets_scheme: etsInstallations.find(i => i.id === selectedInstallationId)?.scheme ?? null,
             } : {}),
             });
 if (insertError) throw insertError;
@@ -2058,6 +2106,42 @@ await supabase.from('edit_history').insert({
                 </select>
               </div>
             )}
+            {/* ETS INSTALLATION TOGGLE — shown only when user has registered ETS installations */}
+            {etsInstallations.length > 0 && (
+              <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 space-y-3">
+                <p className="text-[10px] uppercase tracking-widest text-blue-700 font-semibold">ETS compliance</p>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="etsMode" value="site" checked={etsMode === 'site'} onChange={() => { setEtsMode('site'); setSelectedInstallationId(''); }} className="accent-slate-700" />
+                    <span className="text-sm text-slate-700">Site emissions - general carbon accounting</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="etsMode" value="installation" checked={etsMode === 'installation'} onChange={() => setEtsMode('installation')} className="accent-blue-700" />
+                    <span className="text-sm text-slate-700">Installation emissions - ETS compliance</span>
+                  </label>
+                </div>
+                {etsMode === 'installation' && (
+                  <div>
+                    <label className="text-xs font-medium text-slate-700">Select installation <span className="text-red-500">*</span></label>
+                    <select
+                      className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-white"
+                      value={selectedInstallationId}
+                      onChange={e => setSelectedInstallationId(e.target.value)}
+                      required
+                    >
+                      <option value="">Select installation…</option>
+                      {etsInstallations.map(inst => (
+                        <option key={inst.id} value={inst.id}>
+                          {inst.installation_name} — {inst.permit_number}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-blue-600 mt-1">These emissions will be included in your site total AND counted against this installation&apos;s ETS allowance.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* MONTH SELECTION */}
             <div>
               <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">
