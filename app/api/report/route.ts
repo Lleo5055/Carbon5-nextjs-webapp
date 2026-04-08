@@ -202,6 +202,8 @@ if (!userId) {
 const viewOrgId = orgId; // already read above for auth check
 const entitySiteIds = searchParams.get('entity_siteids'); // comma-separated site IDs for entity view
 const viewSiteId = searchParams.get('site_id');
+const entityName = searchParams.get('entity_name') ?? '';
+const siteName = searchParams.get('site_name') ?? '';
 
 // ======================== LOAD DATA ========================
 let emissionsQuery = supabase
@@ -320,12 +322,14 @@ if (userId) {
 }
 
 // Load India-specific BRSR supplementary data (fetched for all accounts, used only in IN section)
-const [brsrProfileRes, waterEntriesRes, wasteEntriesRes, airEmissionsRes] = await Promise.all([
-  supabase.from('brsr_profile').select('renewable_elec_pct,has_ghg_reduction_plan').eq('account_id', userId).maybeSingle(),
+const [brsrProfileRes, waterEntriesRes, wasteEntriesRes, airEmissionsRes, userPlanRes] = await Promise.all([
+  supabase.from('brsr_profile').select('*').eq('account_id', userId).maybeSingle(),
   supabase.from('water_entries').select('volume_withdrawn_kl').eq('account_id', userId),
   supabase.from('waste_entries').select('total_kg').eq('account_id', userId),
   supabase.from('air_emissions').select('nox_tonnes,sox_tonnes,pm_tonnes,period_year').eq('account_id', userId).order('period_year', { ascending: false }),
+  supabase.from('user_plans').select('plan').eq('user_id', userId).maybeSingle(),
 ]);
+const isEnterpriseAccount = userPlanRes.data?.plan === 'enterprise';
 const brsrExtraProfile = brsrProfileRes.data;
 
 // Period-aware aggregation: only include entries that fall within the report period
@@ -630,6 +634,17 @@ drawText(page, companyName, col1X + 80, y, 10, font, BLACK);
 drawText(page, `Report date:`, col2X, y, 10, font, rgb(0.45, 0.45, 0.47));
 drawText(page, reportDate, col2X + 72, y, 10, font, BLACK);
 y -= 15;
+
+if (entityName) {
+  drawText(page, `Entity:`, col1X, y, 10, font, rgb(0.45, 0.45, 0.47));
+  drawText(page, entityName, col1X + 80, y, 10, font, BLACK);
+  y -= 15;
+}
+if (siteName) {
+  drawText(page, `Site:`, col1X, y, 10, font, rgb(0.45, 0.45, 0.47));
+  drawText(page, siteName, col1X + 80, y, 10, font, BLACK);
+  y -= 15;
+}
 
 drawText(page, `Period:`, col1X, y, 10, font, rgb(0.45, 0.45, 0.47));
 drawText(page, periodStr, col1X + 80, y, 10, font, BLACK);
@@ -1337,6 +1352,16 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
         iShade = !iShade;
         y -= 24;
       }
+
+      // Enterprise entity/site view note
+      if (entityName || siteName) {
+        y -= 6;
+        page.drawText(
+          'Note: Intensity ratios reflect the whole organisation. They are not specific to this entity/site as employee count and revenue are recorded at organisation level only.',
+          { x: 55, y, size: 8, font, color: rgb(0.5, 0.5, 0.52), maxWidth: 490 }
+        );
+        y -= 14;
+      }
     }
     // ---- FOOTER ----
     page.drawText(pgFtr(), {
@@ -2011,13 +2036,14 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       const bFmtI = (v: number) => { const d = Math.max(0, -Math.floor(Math.log10(v)) + 2); return v.toFixed(d); };
 
       // Word-wrap helper (shared for indicator and value columns)
-      const bWrap = (text: string, maxW: number, sz: number): string[] => {
+      const bWrap = (text: string, maxW: number, sz: number, useFont?: typeof font): string[] => {
+        const measureFont = useFont ?? font;
         const words = text.split(' ');
         const lines: string[] = [];
         let cur = '';
         for (const w of words) {
           const test = cur ? cur + ' ' + w : w;
-          if (font.widthOfTextAtSize(test, sz) > maxW) {
+          if (measureFont.widthOfTextAtSize(test, sz) > maxW) {
             if (cur) lines.push(cur);
             cur = w;
           } else { cur = test; }
@@ -2044,43 +2070,42 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       };
 
       // Data row:notes rendered INSIDE the row background rect (no floating text)
-      const bRow = (indicator: string, value: string, auto: boolean, note?: string) => {
+      // status: 'auto' = green Auto-filled, 'disclosed' = green Disclosed (same style), 'missing' = amber Needs input
+      const bRow = (indicator: string, value: string, auto: boolean, note?: string, status?: 'auto' | 'disclosed' | 'missing') => {
+        const effectiveStatus = status ?? (auto ? 'auto' : 'missing');
+        const isGreen = effectiveStatus === 'auto' || effectiveStatus === 'disclosed';
         const SZ = 8.5;
         const NOTE_SZ = 7.5;
         const NOTE_LH = 11;
         const indLines = bWrap(indicator, BC2 - BC1 - 8, SZ);
-        const valLines = bWrap(value, BC3 - BC2 - 8, SZ);
+        const valLines = bWrap(value, BC3 - BC2 - 8, SZ, isGreen ? bold : undefined);
         const mainH = Math.max(22, Math.max(indLines.length, valLines.length) * 13 + 8);
-        const noteLines = note ? bWrap(note, 230, NOTE_SZ) : [];  // 230pt forces 2-line wrap for long notes
+        const noteLines = note ? bWrap(note, 230, NOTE_SZ) : [];
         const rowH = mainH + (noteLines.length > 0 ? noteLines.length * NOTE_LH + 6 : 0);
         bEnsure(rowH + 4);
 
-        // Full row rect (includes note area)
-        const rowBg = auto ? rgb(0.97, 0.99, 0.97) : rgb(0.99, 0.99, 1);
+        const rowBg = isGreen ? rgb(0.97, 0.99, 0.97) : rgb(0.99, 0.99, 1);
         page.drawRectangle({ x: BTL, y: y - rowH, width: BTW, height: rowH, color: rowBg });
         page.drawLine({ start: { x: BTL, y: y - rowH }, end: { x: BTL + BTW, y: y - rowH }, thickness: 0.3, color: rgb(0.87, 0.87, 0.87) });
 
-        // Indicator lines:vertically centred within mainH
         const indStartY = y - Math.round((mainH - indLines.length * 13) / 2) - 10;
         for (let li = 0; li < indLines.length; li++) {
           page.drawText(indLines[li], { x: BC1, y: indStartY - li * 13, size: SZ, font, color: TEXT });
         }
 
-        // Value lines:vertically centred within mainH
-        const valColor = auto ? BLUE : rgb(0.5, 0.5, 0.52);
+        const valColor = isGreen ? BLUE : rgb(0.5, 0.5, 0.52);
         const valStartY = y - Math.round((mainH - valLines.length * 13) / 2) - 10;
         for (let vi = 0; vi < valLines.length; vi++) {
-          page.drawText(valLines[vi], { x: BC2, y: valStartY - vi * 13, size: SZ, font: auto ? bold : font, color: valColor });
+          page.drawText(valLines[vi], { x: BC2, y: valStartY - vi * 13, size: SZ, font: isGreen ? bold : font, color: valColor });
         }
 
-        // Badge:vertically centred within mainH
         const badgeY = y - Math.round(mainH / 2) - 7;
-        page.drawRectangle({ x: BC3, y: badgeY, width: BADGE_W, height: 14, color: auto ? BLUE : AMBER_BADGE });
-        const badgeStr = auto ? 'Auto-filled' : 'Needs input';
+        const badgeBg = isGreen ? BLUE : AMBER_BADGE;
+        const badgeStr = effectiveStatus === 'auto' ? 'Auto-filled' : effectiveStatus === 'disclosed' ? 'Disclosed' : 'Needs input';
+        page.drawRectangle({ x: BC3, y: badgeY, width: BADGE_W, height: 14, color: badgeBg });
         const badgeStrW = bold.widthOfTextAtSize(badgeStr, 7.5);
         page.drawText(badgeStr, { x: BC3 + Math.round((BADGE_W - badgeStrW) / 2), y: badgeY + 3, size: 7.5, font: bold, color: rgb(1, 1, 1) });
 
-        // Note lines:drawn INSIDE the row rect, below the main content area
         if (noteLines.length > 0) {
           let noteY = y - mainH - 9;
           for (const nl of noteLines) {
@@ -2092,17 +2117,22 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
         y -= rowH + 2;
       };
 
-      // ---- PAGE HEADER:matches all other section pages ----
-      page.drawText('7. BRSR Disclosure Summary', { x: 50, y, size: 18, font: bold, color: TEXT });
+      // ---- PAGE HEADER ----
+      const brsrTitle = isEnterpriseAccount ? '7. BRSR Full Disclosure' : '7. BRSR Disclosure Summary';
+      const brsrSubtitle = isEnterpriseAccount
+        ? 'SEBI BRSR | All 9 Principles (enterprise)'
+        : 'SEBI BRSR | Essential Indicators (auto-populated from Greenio data)';
+      page.drawText(brsrTitle, { x: 50, y, size: 18, font: bold, color: TEXT });
       page.drawLine({ start: { x: 50, y: y - 6 }, end: { x: 545, y: y - 6 }, thickness: 1, color: BLUE });
       y -= 28;
-      page.drawText('SEBI BRSR | Essential Indicators (auto-populated from Greenio data)', { x: 50, y, size: 10, font, color: rgb(0.45, 0.45, 0.47) });
+      page.drawText(brsrSubtitle, { x: 50, y, size: 10, font, color: rgb(0.45, 0.45, 0.47) });
       y -= 22;
 
-      // Intro text:inline draw to avoid closure color ambiguity
       {
         const bDark = rgb(0.15, 0.15, 0.17);
-        const introStr = 'The following disclosures are formatted in accordance with SEBI\'s Business Responsibility and Sustainability Report (BRSR) framework. Values are auto-populated directly from Greenio data. Fields marked "Needs input" require additional input from your organisation.';
+        const introStr = isEnterpriseAccount
+          ? 'The following disclosures cover all 9 BRSR principles as required by SEBI. Environment data (Principle 6) is auto-populated from Greenio. Governance, social and policy data (Principles 1-5, 7-9) is sourced from your BRSR Company Profile.'
+          : 'The following disclosures are formatted in accordance with SEBI\'s Business Responsibility and Sustainability Report (BRSR) framework. Values are auto-populated directly from Greenio data. Fields marked "Needs input" require additional input from your organisation.';
         const introWords2 = introStr.split(' ');
         let introLine2 = '';
         for (const iw of introWords2) {
@@ -2117,14 +2147,60 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
         y -= 10;
       }
 
-      // Column headers:BLACK, matching all other tables in the report
+      // Column headers
       page.drawRectangle({ x: BTL, y: y - 18, width: BTW, height: 22, color: rgb(0, 0, 0) });
-      page.drawText('BRSR Essential Indicator', { x: BC1, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
+      page.drawText('BRSR Indicator', { x: BC1, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
       page.drawText('Disclosed Value', { x: BC2, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
       page.drawText('Status', { x: BC3 + 15, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
       y -= 26;
 
-      // ===== GHG EMISSIONS =====
+      // ===== P1-P5 and P7-P9: Enterprise only =====
+      if (isEnterpriseAccount && brsrExtraProfile) {
+        const bp = brsrExtraProfile as any;
+        const dis = (v: any) => (v != null && v !== '') ? 'disclosed' as const : 'missing' as const;
+        const boolVal = (v: any) => v ? 'Yes' : 'No';
+        const numVal = (v: any, suffix = '') => v != null && v !== '' ? `${Number(v).toLocaleString('en-IN')}${suffix}` : 'Not provided';
+
+        // P1
+        bGroupHdr('Principle 1 | Ethics, Transparency & Accountability');
+        const listedVal = bp.is_listed_company ? 'Listed company' : bp.is_subsidiary_of_listed ? 'Subsidiary of listed' : 'Unlisted company';
+        bRow('Listed company status', listedVal, false, undefined, bp.is_listed_company != null ? 'disclosed' : 'missing');
+        bRow('Code of conduct in place', boolVal(bp.has_code_of_conduct), false, undefined, dis(bp.has_code_of_conduct));
+        bRow('Whistleblower / vigil mechanism in place', boolVal(bp.has_whistleblower_policy), false, undefined, dis(bp.has_whistleblower_policy));
+        bRow('Anti-corruption & anti-bribery policy in place', boolVal(bp.has_anti_corruption_policy), false, undefined, dis(bp.has_anti_corruption_policy));
+        y -= 4;
+
+        // P2
+        bGroupHdr('Principle 2 | Sustainable & Safe Products / Services');
+        bRow('Extended Producer Responsibility (EPR) compliance', boolVal(bp.has_epr_compliance), false, undefined, dis(bp.has_epr_compliance));
+        bRow('Sustainable products / services (% of turnover)', bp.sustainable_product_pct != null ? `${bp.sustainable_product_pct}%` : 'Not provided', false, undefined, dis(bp.sustainable_product_pct));
+        bRow('R&D sustainability spend', bp.rd_sustainability_spend ? `INR ${Number(bp.rd_sustainability_spend).toLocaleString('en-IN')}` : 'Not provided', false, undefined, dis(bp.rd_sustainability_spend));
+        y -= 4;
+
+        // P3
+        bGroupHdr('Principle 3 | Employee Wellbeing');
+        bRow('Permanent employees', numVal(bp.permanent_employees), false, undefined, dis(bp.permanent_employees));
+        bRow('Permanent workers', numVal(bp.permanent_workers), false, undefined, dis(bp.permanent_workers));
+        bRow('Average training hours per employee per year', bp.training_hours_per_employee != null ? `${bp.training_hours_per_employee} hrs` : 'Not provided', false, undefined, dis(bp.training_hours_per_employee));
+        bRow('Health insurance provided to all employees', boolVal(bp.has_health_insurance), false, undefined, dis(bp.has_health_insurance));
+        bRow('Maternity / paternity benefits in place', boolVal(bp.has_maternity_paternity), false, undefined, dis(bp.has_maternity_paternity));
+        y -= 4;
+
+        // P4
+        bGroupHdr('Principle 4 | Stakeholder Engagement');
+        bRow('Key stakeholder groups', bp.stakeholder_groups || 'Not provided', false, undefined, dis(bp.stakeholder_groups));
+        bRow('Stakeholder engagement frequency', bp.stakeholder_engagement_frequency || 'Not provided', false, undefined, dis(bp.stakeholder_engagement_frequency));
+        y -= 4;
+
+        // P5
+        bGroupHdr('Principle 5 | Human Rights');
+        bRow('Human rights policy in place', boolVal(bp.has_human_rights_policy), false, undefined, dis(bp.has_human_rights_policy));
+        bRow('Human rights training provided to employees', boolVal(bp.human_rights_training), false, undefined, dis(bp.human_rights_training));
+        bRow('Human rights complaints received (this year)', bp.human_rights_complaints != null ? String(bp.human_rights_complaints) : 'Not provided', false, undefined, dis(bp.human_rights_complaints));
+        y -= 4;
+      }
+
+      // ===== GHG EMISSIONS (P6 - all India users) =====
       bGroupHdr('Principle 6 | Environment: GHG Emissions (Essential Indicators)');
       bRow('Total Scope 1 emissions (metric tonnes CO2e)', `${scope1_t.toFixed(2)} tCO2e`, true);
       bRow('Total Scope 2 emissions (metric tonnes CO2e)', `${scope2_t.toFixed(2)} tCO2e`, true);
@@ -2185,8 +2261,35 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       bRow('Emission calculation methodology confirmed by organisation', bMethStr, methodologyConfirmed, methodologyConfirmed ? undefined : 'Confirm your calculation methodology in your Greenio profile.');
       y -= 12;
 
+      // ===== P7-P9: Enterprise only =====
+      if (isEnterpriseAccount && brsrExtraProfile) {
+        const bp = brsrExtraProfile as any;
+        const dis = (v: any) => (v != null && v !== '') ? 'disclosed' as const : 'missing' as const;
+        const boolVal = (v: any) => v ? 'Yes' : 'No';
+
+        bEnsure(260);
+        y -= 4;
+        bGroupHdr('Principle 7 | Policy & Regulatory Advocacy');
+        bRow('Industry / trade associations', bp.industry_associations || 'Not provided', false, undefined, dis(bp.industry_associations));
+        bRow('Policy advocacy positions', bp.policy_advocacy_positions || 'Not provided', false, undefined, dis(bp.policy_advocacy_positions));
+        y -= 4;
+
+        bGroupHdr('Principle 8 | Inclusive Growth & Equitable Development');
+        bRow('CSR spend (INR)', bp.csr_spend_inr ? `INR ${Number(bp.csr_spend_inr).toLocaleString('en-IN')}` : 'Not provided', false, undefined, dis(bp.csr_spend_inr));
+        bRow('Social impact projects', bp.social_impact_projects || 'Not provided', false, undefined, dis(bp.social_impact_projects));
+        y -= 4;
+
+        bGroupHdr('Principle 9 | Consumer Responsibility');
+        bRow('Consumer complaint / grievance mechanism', boolVal(bp.has_consumer_complaint_mechanism), false, undefined, dis(bp.has_consumer_complaint_mechanism));
+        bRow('Data privacy policy in place', boolVal(bp.has_data_privacy_policy), false, undefined, dis(bp.has_data_privacy_policy));
+        bRow('Product labelling / environmental disclosure', boolVal(bp.has_product_labelling), false, undefined, dis(bp.has_product_labelling));
+        y -= 4;
+      }
+
       // ===== BRSR COMPLETENESS SCORECARD =====
-      bEnsure(220);
+      page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
+      page = addPage();
+      y = 780;
       page.drawText('BRSR Completeness Scorecard', { x: 50, y, size: 12, font: bold, color: TEXT });
       y -= 22;
 
@@ -2194,14 +2297,39 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       const bEnergyAuto = 4 + (bEnergyPerRev !== null ? 1 : 0) + (bEnergyPerEmp !== null ? 1 : 0);
       const bWwaAuto = (bHasWater ? 1 : 0) + (bHasWaste ? 1 : 0) + (bHasAir ? 1 : 0);
       const bAddlAuto = 1 + (methodologyConfirmed ? 1 : 0) + (bHasGhgPlan ? 1 : 0) + (bHasRenew ? 1 : 0);
-      const bOverallAuto = bGhgAuto + bEnergyAuto + bAddlAuto + bWwaAuto;
-      const bOverallTotal = 19; // +3 for Water, Waste, Air
 
-      // Scorecard table header:BLACK, matching all other tables
+      // Enterprise: count P1-P5/P7-P9 disclosed indicators
+      let bEntDisc = 0;
+      const bEntTotal = 24; // P1:4, P2:3, P3:5, P4:2, P5:3, P7:2, P8:2, P9:3
+      if (isEnterpriseAccount && brsrExtraProfile) {
+        const bp = brsrExtraProfile as any;
+        const dc = (v: any) => (v != null && v !== '') ? 1 : 0;
+        // P1
+        bEntDisc += (bp.is_listed_company != null ? 1 : 0) + dc(bp.has_code_of_conduct) + dc(bp.has_whistleblower_policy) + dc(bp.has_anti_corruption_policy);
+        // P2
+        bEntDisc += dc(bp.has_epr_compliance) + dc(bp.sustainable_product_pct) + dc(bp.rd_sustainability_spend);
+        // P3
+        bEntDisc += dc(bp.permanent_employees) + dc(bp.permanent_workers) + dc(bp.training_hours_per_employee) + dc(bp.has_health_insurance) + dc(bp.has_maternity_paternity);
+        // P4
+        bEntDisc += dc(bp.stakeholder_groups) + dc(bp.stakeholder_engagement_frequency);
+        // P5
+        bEntDisc += dc(bp.has_human_rights_policy) + dc(bp.human_rights_training) + dc(bp.human_rights_complaints);
+        // P7
+        bEntDisc += dc(bp.industry_associations) + dc(bp.policy_advocacy_positions);
+        // P8
+        bEntDisc += dc(bp.csr_spend_inr) + dc(bp.social_impact_projects);
+        // P9
+        bEntDisc += dc(bp.has_consumer_complaint_mechanism) + dc(bp.has_data_privacy_policy) + dc(bp.has_product_labelling);
+      }
+
+      const bOverallAuto = bGhgAuto + bEnergyAuto + bAddlAuto + bWwaAuto + (isEnterpriseAccount ? bEntDisc : 0);
+      const bOverallTotal = 19 + (isEnterpriseAccount ? bEntTotal : 0);
+
+      // Scorecard table header
       page.drawRectangle({ x: BTL, y: y - 18, width: BTW, height: 22, color: rgb(0, 0, 0) });
       page.drawText('Indicator group', { x: BC1, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
-      page.drawText('Auto-filled', { x: 310, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
-      page.drawText('Needs input', { x: 388, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
+      page.drawText('Disclosed', { x: 310, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
+      page.drawText('Missing', { x: 388, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
       page.drawText('Completeness', { x: 462, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
       y -= 26;
 
@@ -2219,10 +2347,37 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
         page.drawText(`${pct}%`, { x: 487, y: y - 7, size: 9, font: bold, color: pctColor });
         y -= 24;
       };
-      bScoreRow('GHG Emissions (Scope 1, 2, 3)', bGhgAuto, 6);
-      bScoreRow('Energy Consumption', bEnergyAuto, 6);
-      bScoreRow('Water, Waste and Air', bWwaAuto, 3);
-      bScoreRow('Additional disclosures', bAddlAuto, 4);
+      if (isEnterpriseAccount) {
+        const bp = brsrExtraProfile as any;
+        const dc = (v: any) => (v != null && v !== '') ? 1 : 0;
+        const p1 = (bp?.is_listed_company != null ? 1 : 0) + dc(bp?.has_code_of_conduct) + dc(bp?.has_whistleblower_policy) + dc(bp?.has_anti_corruption_policy);
+        const p2 = dc(bp?.has_epr_compliance) + dc(bp?.sustainable_product_pct) + dc(bp?.rd_sustainability_spend);
+        const p3 = dc(bp?.permanent_employees) + dc(bp?.permanent_workers) + dc(bp?.training_hours_per_employee) + dc(bp?.has_health_insurance) + dc(bp?.has_maternity_paternity);
+        const p4 = dc(bp?.stakeholder_groups) + dc(bp?.stakeholder_engagement_frequency);
+        const p5 = dc(bp?.has_human_rights_policy) + dc(bp?.human_rights_training) + dc(bp?.human_rights_complaints);
+        const p7 = dc(bp?.industry_associations) + dc(bp?.policy_advocacy_positions);
+        const p8 = dc(bp?.csr_spend_inr) + dc(bp?.social_impact_projects);
+        const p9 = dc(bp?.has_consumer_complaint_mechanism) + dc(bp?.has_data_privacy_policy) + dc(bp?.has_product_labelling);
+        bScoreRow('P1: Ethics & Transparency', p1, 4);
+        bScoreRow('P2: Sustainable Products', p2, 3);
+        bScoreRow('P3: Employee Wellbeing', p3, 5);
+        bScoreRow('P4: Stakeholder Engagement', p4, 2);
+        bScoreRow('P5: Human Rights', p5, 3);
+      }
+      bScoreRow('P6: GHG Emissions (Scope 1, 2, 3)', bGhgAuto, 6);
+      bScoreRow('P6: Energy Consumption', bEnergyAuto, 6);
+      bScoreRow('P6: Water, Waste and Air', bWwaAuto, 3);
+      bScoreRow('P6: Additional disclosures', bAddlAuto, 4);
+      if (isEnterpriseAccount) {
+        const bp = brsrExtraProfile as any;
+        const dc = (v: any) => (v != null && v !== '') ? 1 : 0;
+        const p7 = dc(bp?.industry_associations) + dc(bp?.policy_advocacy_positions);
+        const p8 = dc(bp?.csr_spend_inr) + dc(bp?.social_impact_projects);
+        const p9 = dc(bp?.has_consumer_complaint_mechanism) + dc(bp?.has_data_privacy_policy) + dc(bp?.has_product_labelling);
+        bScoreRow('P7: Policy Advocacy', p7, 2);
+        bScoreRow('P8: Inclusive Growth', p8, 2);
+        bScoreRow('P9: Consumer Responsibility', p9, 3);
+      }
 
       // Overall row:light green highlight (matches "Total GHG" row in energy table)
       const bOverallPct = Math.round(bOverallAuto / bOverallTotal * 100);
@@ -2490,6 +2645,7 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
 
       page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
     }
+
 
     // ========================= RETURN PDF =========================
     const pdfBytes = await pdf.save();

@@ -195,7 +195,7 @@ function bullets(
 
 // ── SHARED PDF BUILDER ──
 interface PdfInput {
-  companyName: string; industry: string; countryCode: string; periodLabel: string;
+  companyName: string; entityName?: string; siteName?: string; industry: string; countryCode: string; periodLabel: string;
   monthCount: number;
   total_t: number; scope1_t: number; scope2_t: number; scope3_t: number;
   scope2_kg: number; scope1fuel_kg: number; refrigCo2eKg: number; scope3_kg: number;
@@ -245,7 +245,9 @@ async function buildPdf(p: PdfInput): Promise<Uint8Array> {
   fillRect(page, 0, 782, PW, 60, C.NAVY);
   fillRect(page, 0, 782, 4, 60, C.ACCENT);
   label(page, "Leadership Snapshot", ML, 820, 21, bold, C.WHITE);
-  label(page, company, ML, 800, 9, font, rgb(160/255,210/255,175/255));
+  const viewParts = [p.entityName, p.siteName].filter(Boolean).map(s => sanitize(s!));
+  const companyLine = viewParts.length > 0 ? `${company}  |  ${viewParts.join(', ')}` : company;
+  label(page, companyLine, ML, 800, 9, font, rgb(160/255,210/255,175/255));
   const perStr = `Period: ${p.periodLabel}`;
   label(page, perStr, MR - bold.widthOfTextAtSize(perStr, 8), 820, 8, bold, rgb(160/255,210/255,175/255));
   const metaStr = [p.industry, country].filter(Boolean).join("  |  ");
@@ -520,6 +522,8 @@ export async function POST(req: NextRequest) {
 
     const pdfBytes = await buildPdf({
       companyName:  String(b.companyName ?? "Your Organisation"),
+      entityName:   b.entityName ? sanitize(String(b.entityName)) : undefined,
+      siteName:     b.siteName ? sanitize(String(b.siteName)) : undefined,
       industry:     String(b.industry ?? ""),
       countryCode:  String(b.countryCode ?? "GB"),
       periodLabel:  String(b.periodLabel ?? "All time"),

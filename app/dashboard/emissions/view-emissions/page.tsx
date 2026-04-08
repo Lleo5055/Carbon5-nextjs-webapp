@@ -732,6 +732,8 @@ const [cctsPkgLoading, setCctsPkgLoading] = useState<'pdf' | 'json' | 'csv' | nu
 const [cctsFY, setCctsFY] = useState<number | null>(null);
 const [orgTargets, setOrgTargets] = useState<{ compliance_year: number; trajectory_period: string }[]>([]);
 const [activeViewFilter, setActiveViewFilter] = useState<ViewEmissionsFilter>(null);
+const [activeEntityName, setActiveEntityName] = useState<string>('');
+const [activeSiteName, setActiveSiteName] = useState<string>('');
 // -----------------------------
 // RESTORE CACHED REPORT (INSTANT PAINT — runs before browser paint)
 // -----------------------------
@@ -953,6 +955,15 @@ useEffect(() => {
     if (!mounted) return;
     setReport(r);
     setActiveViewFilter(viewFilter);
+    // Only set entity/site names for enterprise users
+    if (p === 'enterprise') {
+      const savedForLabel = loadViewState();
+      setActiveEntityName(savedForLabel.entityName ?? '');
+      setActiveSiteName(savedForLabel.siteName ?? '');
+    } else {
+      setActiveEntityName('');
+      setActiveSiteName('');
+    }
     setHasLoadedOnce(true);
     sessionStorage.setItem(EMISSIONS_CACHE_KEY, JSON.stringify(r));
   }
@@ -1088,7 +1099,8 @@ useEffect(() => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'emissions-export.csv';
+    const csvLabel = activeSiteName || activeEntityName;
+    a.download = csvLabel ? `emissions-${csvLabel.replace(/[^a-zA-Z0-9]/g, '-')}.csv` : 'emissions-export.csv';
     a.click();
     URL.revokeObjectURL(url);
     logActivity('export_csv', 'report', { period: report.periodLabel });
@@ -1118,7 +1130,8 @@ useEffect(() => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'emissions-export.xlsx';
+    const xlsLabel = activeSiteName || activeEntityName;
+    a.download = xlsLabel ? `emissions-${xlsLabel.replace(/[^a-zA-Z0-9]/g, '-')}.xlsx` : 'emissions-export.xlsx';
     a.click();
     URL.revokeObjectURL(url);
     logActivity('export_xls', 'report', { period: report.periodLabel });
@@ -1257,6 +1270,8 @@ useEffect(() => {
         body: JSON.stringify({
           userId,
           companyName:   profile?.company_name ?? '',
+          entityName:    activeEntityName || '',
+          siteName:      activeSiteName || '',
           industry:      profile?.industry ?? '',
           countryCode,
           periodLabel:   report.periodLabel,
@@ -1293,7 +1308,9 @@ useEffect(() => {
       const a = document.createElement('a');
       a.href = url;
       const snapshotCompany = (profile?.company_name ?? 'Greenio').replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-      a.download = `${snapshotCompany}-snapshot.pdf`;
+      const snapViewLabel = activeSiteName || activeEntityName;
+      const snapshotView = snapViewLabel ? `-${snapViewLabel.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}` : '';
+      a.download = `${snapshotCompany}${snapshotView}-snapshot.pdf`;
       a.click();
       URL.revokeObjectURL(url);
       logActivity('snapshot', 'report', { period: report.periodLabel });
@@ -1473,6 +1490,12 @@ useEffect(() => {
       <input type="hidden" name="org_id" value={(activeViewFilter as any).orgId ?? ''} />
       <input type="hidden" name="entity_siteids" value={(activeViewFilter as any).siteIds?.join(',') ?? ''} />
     </>
+  )}
+  {activeEntityName && (
+    <input type="hidden" name="entity_name" value={activeEntityName} />
+  )}
+  {activeSiteName && (
+    <input type="hidden" name="site_name" value={activeSiteName} />
   )}
   {activeViewFilter?.type === 'site' && (
     <input type="hidden" name="site_id" value={(activeViewFilter as any).siteId ?? ''} />
