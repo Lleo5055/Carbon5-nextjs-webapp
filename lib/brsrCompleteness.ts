@@ -2,7 +2,7 @@
 //
 // Feature 1.3 — BRSR completeness scoring
 //
-// Reused by feature 3.2 (BRSR completeness widget on dashboard).
+// Reused by feature 3.2 (BRSR completeness widget on dashboard — enterprise India only).
 // Takes the brsr_profile row, the account's profiles row, and an
 // emission data summary, and returns a score 0–100 plus a list of
 // incomplete checks with their link destinations.
@@ -42,15 +42,16 @@ export type EmissionSummary = {
 export type AccountFeatureFlags = {
   waterEnabled: boolean;
   wasteEnabled: boolean;
+  isEnterprise: boolean;
 };
 
 /**
  * Calculate BRSR completeness score.
  *
  * Checks (8 total, plus conditional water/waste):
- *   1. BRSR profile basic fields (sector + employee counts)
- *   2. Listed company status set
- *   3. Renewable electricity percentage set
+ *   1. Section A: General Disclosures (entity details, workforce, listing status)
+ *   2. Section B: Management & Process (GHG reduction plan as proxy)
+ *   3. Section C: Principle 6 Environment (renewable electricity % declared)
  *   4. At least one Scope 1 entry
  *   5. At least one Scope 2 entry
  *   6. At least one Scope 3 entry
@@ -64,29 +65,20 @@ export function computeBrsrCompleteness(
   emissions: EmissionSummary,
   flags: AccountFeatureFlags
 ): BrsrCompletenessResult {
+  const firstThree: BrsrCheck[] = flags.isEnterprise
+    ? [
+        { key: 'section_a', label: 'Section A: General Disclosures', complete: !!(profile?.industry_sector && profile?.permanent_employees != null && profile?.permanent_workers != null && profile?.is_listed_company != null), linkTo: '/dashboard/brsr-profile' },
+        { key: 'section_b', label: 'Section B: Management & Process', complete: profile?.has_ghg_reduction_plan != null, linkTo: '/dashboard/brsr-profile' },
+        { key: 'section_c', label: 'Section C: Principle 6 Environment', complete: profile?.renewable_elec_pct != null, linkTo: '/dashboard/brsr-profile' },
+      ]
+    : [
+        { key: 'brsr_basic_fields', label: 'BRSR profile: sector and employee counts', complete: !!(profile?.industry_sector && profile?.permanent_employees != null && profile?.permanent_workers != null), linkTo: '/dashboard/brsr-profile' },
+        { key: 'listed_status', label: 'Listed company status set', complete: profile?.is_listed_company != null, linkTo: '/dashboard/brsr-profile' },
+        { key: 'renewable_pct', label: 'Renewable electricity percentage set', complete: profile?.renewable_elec_pct != null, linkTo: '/dashboard/brsr-profile' },
+      ];
+
   const checks: BrsrCheck[] = [
-    {
-      key: 'brsr_basic_fields',
-      label: 'BRSR profile — sector and employee counts',
-      complete: !!(
-        profile?.industry_sector &&
-        profile?.permanent_employees != null &&
-        profile?.permanent_workers != null
-      ),
-      linkTo: '/dashboard/brsr-profile',
-    },
-    {
-      key: 'listed_status',
-      label: 'Listed company status set',
-      complete: profile?.is_listed_company != null,
-      linkTo: '/dashboard/brsr-profile',
-    },
-    {
-      key: 'renewable_pct',
-      label: 'Renewable electricity percentage set',
-      complete: profile?.renewable_elec_pct != null,
-      linkTo: '/dashboard/brsr-profile',
-    },
+    ...firstThree,
     {
       key: 'scope1',
       label: 'At least one Scope 1 entry',

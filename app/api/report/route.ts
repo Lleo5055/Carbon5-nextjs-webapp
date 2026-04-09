@@ -2120,8 +2120,8 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       // ---- PAGE HEADER ----
       const brsrTitle = isEnterpriseAccount ? '7. BRSR Full Disclosure' : '7. BRSR Disclosure Summary';
       const brsrSubtitle = isEnterpriseAccount
-        ? 'SEBI BRSR | All 9 Principles (enterprise)'
-        : 'SEBI BRSR | Essential Indicators (auto-populated from Greenio data)';
+        ? 'SEBI BRSR | Sections A, B and C'
+        : 'SEBI BRSR | Essential Indicators';
       page.drawText(brsrTitle, { x: 50, y, size: 18, font: bold, color: TEXT });
       page.drawLine({ start: { x: 50, y: y - 6 }, end: { x: 545, y: y - 6 }, thickness: 1, color: BLUE });
       y -= 28;
@@ -2131,8 +2131,8 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       {
         const bDark = rgb(0.15, 0.15, 0.17);
         const introStr = isEnterpriseAccount
-          ? 'The following disclosures cover all 9 BRSR principles as required by SEBI. Environment data (Principle 6) is auto-populated from Greenio. Governance, social and policy data (Principles 1-5, 7-9) is sourced from your BRSR Company Profile.'
-          : 'The following disclosures are formatted in accordance with SEBI\'s Business Responsibility and Sustainability Report (BRSR) framework. Values are auto-populated directly from Greenio data. Fields marked "Needs input" require additional input from your organisation.';
+          ? 'This report contains a full SEBI BRSR filing across three sections: Section A (General Disclosures), Section B (Management & Process), and Section C (Principle-wise Performance). Environment data is auto-populated from Greenio. All other data is sourced from your BRSR Company Profile.'
+          : 'The following disclosures are formatted in accordance with SEBI\'s Business Responsibility and Sustainability Report (BRSR) framework. Fields marked "Needs input" require additional input from your organisation.';
         const introWords2 = introStr.split(' ');
         let introLine2 = '';
         for (const iw of introWords2) {
@@ -2147,7 +2147,161 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
         y -= 10;
       }
 
-      // Column headers
+      // ===== SECTION A + B: Enterprise only =====
+      if (isEnterpriseAccount && brsrExtraProfile) {
+        const bp = brsrExtraProfile as any;
+        const sv = (v: any) => (v != null && v !== '') ? String(v) : 'Not provided';
+        const inr = (v: any) => v != null && v !== '' ? `INR ${Number(v).toLocaleString('en-IN')}` : 'Not provided';
+        const yesno = (v: any) => v ? 'Yes' : 'No';
+        const pct = (v: any) => v != null && v !== '' ? `${v}%` : 'Not provided';
+
+        // Helper: draw a two-column info row — same green bg as Section C rows, no badge
+        const aRow = (label: string, value: string) => {
+          const GRAY = rgb(0.45, 0.45, 0.47);
+          const labelLines = bWrap(label, BC2 - BC1 - 8, 8.5);
+          const valueLines = bWrap(value, BTL + BTW - BC2 - 8, 8.5, bold);
+          const rowH = Math.max(22, Math.max(labelLines.length, valueLines.length) * 13 + 8);
+          bEnsure(rowH + 2);
+          const isProvided = value !== 'Not provided';
+          page.drawRectangle({ x: BTL, y: y - rowH, width: BTW, height: rowH, color: rgb(0.97, 0.99, 0.97) });
+          page.drawLine({ start: { x: BTL, y: y - rowH }, end: { x: BTL + BTW, y: y - rowH }, thickness: 0.3, color: rgb(0.87, 0.87, 0.87) });
+          const startY = y - Math.round((rowH - labelLines.length * 13) / 2) - 10;
+          for (let i = 0; i < labelLines.length; i++) page.drawText(labelLines[i], { x: BC1, y: startY - i * 13, size: 8.5, font, color: GRAY });
+          const valStartY = y - Math.round((rowH - valueLines.length * 13) / 2) - 10;
+          for (let i = 0; i < valueLines.length; i++) page.drawText(valueLines[i], { x: BC2, y: valStartY - i * 13, size: 8.5, font: bold, color: isProvided ? BLUE : rgb(0.7, 0.7, 0.72) });
+          y -= rowH + 2;
+        };
+
+        // Sub-header — identical to bGroupHdr (BLUE bg, white text)
+        const aSecHdr = (title: string) => {
+          bEnsure(50);
+          page.drawRectangle({ x: BTL, y: y - 18, width: BTW, height: 22, color: BLUE });
+          page.drawText(title, { x: BC1, y: y - 6, size: 8.5, font: bold, color: rgb(1, 1, 1) });
+          y -= 26;
+        };
+
+        // ---- SECTION A: flows directly after intro ----
+        bEnsure(300);
+        page.drawText('Section A: General Disclosures', { x: 50, y, size: 14, font: bold, color: TEXT });
+        page.drawLine({ start: { x: 50, y: y - 5 }, end: { x: 545, y: y - 5 }, thickness: 0.8, color: BLUE });
+        y -= 26;
+
+        aSecHdr('I. Entity Details');
+        aRow('Corporate Identity Number (CIN)', sv(bp.cin));
+        aRow('Year of incorporation', sv(bp.year_of_incorporation));
+        aRow('Registered office address', sv(bp.registered_office_address));
+        aRow('Company website', sv(bp.company_website));
+        aRow('Paid-up capital', inr(bp.paid_up_capital_inr));
+        aRow('Stock exchange listing', sv(bp.stock_exchange));
+        aRow('Reporting boundary', sv(bp.reporting_boundary));
+        y -= 6;
+
+        aSecHdr('BRSR Contact Person');
+        aRow('Name', sv(bp.brsr_contact_name));
+        aRow('Designation', sv(bp.brsr_contact_designation));
+        aRow('Email', sv(bp.brsr_contact_email));
+        aRow('Phone', sv(bp.brsr_contact_phone));
+        y -= 6;
+
+        aSecHdr('II. Workforce Composition');
+        aRow('Male permanent employees', sv(bp.male_permanent_employees));
+        aRow('Female permanent employees', sv(bp.female_permanent_employees));
+        aRow('Differently abled employees', sv(bp.differently_abled_employees));
+        const womenBoardPct = bp.women_on_board != null && bp.total_board_members > 0
+          ? `${bp.women_on_board} of ${bp.total_board_members} (${Math.round(bp.women_on_board / bp.total_board_members * 100)}%)`
+          : 'Not provided';
+        aRow('Women on Board of Directors', womenBoardPct);
+        const womenKmpPct = bp.women_in_kmp != null && bp.total_kmp > 0
+          ? `${bp.women_in_kmp} of ${bp.total_kmp} (${Math.round(bp.women_in_kmp / bp.total_kmp * 100)}%)`
+          : 'Not provided';
+        aRow('Women in Key Management Personnel', womenKmpPct);
+        y -= 6;
+
+        aSecHdr('III. Markets & Operations');
+        aRow('National locations (states / UTs)', sv(bp.num_national_locations));
+        aRow('International locations (countries)', sv(bp.num_international_locations));
+        aRow('Exports as % of turnover', pct(bp.export_pct));
+        y -= 6;
+
+        aSecHdr('IV. Financials');
+        aRow('Annual turnover', inr(bp.annual_turnover_inr));
+        aRow('Net worth', inr(bp.net_worth_inr));
+        y -= 6;
+
+        // ---- SECTION B: flows after IV. Financials on same page if space allows ----
+        bEnsure(430);
+        y -= 24;
+
+        page.drawText('Section B: Management & Process Disclosures', { x: 50, y, size: 14, font: bold, color: TEXT });
+        page.drawLine({ start: { x: 50, y: y - 5 }, end: { x: 545, y: y - 5 }, thickness: 0.8, color: BLUE });
+        y -= 26;
+
+        // Policy matrix table
+        const COL_P   = 55;   // Principle col start
+        const COL_PE  = 230;  // Policy exists
+        const COL_BA  = 300;  // Board approved
+        const COL_VC  = 370;  // Extends to VC
+        const COL_URL = 430;  // URL
+        const MAT_W   = 510;
+
+        // Table header
+        page.drawRectangle({ x: BTL, y: y - 18, width: MAT_W, height: 22, color: BLUE });
+        page.drawText('Principle', { x: COL_P, y: y - 10, size: 8, font: bold, color: rgb(1,1,1) });
+        page.drawText('Policy exists', { x: COL_PE, y: y - 10, size: 8, font: bold, color: rgb(1,1,1) });
+        page.drawText('Board approved', { x: COL_BA, y: y - 10, size: 8, font: bold, color: rgb(1,1,1) });
+        page.drawText('Extends to VC', { x: COL_VC, y: y - 10, size: 8, font: bold, color: rgb(1,1,1) });
+        page.drawText('URL', { x: COL_URL, y: y - 10, size: 8, font: bold, color: rgb(1,1,1) });
+        y -= 26;
+
+        const bPrinciples = [
+          { key: 'p1', label: 'P1', title: 'Ethics, Transparency & Accountability' },
+          { key: 'p2', label: 'P2', title: 'Sustainable & Safe Products' },
+          { key: 'p3', label: 'P3', title: 'Employee Wellbeing' },
+          { key: 'p4', label: 'P4', title: 'Stakeholder Engagement' },
+          { key: 'p5', label: 'P5', title: 'Human Rights' },
+          { key: 'p6', label: 'P6', title: 'Environment' },
+          { key: 'p7', label: 'P7', title: 'Policy & Regulatory Advocacy' },
+          { key: 'p8', label: 'P8', title: 'Inclusive Growth' },
+          { key: 'p9', label: 'P9', title: 'Consumer Responsibility' },
+        ];
+
+        for (const p of bPrinciples) {
+          const exists = bp[`${p.key}_policy_exists`];
+          const approved = bp[`${p.key}_board_approved`];
+          const vc = bp[`${p.key}_extends_to_vc`];
+          const url = bp[`${p.key}_policy_url`];
+          const rowBg = exists ? rgb(0.97, 0.99, 0.97) : rgb(0.99, 0.99, 1);
+          const tick = (v: boolean) => v ? 'Yes' : 'No';
+          const tickCol = (v: boolean) => v ? BLUE : rgb(0.6, 0.6, 0.62);
+          page.drawRectangle({ x: BTL, y: y - 24, width: MAT_W, height: 28, color: rowBg });
+          page.drawLine({ start: { x: BTL, y: y - 24 }, end: { x: BTL + MAT_W, y: y - 24 }, thickness: 0.3, color: rgb(0.87, 0.87, 0.87) });
+          page.drawText(p.label, { x: COL_P, y: y - 10, size: 8.5, font: bold, color: BLUE });
+          page.drawText(p.title, { x: COL_P, y: y - 20, size: 7, font, color: rgb(0.5, 0.5, 0.52) });
+          page.drawText(tick(exists), { x: COL_PE + 10, y: y - 14, size: 8.5, font: bold, color: tickCol(exists) });
+          page.drawText(tick(approved), { x: COL_BA + 10, y: y - 14, size: 8.5, font: bold, color: tickCol(approved) });
+          page.drawText(tick(vc), { x: COL_VC + 5, y: y - 14, size: 8.5, font: bold, color: tickCol(vc) });
+          const urlStr = url ? (url.length > 18 ? url.substring(0, 16) + '..' : url) : '-';
+          page.drawText(urlStr, { x: COL_URL, y: y - 14, size: 7.5, font, color: url ? BLUE : rgb(0.7, 0.7, 0.72) });
+          y -= 30;
+        }
+
+        y -= 8;
+        aSecHdr('Governance');
+        aRow('Director responsible for BRSR', sv(bp.brsr_director_name));
+        aRow('Board committee overseeing BRSR', sv(bp.brsr_committee_name));
+        y -= 8;
+
+        // ---- SECTION C PAGE ----
+        page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
+        page = addPage(); y = 780;
+
+        page.drawText('Section C: Principle-wise Performance Disclosures', { x: 50, y, size: 14, font: bold, color: TEXT });
+        page.drawLine({ start: { x: 50, y: y - 5 }, end: { x: 545, y: y - 5 }, thickness: 0.8, color: BLUE });
+        y -= 26;
+      }
+
+      // Column headers (Section C table)
+      bEnsure(100);
       page.drawRectangle({ x: BTL, y: y - 18, width: BTW, height: 22, color: rgb(0, 0, 0) });
       page.drawText('BRSR Indicator', { x: BC1, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
       page.drawText('Disclosed Value', { x: BC2, y: y - 10, size: 9, font: bold, color: rgb(1, 1, 1) });
@@ -2201,6 +2355,10 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       }
 
       // ===== GHG EMISSIONS (P6 - all India users) =====
+      if (isEnterpriseAccount) {
+        page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
+        page = addPage(); y = 780;
+      }
       bGroupHdr('Principle 6 | Environment: GHG Emissions (Essential Indicators)');
       bRow('Total Scope 1 emissions (metric tonnes CO2e)', `${scope1_t.toFixed(2)} tCO2e`, true);
       bRow('Total Scope 2 emissions (metric tonnes CO2e)', `${scope2_t.toFixed(2)} tCO2e`, true);
@@ -2267,7 +2425,9 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
         const dis = (v: any) => (v != null && v !== '') ? 'disclosed' as const : 'missing' as const;
         const boolVal = (v: any) => v ? 'Yes' : 'No';
 
-        bEnsure(260);
+        // P7-9 always starts on its own page
+        page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
+        page = addPage(); y = 780;
         y -= 4;
         bGroupHdr('Principle 7 | Policy & Regulatory Advocacy');
         bRow('Industry / trade associations', bp.industry_associations || 'Not provided', false, undefined, dis(bp.industry_associations));
@@ -2287,10 +2447,14 @@ page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
       }
 
       // ===== BRSR COMPLETENESS SCORECARD =====
-      page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
-      page = addPage();
-      y = 780;
-      page.drawText('BRSR Completeness Scorecard', { x: 50, y, size: 12, font: bold, color: TEXT });
+      if (isEnterpriseAccount) {
+        page.drawText(pgFtr(), { x: 180, y: 20, size: 9, font, color: TEXT });
+        page = addPage();
+        y = 780;
+      } else {
+        bEnsure(200);
+      }
+      page.drawText('BRSR Section C Completeness Scorecard', { x: 50, y, size: 12, font: bold, color: TEXT });
       y -= 22;
 
       const bGhgAuto = 4 + (bGhgPerRev !== null ? 1 : 0) + (bGhgPerEmp !== null ? 1 : 0);

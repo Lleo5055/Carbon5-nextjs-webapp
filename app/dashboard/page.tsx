@@ -997,7 +997,7 @@ supabase
           hasWater:  (waterRes.data?.length ?? 0) > 0,
           hasWaste:  (wasteRes.data?.length ?? 0) > 0,
         },
-        { waterEnabled: !!data.india_water_enabled, wasteEnabled: !!data.india_waste_enabled }
+        { waterEnabled: !!data.india_water_enabled, wasteEnabled: !!data.india_waste_enabled, isEnterprise: enterpriseUser }
       );
       if (!cancelled) {
         setBrsrResult(result);

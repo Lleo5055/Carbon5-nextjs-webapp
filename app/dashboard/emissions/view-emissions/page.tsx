@@ -1819,7 +1819,7 @@ useEffect(() => {
               {/* BRSR COMPLETENESS SCORECARD — India only */}
               {isIndia && brsrScorecard && (
                 <article className="rounded-xl bg-white border p-6 shadow">
-                  <h2 className="text-sm font-semibold text-slate-900 mb-4">BRSR Completeness Scorecard</h2>
+                  <h2 className="text-sm font-semibold text-slate-900 mb-4">BRSR Section C, Principle 6 Scorecard</h2>
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="bg-slate-900 text-white">
