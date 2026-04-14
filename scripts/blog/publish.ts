@@ -36,12 +36,13 @@ const COL = {
   COUNTRY: 5,
   KEYWORDS: 6,
   INTERNAL_LINKS: 7,
-  STATUS: 8,
-  GENERATED_AT: 9,
-  PUBLISHED_AT: 10,
-  WORD_COUNT: 11,
-  MDX_PATH: 12,
-  CONTENT: 13,
+  EXTERNAL_LINKS: 8,
+  STATUS: 9,
+  GENERATED_AT: 10,
+  PUBLISHED_AT: 11,
+  WORD_COUNT: 12,
+  MDX_PATH: 13,
+  CONTENT: 14,
 } as const;
 
 // ── Google Sheets ──────────────────────────────────────────────────────────────
@@ -51,6 +52,7 @@ async function getSheets() {
   const serviceAccountKey = keyPath.startsWith('{')
     ? JSON.parse(keyPath)
     : JSON.parse(fs.readFileSync(path.resolve(process.cwd(), keyPath), 'utf-8'));
+
   const credentials = serviceAccountKey as {
     client_email: string;
     private_key: string;
@@ -69,7 +71,6 @@ async function getSheets() {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-/** Look up extra blog metadata from the content plan by slug */
 function getBlogMeta(slug: string) {
   for (const day of CONTENT_PLAN) {
     for (const blog of day.blogs) {
@@ -79,15 +80,30 @@ function getBlogMeta(slug: string) {
   return null;
 }
 
+function extractDescription(content: string, title: string): { description: string; body: string } {
+  const match = content.match(/^<!-- description: (.+) -->\n?/);
+  if (match) {
+    return {
+      description: match[1].trim(),
+      body: content.replace(/^<!-- description: .+ -->\n?/, ''),
+    };
+  }
+  return { description: title, body: content };
+}
+
 function buildFrontmatter(
   slug: string,
   title: string,
+  description: string,
   keywords: string,
   internalLinksRaw: string,
   country: string,
   date: string,
 ): string {
+
   const meta = getBlogMeta(slug);
+
+  const externalLinks = meta?.externalLinks ?? [];
 
   const internalLinkSlugs = internalLinksRaw
     .split(',')
@@ -108,7 +124,7 @@ function buildFrontmatter(
 
   const frontmatter = {
     title,
-    description: meta?.prompt?.slice(0, 160).replace(/\n/g, ' ') ?? title,
+    description,
     date,
     author: 'Greenio',
     level: meta?.level ?? 3,
@@ -128,8 +144,8 @@ function buildFrontmatter(
     excerpt: title,
   };
 
-  // Build YAML manually to avoid needing js-yaml
   const lines: string[] = ['---'];
+
   lines.push(`title: "${frontmatter.title.replace(/"/g, "'")}"`);
   lines.push(`description: "${frontmatter.description.slice(0, 160).replace(/"/g, "'")}"`);
   lines.push(`date: "${frontmatter.date}"`);
@@ -143,6 +159,7 @@ function buildFrontmatter(
   lines.push(`keywords: "${frontmatter.keywords}"`);
   lines.push(`canonicalUrl: "${frontmatter.canonicalUrl}"`);
   lines.push(`ogImage: "${frontmatter.ogImage}"`);
+
   if (frontmatter.internalLinks.length > 0) {
     lines.push('internalLinks:');
     for (const il of frontmatter.internalLinks) {
@@ -153,6 +170,17 @@ function buildFrontmatter(
   } else {
     lines.push('internalLinks: []');
   }
+
+  if (externalLinks.length > 0) {
+    lines.push('externalLinks:');
+    for (const link of externalLinks) {
+      lines.push(`  - anchor: "${link.anchor.replace(/"/g, "'")}"`);
+      lines.push(`    url: "${link.url}"`);
+    }
+  } else {
+    lines.push('externalLinks: []');
+  }
+
   if (frontmatter.relatedBlogs.length > 0) {
     lines.push('relatedBlogs:');
     for (const rb of frontmatter.relatedBlogs) {
@@ -163,10 +191,12 @@ function buildFrontmatter(
   } else {
     lines.push('relatedBlogs: []');
   }
+
   lines.push(`slug: "${frontmatter.slug}"`);
   lines.push(`status: "${frontmatter.status}"`);
   lines.push(`readingTime: "${frontmatter.readingTime}"`);
   lines.push(`excerpt: "${frontmatter.excerpt.slice(0, 200).replace(/"/g, "'")}"`);
+
   lines.push('---');
 
   return lines.join('\n');
@@ -175,28 +205,29 @@ function buildFrontmatter(
 // ── Main ───────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
+
   console.log('\n📋 Reading approved blogs from Google Sheets...\n');
 
   const sheets = await getSheets();
 
-  // Get all rows
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: BLOG_PIPELINE_SHEET_ID,
-    range: `${SHEET_NAME}!A:N`,
+    range: `${SHEET_NAME}!A:O`,
   });
 
   const rows = res.data.values ?? [];
+
   if (rows.length <= 1) {
     console.log('No rows found (or only header row). Nothing to publish.');
     return;
   }
 
-  // Ensure blog directory exists
   fs.mkdirSync(BLOG_DIR, { recursive: true });
 
   let published = 0;
 
   for (let rowIdx = 1; rowIdx < rows.length; rowIdx++) {
+
     const row = rows[rowIdx];
     const status = row[COL.STATUS] ?? '';
 
@@ -207,37 +238,48 @@ async function main(): Promise<void> {
     const keywords = row[COL.KEYWORDS] ?? '';
     const internalLinks = row[COL.INTERNAL_LINKS] ?? '';
     const country = row[COL.COUNTRY] ?? '';
-    const content = row[COL.CONTENT] ?? '';
+    const rawContent = row[COL.CONTENT] ?? '';
 
-    if (!slug || !content) {
+    if (!slug || !rawContent) {
       console.warn(`⚠️  Row ${rowIdx + 1}: Missing slug or content, skipping.`);
       continue;
     }
 
+    const { description, body: content } = extractDescription(rawContent, title);
     const date = new Date().toISOString().split('T')[0];
-    const frontmatter = buildFrontmatter(slug, title, keywords, internalLinks, country, date);
+
+    const frontmatter = buildFrontmatter(
+      slug,
+      title,
+      description,
+      keywords,
+      internalLinks,
+      country,
+      date
+    );
+
     const mdxContent = `${frontmatter}\n\n${content}`;
     const filePath = path.join(BLOG_DIR, `${slug}.mdx`);
 
     fs.writeFileSync(filePath, mdxContent, 'utf-8');
 
-    // Update sheet row: Status → Published, Published At → now, MDX Path → file path
-    const sheetRowNum = rowIdx + 1; // 1-indexed, header is row 1
+    const sheetRowNum = rowIdx + 1;
+
     await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId: BLOG_PIPELINE_SHEET_ID,
       requestBody: {
         valueInputOption: 'RAW',
         data: [
           {
-            range: `${SHEET_NAME}!I${sheetRowNum}`,
+            range: `${SHEET_NAME}!J${sheetRowNum}`,
             values: [['Published']],
           },
           {
-            range: `${SHEET_NAME}!K${sheetRowNum}`,
+            range: `${SHEET_NAME}!L${sheetRowNum}`,
             values: [[new Date().toISOString()]],
           },
           {
-            range: `${SHEET_NAME}!M${sheetRowNum}`,
+            range: `${SHEET_NAME}!N${sheetRowNum}`,
             values: [[`content/blog/${slug}.mdx`]],
           },
         ],
@@ -246,6 +288,7 @@ async function main(): Promise<void> {
 
     console.log(`✅ Published: ${title} → content/blog/${slug}.mdx`);
     published++;
+
   }
 
   if (published === 0) {
@@ -253,6 +296,7 @@ async function main(): Promise<void> {
   } else {
     console.log(`\n✅ Published ${published} blog(s). Commit and push content/blog/ to deploy.\n`);
   }
+
 }
 
 main().catch(err => {

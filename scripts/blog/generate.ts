@@ -31,7 +31,7 @@ const SHEET_NAME = 'Pipeline';
 
 const HEADERS = [
   'Day', 'Slot', 'Title', 'Slug', 'Level', 'Country', 'Keywords',
-  'Internal Links', 'Status', 'Generated At', 'Published At',
+  'Internal Links', 'External Links', 'Status', 'Generated At', 'Published At',
   'Word Count', 'MDX Path', 'Content',
 ];
 
@@ -59,14 +59,14 @@ async function getSheets() {
 async function ensureHeaders(sheets: ReturnType<typeof google.sheets>): Promise<void> {
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: BLOG_PIPELINE_SHEET_ID,
-    range: `${SHEET_NAME}!A1:N1`,
+    range: `${SHEET_NAME}!A1:O1`,
   });
 
   const existing = res.data.values?.[0];
   if (!existing || existing.length === 0) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: BLOG_PIPELINE_SHEET_ID,
-      range: `${SHEET_NAME}!A1:N1`,
+      range: `${SHEET_NAME}!A1:O1`,
       valueInputOption: 'RAW',
       requestBody: { values: [HEADERS] },
     });
@@ -91,6 +91,7 @@ async function appendBlogRow(
     blog.country,
     blog.keywords.join(', '),
     blog.internalLinks.join(', '),
+    (blog.externalLinks ?? []).map(l => `${l.anchor}|${l.url}`).join(', '),
     'Draft',
     new Date().toISOString(),
     '',
@@ -101,7 +102,7 @@ async function appendBlogRow(
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: BLOG_PIPELINE_SHEET_ID,
-    range: `${SHEET_NAME}!A:N`,
+    range: `${SHEET_NAME}!A1`,
     valueInputOption: 'RAW',
     requestBody: { values: [row] },
   });
@@ -118,29 +119,40 @@ The current year is ${currentYear}. When referring to the current regulatory lan
 Rules:
 1. Always include exactly 2 <BlogCTA> components at the positions specified in the prompt.
 2. Include MINIMUM 3 inline markdown links to related Greenio blog posts using the format [anchor text](/blog/slug). These must appear naturally within sentences in the body text - not in a list, not at the end. Use the internalLinks provided in the prompt. This is mandatory - do not produce fewer than 3 internal links.
-3. Always include a FAQ section with 4-5 questions (use ## What... ## How... ## Is... ## When... format so they are auto-detected as FAQ schema).
+2a. If external links are listed at the top of the user message, you MUST hyperlink ALL of them inline within the body text using the exact format [anchor](url). This is mandatory - do not skip any of them.
+3. Always include a FAQ section with 4-5 questions. FAQ questions MUST use ## (H2) format - never ### or ####. Example: ## What is carbon accounting? This is mandatory - FAQ headings using ### will break the FAQ schema detection.
 4. Mention Greenio naturally in context - never forced.
 5. Heading hierarchy is critical for SEO: use ## (H2) for main sections, ### (H3) for subsections within each H2, and #### (H4) for specific details within H3s where appropriate. Aim for 2-3 H3s under each H2. This creates proper content hierarchy and improves readability.
 6. NEVER use em dashes (--) or the — character. Use a regular hyphen-minus (-) or a colon (:) instead.
 7. Be accurate about all regulatory details - BRSR, CCTS, SECR, CSRD deadlines and requirements.
 8. Write for a business audience - CFOs, sustainability managers, compliance officers.
-9. Output only the blog body content (no frontmatter - that is added separately).
+9. Start your response with exactly one line in this format: DESCRIPTION: [your SEO meta description, max 155 characters, no quotes]. Then a blank line, then the blog body. Do not include frontmatter.
 10. Use MDX-compatible syntax. Do not use curly braces in text unless inside a JSX component.
 11. Every H2 heading should contain a target keyword where natural.
 12. Use short paragraphs (2-4 sentences max). Use bullet points and numbered lists to improve scannability.`;
 }
 
 async function generateBlog(client: Anthropic, blog: BlogItem): Promise<string> {
+  const externalLinksSection = (blog.externalLinks ?? []).length > 0
+    ? `MANDATORY EXTERNAL LINKS - you must hyperlink ALL of these inline within the body text:\n${(blog.externalLinks ?? []).map(l => `- [${l.anchor}](${l.url})`).join('\n')}\n\n`
+    : '';
+
   const message = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 4000,
     system: buildSystemPrompt(),
-    messages: [{ role: 'user', content: blog.prompt }],
+    messages: [{ role: 'user', content: externalLinksSection + blog.prompt }],
   });
 
   const textBlock = message.content.find(b => b.type === 'text');
   if (!textBlock || textBlock.type !== 'text') throw new Error('No text in Claude response');
-  return textBlock.text;
+
+  const raw = textBlock.text;
+  const descMatch = raw.match(/^DESCRIPTION:\s*(.+)/);
+  const description = descMatch ? descMatch[1].trim().slice(0, 155) : blog.title;
+  const body = raw.replace(/^DESCRIPTION:\s*.+\n?\n?/, '');
+
+  return `<!-- description: ${description} -->\n${body}`;
 }
 
 // ── Main ───────────────────────────────────────────────────────────────────────
@@ -153,8 +165,8 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   const day = parseInt(args[dayFlagIdx + 1], 10);
-  if (isNaN(day) || day < 1 || day >60) {
-    console.error('--day must be a number between 1 and 60');
+  if (isNaN(day) || day < 1 || day >90) {
+    console.error('--day must be a number between 1 and 90');
     process.exit(1);
   }
 
