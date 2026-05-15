@@ -85,32 +85,41 @@ export function extractHeadings(
   return headings;
 }
 
-/** Extract FAQ questions from headings starting with question words */
+/** Extract FAQ questions from headings inside a "Frequently Asked Questions" section */
 export function extractFAQs(
   content: string,
 ): Array<{ question: string; answer: string }> {
+  const FAQ_SECTION = /^##\s+frequently asked questions/i;
   const FAQ_STARTERS = /^(What|How|Is|When|Why|Who|Which|Can|Does|Should)/i;
   const lines = content.split('\n');
   const faqs: Array<{ question: string; answer: string }> = [];
+  let inFaqSection = false;
   let i = 0;
   while (i < lines.length) {
     const h2 = lines[i].match(/^## (.+)/);
-    if (h2 && FAQ_STARTERS.test(h2[1].trim())) {
-      const question = h2[1].trim();
-      const answerLines: string[] = [];
-      i++;
-      while (i < lines.length && !lines[i].startsWith('## ')) {
-        if (lines[i].trim()) answerLines.push(lines[i].trim());
+    if (h2) {
+      if (FAQ_SECTION.test(lines[i])) {
+        inFaqSection = true;
         i++;
+        continue;
       }
-      const answer = answerLines
-        .join(' ')
-        .replace(/<[^>]+>/g, '')
-        .slice(0, 500);
-      if (answer) faqs.push({ question, answer });
-    } else {
-      i++;
+      if (inFaqSection && FAQ_STARTERS.test(h2[1].trim())) {
+        const question = h2[1].trim();
+        const answerLines: string[] = [];
+        i++;
+        while (i < lines.length && !lines[i].startsWith('## ')) {
+          if (lines[i].trim()) answerLines.push(lines[i].trim());
+          i++;
+        }
+        const answer = answerLines
+          .join(' ')
+          .replace(/<[^>]+>/g, '')
+          .slice(0, 500);
+        if (answer) faqs.push({ question, answer });
+        continue;
+      }
     }
+    i++;
   }
   return faqs;
 }

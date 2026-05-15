@@ -61,6 +61,7 @@ const mdxComponents = {
   BrsrPyramidInfographic,
   CsrdTimelineInfographic,
   SecrDecisionInfographic,
+  h1: H2,
   h2: H2,
   h3: H3,
   h4: H4,

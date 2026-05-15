@@ -92,7 +92,7 @@ export function middleware(request: NextRequest) {
     const locale = detectLocaleFromHeader(request.headers.get('accept-language'));
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = '/' + locale;
-    return NextResponse.redirect(redirectUrl, { status: 302 });
+    return NextResponse.redirect(redirectUrl, { status: 301 });
   }
 
   return NextResponse.next();
